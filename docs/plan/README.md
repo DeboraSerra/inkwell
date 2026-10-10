@@ -19,6 +19,11 @@
 0. [Phase 0 — Fix the security issues](phase-0-security.md) ✅ done
 1. [Phase 1 — Foundation and auth](phase-1-foundation-auth.md) ✅ implemented
 2. [Phase 2 — Data model redesign (built to scale)](phase-2-data-model.md)
+   - [2a — Catalog](phase-2-data-model.md#phase-2a--catalog) ✅ implemented
+   - [2b — Library](phase-2-data-model.md#phase-2b--library)
+   - [2c — Shelves](phase-2-data-model.md#phase-2c--shelves)
+   - [2d — Journal](phase-2-data-model.md#phase-2d--journal)
+   - [2e — Goals and imports](phase-2-data-model.md#phase-2e--goals-and-imports)
 3. [Phase 3 — Extension → app import](phase-3-extension-import.md)
 4. [Phase 4 — Adding books by search, ISBN and manual entry](phase-4-adding-books.md)
 5. [Phase 5 — AI enrichment (Claude API)](phase-5-ai-enrichment.md)

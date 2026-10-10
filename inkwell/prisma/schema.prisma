@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -13,72 +7,17 @@ datasource db {
   provider = "postgresql"
 }
 
-model Trope {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  books       Book[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Genre {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  books       Book[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Status {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  books       Book[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Review {
-  id        String   @id @default(uuid())
-  content   String?
-  rating    Int
-  book      Book     @relation("BookReviews", fields: [bookId], references: [id])
-  bookId    String
-  user      User     @relation("UserReviews", fields: [userId], references: [id])
-  userId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Book {
-  id        String      @id @default(uuid())
-  title     String      @unique
-  author    String
-  image     String
-  tags      String[]
-  trope     Trope?      @relation(fields: [tropeId], references: [id])
-  tropeId   String?
-  genre     Genre?      @relation(fields: [genreId], references: [id])
-  genreId   String?
-  review    Review[]    @relation("BookReviews")
-  status    Status?     @relation(fields: [statusId], references: [id])
-  statusId  String?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  userBooks UserBooks[]
-}
+// ---------------------------------------------------------------------------
+// Users and auth
+// ---------------------------------------------------------------------------
 
 model User {
-  id        String      @id @unique
-  email     String      @unique
+  id        String     @id @unique
+  email     String     @unique
   name      String?
   age       Int?
-  reviews   Review[]    @relation("UserReviews")
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  userBooks UserBooks[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   apiTokens ApiToken[]
 }
 
@@ -98,12 +37,99 @@ model ApiToken {
   @@index([userId])
 }
 
-model UserBooks {
-  userId String
-  bookId String
+// ---------------------------------------------------------------------------
+// Shared book catalog. A book is stored once and reused by every user; each
+// user's status, shelves and notes about it live in per-user tables.
+// ---------------------------------------------------------------------------
 
-  user User @relation(fields: [userId], references: [id])
-  book Book @relation(fields: [bookId], references: [id])
+enum LengthCategory {
+  SHORT
+  MEDIUM
+  LONG
+}
 
-  @@id([userId, bookId])
+enum MetadataSource {
+  AMAZON
+  OPEN_LIBRARY
+  GOOGLE_BOOKS
+  MANUAL
+}
+
+// Who attached a genre or trope to a book, so AI suggestions can be told apart
+// from (and never overwrite) the user's own edits.
+enum TagSource {
+  AI
+  USER
+}
+
+model Book {
+  id             String          @id @default(uuid())
+  title          String
+  subtitle       String?
+  authors        String[]
+  // Normalized title + first author; see src/lib/books/dedupe.ts. Not unique,
+  // because different editions of the same book share it.
+  dedupeKey      String
+  isbn10         String?
+  isbn13         String?         @unique
+  asin           String?         @unique
+  openLibraryId  String?
+  googleBooksId  String?
+  coverUrl       String?
+  pageCount      Int?
+  lengthCategory LengthCategory?
+  publishedYear  Int?
+  description    String?
+  tags           String[]
+  aiEnrichedAt   DateTime?
+  metadataSource MetadataSource
+  genres         BookGenre[]
+  tropes         BookTrope[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([dedupeKey])
+  @@index([isbn10])
+}
+
+model Genre {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  description String?
+  books       BookGenre[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Trope {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  description String?
+  books       BookTrope[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model BookGenre {
+  book      Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  bookId    String
+  genre     Genre     @relation(fields: [genreId], references: [id], onDelete: Cascade)
+  genreId   String
+  source    TagSource
+  createdAt DateTime  @default(now())
+
+  @@id([bookId, genreId])
+  @@index([genreId])
+}
+
+model BookTrope {
+  book      Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  bookId    String
+  trope     Trope     @relation(fields: [tropeId], references: [id], onDelete: Cascade)
+  tropeId   String
+  source    TagSource
+  createdAt DateTime  @default(now())
+
+  @@id([bookId, tropeId])
+  @@index([tropeId])
 }
