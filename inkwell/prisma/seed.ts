@@ -1,3 +1,4 @@
+import "./load-env";
 import { prisma } from "@/lib/prisma";
 import genres from "../assets/lists/genres";
 import statuses from "../assets/lists/status";
@@ -21,12 +22,11 @@ async function main() {
   }
 }
 
-main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (e) => {
-    console.error(e);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+try {
+  await main();
+} catch (e) {
+  console.error(e);
+  process.exitCode = 1;
+} finally {
+  await prisma.$disconnect();
+}

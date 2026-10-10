@@ -7,8 +7,8 @@ const books = [];
 
 const checkUrl = () => {
   if (
-    !window.location.href.startsWith(BASE_URL) ||
-    !window.location.href.includes(EXPECTED_URL)
+    !globalThis.location.href.startsWith(BASE_URL) ||
+    !globalThis.location.href.includes(EXPECTED_URL)
   ) {
     alert("This extension only works on Amazon Kindle Content page.");
     return false;
@@ -49,13 +49,10 @@ const scrapeBookTitles = async () => {
   const booksList = Array.from(
     document.querySelector("table").querySelector("tbody").children
   );
-  const bookRows = booksList.filter((row) => {
-    if (Array.from(row.classList).some((cls) => cls.startsWith(bookClass))) {
-      return true;
-    }
-    return false;
-  });
-  if (window.location.href.includes("pdocs")) return scrapeDocTitles(bookRows);
+  const bookRows = booksList.filter((row) =>
+    Array.from(row.classList).some((cls) => cls.startsWith(bookClass))
+  );
+  if (globalThis.location.href.includes("pdocs")) return scrapeDocTitles(bookRows);
   bookRows.forEach((row) => {
     const img = row.querySelector("img");
     const title = row.querySelector(".digital_entity_title").innerText;
