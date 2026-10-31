@@ -21,7 +21,6 @@ The project started as a "book categorizer". The repo folder name still reflects
 | `extension/` | Chrome extension (MV3) that scrapes the Amazon Kindle content list. **The misspelling is intentional for now; don't rename it without asking.** |
 | `extension/firebase-project/` | Legacy Firebase Hosting project, not used by the app |
 | `docs/plan/` | **The plan, and the source of truth for scope and status.** `README.md` holds the decisions and the phase index; there is one file per phase. |
-| `PLAN.md` | Outdated single-file version of the plan. Use `docs/plan/` instead. |
 
 Key files in `inkwell/`:
 
@@ -34,7 +33,7 @@ Key files in `inkwell/`:
 | `src/server/db.ts` | Prisma client singleton (pg driver adapter), the `Db`/`Tx` types and the `transaction()` helper |
 | `src/server/errors.ts` | Domain errors (`NotFoundError`, `ValidationError`, `UnauthorizedError`) and `domainErrorResponse()` for route handlers |
 | `src/server/books/` | Shared catalog: `isbn.ts` and `dedupe.ts` (pure), `book.model.ts`, `book.service.ts` (`findExistingBook`) |
-| `src/server/library/` | Per-user library: `status.rules.ts` (pure status rules), `library.model.ts`, `library.service.ts` |
+| `src/server/library/` | Per-user library: `status.rules.ts` (statuses, formats and read changes; pure), `library.model.ts`, `read-through.model.ts`, `library.service.ts` |
 | `prisma/schema.prisma`, `prisma/migrations/` | Database schema and migrations |
 | `prisma/seed.ts`, `assets/lists/` | Idempotent seed for the curated genres and tropes |
 | `prisma/load-env.ts` | Loads `.env.local`, then `.env`, for the Prisma CLI and the seed |
@@ -48,7 +47,9 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 2a: shared `Book` catalog, `BookGenre`/`BookTrope`, dedupe and ISBN helpers, Vitest
 - ✅ Phase 2b: `UserBook` library, status/ownership rules (`src/server/library/status.rules.ts`), `library.service.ts` / `library.model.ts`
 - ✅ Backend refactored into model / service / controller layers under `src/server/`; Biome enforces the boundaries
-- ⏭️ Next: Phase 2c (shelves), then 2d (journal), 2e (goals and imports), then Phases 3–7
+- ✅ Phase 2c: `Shelf`/`ShelfItem`, system shelves per user kept in sync with status and ownership, sparse ordering (`src/server/shelves/`)
+- ✅ Phase 3a: `UserBook.formats`, status as the list, `ReadThrough` read history; the shelves from 2c are removed
+- ⏭️ Next: **Phase 3b onward, the MVP** (`docs/plan/phase-3-mvp.md`): add books manually and by extension, move them between lists, and browse with filters. Then Phases 4–7
 
 ## Workflow rules
 
@@ -60,14 +61,14 @@ See `docs/plan/README.md` for live status. At the time of writing:
 
 ## Backend architecture (model / service / controller)
 
-All backend code lives in `inkwell/src/server/`, grouped by **feature module** (`auth`, `books`, `library`, and later `shelves`, `journal`, `goals`, `imports`). Inside each module, files are named by layer:
+All backend code lives in `inkwell/src/server/`, grouped by **feature module** (`auth`, `books`, `library`, and later `imports`, `journal`, `goals`). Inside each module, files are named by layer:
 
 | Layer | Files | Responsibility | May import | Must not import |
 |---|---|---|---|---|
 | **Controller** | `<module>.controller.ts` (`"use server"` server actions), `src/app/api/**/route.ts` (HTTP handlers), `auth/auth.guard.ts` | Entry points. Authenticate (`requireUser` / `getRequestUser`), validate and parse raw input (FormData, JSON, params), call services, map `DomainError`s to form messages or HTTP statuses (`domainErrorResponse`), revalidate and redirect. No business rules and no database access. | services, guard, `next/*`, errors | models, `@/server/db` |
 | **Service** | `<module>.service.ts` | Business logic and orchestration: enforces rules, combines models, owns transactions (`transaction()` from `@/server/db`), throws `DomainError`s. Framework-agnostic: no `next/*`, cookies or `Request`. Every function that touches user data takes `userId` first. | its own and other modules' models and services, rules, errors, external SDK adapters in `src/config/` | `next/*`, controllers, guards, the `prisma` client, `@/generated/prisma/client` (types via enums or models) |
 | **Rules** (part of the service layer) | `<topic>.rules.ts`, plus pure helpers like `books/dedupe.ts` and `books/isbn.ts` | Pure functions with no I/O, for example status transitions. Unit-tested exhaustively. | enums, errors | anything with I/O |
-| **Model** | `<entity>.model.ts` | Data access only: Prisma queries that return records. Every per-user query filters by `userId`. Each function takes an optional `db: Db = prisma` last argument so services can pass a transaction. Translates Prisma-specific errors into plain results (for example `createUserBook` returns `null` on a unique-key conflict). | `@/server/db`, Prisma types and enums | services, controllers, `next/*` |
+| **Model** | `<entity>.model.ts` | Data access only: Prisma queries that return records. Every per-user query filters by `userId`. Each function takes an optional `db: Db = prisma` last argument so services can pass a transaction. Translates Prisma-specific errors into plain results (for example `createUserBook` returns `null` on a unique-key conflict). Inside a transaction, use `skipDuplicates` rather than catching a unique-key error, which would abort the transaction. | `@/server/db`, Prisma types and enums | services, controllers, `next/*` |
 
 Other rules:
 
@@ -117,7 +118,7 @@ inkwell/src/
 
 - **Every page, server action and route handler verifies the user itself.** Use `requireUser()` (pages and actions) or `getRequestUser(request)` (route handlers, which accept a Bearer API token or the session cookie), both from `src/server/auth/auth.guard.ts`. Never rely on the proxy for security.
 - **Every query on per-user data filters by `userId`,** and service and model functions take `userId` as their first argument. Use `updateMany`/`deleteMany` with `{ id, userId }` so one user can't touch another's rows.
-- **Shared catalog vs. per-user data:** `Book`, `Genre` and `Trope` are shared. Status, ownership, shelves, sessions, reviews and goals belong in per-user tables (Phase 2b onward). Never put per-user state on `Book`.
+- **Shared catalog vs. per-user data:** `Book`, `Genre` and `Trope` are shared. Status, formats, sessions, reviews and goals belong in per-user tables (Phase 2b onward). Never put per-user state on `Book`.
 - **Validate every input from the client or the extension** (types, lengths, ranges). Treat titles, authors and every other scraped field as untrusted.
 - **Redirect targets** must be relative paths (see `safeRedirectPath` in `src/server/auth/auth.controller.ts`).
 - **API tokens** are stored only as SHA-256 hashes and shown once. Never log or return them afterwards.
@@ -161,12 +162,15 @@ inkwell/src/
 - Use npm, run from `inkwell/`. npm here blocks dependency install scripts; `prisma generate` runs from the package's own `postinstall` and `build` scripts.
 - **Don't remove the `overrides` in `package.json`.** They patch vulnerable transitive dependencies that upstream hasn't fixed yet. Re-check them with `npm audit` when upgrading.
 - `npm audit` should report 0 vulnerabilities. Never run `npm audit fix --force` without asking: it can silently downgrade packages (it once replaced ESLint 9 with 4.0.0 and broke linting).
+- zod is approved for input validation (Phase 3).
 - Ask before adding significant dependencies, and pin to an exact or caret version of a release at least two weeks old.
 
 ## Domain rules (keep these consistent)
 
-- **Dedupe order:** ASIN → ISBN-13 (convert ISBN-10 with `toIsbn13`) → `dedupeKey`, which is the normalized title plus the first author's surname. Re-importing a book never overwrites a user's data.
+- **Dedupe order:** ASIN → ISBN-13 (convert ISBN-10 with `toIsbn13`) → `dedupeKey`, which is the normalized title plus the first author's surname. Re-importing a book only ever adds a format; it never overwrites a user's status, dates or list order.
 - **Genres and tropes** come only from the curated lists in `assets/lists/`. The AI picks from these lists; `source: AI | USER` records who attached each one, and AI updates must never overwrite `USER` rows.
 - **Goal progress** is always computed, never stored.
-- **The three lists** (Ebook TBR, Physical TBR, Wishlist) are system `Shelf` rows, not hard-coded enums, so custom shelves can be added later (Phase 2c).
+- **There are five lists, and the list is the status:** Wishlist, TBR, Reading, Finished and DNF are views of `UserBook.status`. Don't store lists separately.
+- **Formats are a detail of the book, not a list:** `UserBook.formats` holds any of ebook, physical and audiobook, and empty means not owned. A `WISHLIST` book becomes `TO_READ` as soon as it gets a format, and a `TO_READ` book with no formats left becomes `WISHLIST`. Other statuses don't change.
+- **A book can be read more than once** (`ReadThrough`, Phase 3a), and earlier reads are never erased. Read dates are optional: a bulk move records none rather than inventing them.
 - **AI** uses the Claude API from server-only code (Phase 5). Enrichment runs once per catalog `Book`, and Message Batches are used for large imports.

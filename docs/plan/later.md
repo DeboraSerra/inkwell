@@ -2,4 +2,4 @@
 
 [← Plan overview](README.md)
 
-Custom shelves UI, stats page (pages per month, genres breakdown), Goodreads CSV import, quotes and highlights, reread tracking, export your data, social features.
+Custom shelves (extra lists you define, separate from the five status lists), stats page (pages per month, genres breakdown), Goodreads CSV import, quotes and highlights, an `ImportJob` audit log of imports, export your data, social features.

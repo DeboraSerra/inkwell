@@ -10,42 +10,25 @@ Book            (shared catalog)  id, title, subtitle, authors[], isbn10?, isbn1
                                   pageCount?, lengthCategory?, publishedYear?, description?,
                                   tags[], aiEnrichedAt?, metadataSource
 Genre / Trope   (curated, seeded) many-to-many with Book (BookGenre, BookTrope)
+ApiToken        userId, tokenHash, prefix, name, lastUsedAt, revokedAt
 
-UserBook        userId, bookId (unique together)
-                ownership: EBOOK | PHYSICAL | AUDIO | NONE      // NONE + WISHLIST shelf = wishlist
-                status:    WISHLIST | TO_READ | READING | FINISHED | DNF
-                source:    AMAZON_IMPORT | SEARCH | ISBN | MANUAL
-                priority/position (for TBR ordering), addedAt, startedAt?, finishedAt?
-Shelf           userId, name, kind: SYSTEM | CUSTOM            // system shelves: Ebook TBR,
-ShelfItem       shelfId, userBookId, position                 // Physical TBR, Wishlist; custom ones later
-
-ReadingSession  userBookId, date, startPage?/endPage?/percent?, minutes?, note?, mood?
-Review          userBookId @unique, rating (half stars), body?, favoriteQuote?, finishedAt
-ReadingGoal     userId, metric: BOOKS | PAGES | MINUTES, period: YEAR | MONTH | CUSTOM,
-                startDate, endDate, target       // default: BOOKS / YEAR
-ImportJob       userId, source, status, totals, createdAt     // audit + sync results
-ApiToken        userId, tokenHash, prefix, name, lastUsedAt, revokedAt   // ✅ built in Phase 1
+UserBook        userId, bookId (unique together), status, source, addedAt, updatedAt
 ```
 
+**Phase 3a changes part of what this phase built:** `UserBook.ownership` becomes a multi-value `formats` column, and the shelves are removed because `status` defines the lists. The sections below record what was built at the time; [Phase 3](phase-3-mvp.md) is the current model.
+
 Why it's shaped this way:
-- The three lists are system `Shelf` rows instead of hard-coded enums, so custom shelves ("Summer reads") cost nothing to add later.
-- The status and ownership enums are what the lists filter on. A wishlist book you buy simply changes ownership and moves to a TBR shelf.
 - The catalog fills in each book (metadata and AI) **once**, and every user reuses it.
-- Goal progress is computed from `UserBook.finishedAt` and `ReadingSession`. It isn't stored, so it can't drift.
 
 ## Sub-phases
 
-Phase 2 is split into five steps, described below. Each ends with a migration that applies cleanly, a passing build, and a working app, so you can stop between any two.
-
-| Step | Scope | Depends on |
+| Step | Scope | Status |
 |---|---|---|
-| [2a — Catalog](#phase-2a--catalog) | Migration reset, `Book` reshape, genres/tropes join tables, dedupe keys, Vitest | — |
-| [2b — Library](#phase-2b--library) | `UserBook` with status/ownership/source, status transitions, user-scoped data access | 2a |
-| [2c — Shelves](#phase-2c--shelves) | `Shelf`/`ShelfItem`, system shelves per user, ordering | 2b |
-| [2d — Journal](#phase-2d--journal) | `ReadingSession`, `Review`, the finish-a-book flow | 2b |
-| [2e — Goals and imports](#phase-2e--goals-and-imports) | `ReadingGoal` with computed progress, `ImportJob` | 2b (2d for page/minute goals) |
+| [2a — Catalog](#phase-2a--catalog) | Migration reset, `Book` reshape, genres/tropes join tables, dedupe keys, Vitest | ✅ |
+| [2b — Library](#phase-2b--library) | `UserBook` with status and source, status transitions, user-scoped data access | ✅ |
+| [2c — Shelves](#phase-2c--shelves) | `Shelf`/`ShelfItem`, system shelves per user, ordering | ✅ (removed by 3a) |
 
-2c and 2d are independent, so they can be done in either order. Phases 3 and 4 need 2a–2c; Phase 6 needs all of them.
+The journal and goals steps that used to be 2d and 2e moved to [Phase 6](phase-6-journal.md).
 
 ---
 
@@ -135,6 +118,8 @@ Goal: your own relationship with each book (status, format, dates), separate fro
 
 ## Phase 2c — Shelves
 
+**Status: ✅ Implemented on `dev`, not committed.**
+
 Goal: the three lists (Ebook TBR, Physical TBR, Wishlist) stored as data, so custom shelves are cheap to add later.
 
 ### Steps
@@ -159,54 +144,18 @@ Goal: the three lists (Ebook TBR, Physical TBR, Wishlist) stored as data, so cus
 - Changing status or ownership always leaves the book on the correct shelf.
 - `npm run build` passes.
 
----
+### Outcome
 
-## Phase 2d — Journal
-
-Goal: the journal itself, with dated reading log entries and a review when you finish.
-
-### Steps
-
-1. **`ReadingSession` model:**
-   - Fields: `userBookId`, `date` (date only), `startPage?`, `endPage?`, `percent?` (0–100), `minutes?`, `note?`, `mood?` (small enum or emoji string), `createdAt`.
-   - Index on `(userBookId, date)`.
-   - Validation: at least one of pages, percent, minutes or note must be set, and `endPage >= startPage`.
-2. **`Review` model:**
-   - Fields: `userBookId @unique`, `rating` (integer 1–10, displayed as half stars), `body?`, `favoriteQuote?`, `createdAt`, `updatedAt`.
-   - A rating can only be added when the status is `FINISHED` or `DNF`.
-3. **Progress helper:** `getProgress(userBook)` returns the latest page or percent from the sessions, and converts pages to a percent when `Book.pageCount` is known.
-4. **Finish-a-book flow:** one service function sets the status to `FINISHED` (through the 2b transition) and optionally creates the review and a final reading session, all in one transaction.
-5. **Data access:** `logSession`, `updateSession`, `deleteSession`, `listSessions(userBookId)`, `upsertReview`. Each one checks that the `UserBook` belongs to the user.
-6. **Tests:** session validation, progress calculation (pages vs percent, unknown page count), and that the finish flow is atomic.
-
-### Done when
-
-- You can log progress, finish a book with a review, and see the progress value the UI will show, all from tests or a script.
-- `npm run build` passes.
-
----
-
-## Phase 2e — Goals and imports
-
-Goal: flexible reading goals with progress that's always computed, plus a record of each import so Phase 3 can report "42 new, 310 already in library".
-
-### Steps
-
-1. **`ReadingGoal` model:**
-   - Fields: `userId`, `metric` (`BOOKS | PAGES | MINUTES`), `period` (`YEAR | MONTH | CUSTOM`), `startDate`, `endDate`, `target`, `createdAt`.
-   - Index on `(userId, startDate, endDate)`. Overlapping goals are allowed, for example a yearly books goal alongside a monthly pages goal.
-2. **Default goal.** On first sign-in, or the first visit in a new year, suggest (don't create) a `BOOKS / YEAR` goal for the current year. The UI in Phase 6 confirms it.
-3. **Progress, `src/server/goals/progress.rules.ts`** (queries in `goal.model.ts`, orchestration in `goal.service.ts`). Computed, never stored:
-   - `BOOKS`: the number of `UserBook`s with `finishedAt` inside the goal's dates.
-   - `PAGES`: pages read in the range, from the sessions. Falls back to `pageCount` for books finished with no sessions.
-   - `MINUTES`: the sum of `ReadingSession.minutes` in the range.
-   - Also returns "on track / behind" by comparing progress with the share of the period that has passed.
-4. **`ImportJob` model:**
-   - Fields: `userId`, `source` (`AMAZON`), `status` (`PENDING | COMPLETED | FAILED`), `totalCount`, `createdCount`, `skippedCount`, `error?`, `createdAt`, `completedAt?`.
-   - Helpers `startImport` and `completeImport`, ready for the Phase 3 endpoint.
-5. **Tests:** progress for each metric, including edge cases like books finished on the period boundaries and timezones (store dates as UTC calendar dates), and on-track math.
-
-### Done when
-
-- The goal progress tests pass for all three metrics.
-- `npm run build` passes and the Phase 2 schema matches the overview.
+- **Schema:** `Shelf`, `ShelfItem`, and the enums `ShelfKind` and `SystemShelfType`; migration `20261030010000_add_shelves`. The migration also backfills shelves and items for existing users, so no separate one-off script is needed.
+- **Module, `src/server/shelves/`:** `shelf.rules.ts` (placement and positions), `shelf.model.ts`, and `shelf.service.ts` (`ensureSystemShelves`, `syncSystemShelf`, `appendToShelf`, `moveItem`).
+- **Wiring:** `createSession` calls `ensureSystemShelves`. `addBookToLibrary`, `updateStatus` and `updateOwnership` call `syncSystemShelf` in the same transaction. If a user's shelves are missing, the sync creates them.
+- **`moveItem(shelfItemId, beforeId?, afterId?)`:** `beforeId` is the item that ends up right before the moved one, and `afterId` the one right after. With only one given, the other side is looked up.
+- **Additions to the plan:**
+  - `@@unique([userId, systemType])`, so a user can't get a duplicate system shelf.
+  - `createUserBook` now uses `ON CONFLICT DO NOTHING`, because catching a unique-key error would abort the surrounding transaction.
+- **Decisions to review:**
+  - As planned, `AUDIO` + `TO_READ` belongs on no system shelf, so unread audiobooks aren't on any list yet.
+  - A book that leaves a shelf and comes back goes to the end; its old position isn't kept.
+  - Concurrent moves can tie on position; ties are ordered by id, and the next renumber clears them.
+- **Not built:** reading a shelf's books (Phase 6 needs it) and controllers (no UI calls these yet).
+- **Verified:** 181 tests; against the local database with throwaway rows (repeat and concurrent shelf creation, every shelf move, 5 concurrent adds of one book, renumbering, cross-user blocking, custom shelves untouched); the backfill SQL inside a rolled-back transaction. A real Google sign-in wasn't run, so `createSession` calling `ensureSystemShelves` is covered by a unit test only.
