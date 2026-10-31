@@ -1,6 +1,6 @@
-import { listApiTokens } from "@/lib/auth/api-tokens";
-import { requireUser } from "@/lib/auth/session";
-import { revokeTokenAction } from "./actions";
+import { revokeApiToken } from "@/server/auth/auth.controller";
+import { requireUser } from "@/server/auth/auth.guard";
+import { listApiTokens } from "@/server/auth/auth.service";
 import CreateTokenForm from "./create-token-form";
 
 const formatDate = (date: Date) =>
@@ -37,7 +37,7 @@ export default async function SettingsPage() {
                     {token.lastUsedAt ? `last used ${formatDate(token.lastUsedAt)}` : "never used"}
                   </p>
                 </div>
-                <form action={revokeTokenAction}>
+                <form action={revokeApiToken}>
                   <input type="hidden" name="tokenId" value={token.id} />
                   <button type="submit" className="text-sm font-medium text-red-600 hover:underline dark:text-red-400">
                     Revoke

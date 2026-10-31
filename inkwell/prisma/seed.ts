@@ -1,5 +1,5 @@
 import "./load-env";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/server/db";
 import genres from "../assets/lists/genres";
 import tropes from "../assets/lists/tropes";
 

@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/auth/session";
+import { requireUser } from "@/server/auth/auth.guard";
 
 export default async function Home() {
   const user = await requireUser();

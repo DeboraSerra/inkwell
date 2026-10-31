@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dedupeKey, normalizeAuthor, normalizeTitle } from "./dedupe";
+import { dedupeKey, normalizeAuthor, normalizeTitle } from "@/server/books/dedupe";
 
 describe("normalizeTitle", () => {
   it("ignores leading and trailing articles", () => {

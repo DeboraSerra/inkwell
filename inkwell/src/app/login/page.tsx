@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/server/auth/auth.guard";
 import GoogleSignInButton from "./google-sign-in-button";
 
 export default async function LoginPage({

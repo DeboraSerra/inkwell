@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "@/lib/prisma";
+import * as bookModel from "./book.model";
 import { dedupeKey } from "./dedupe";
 import { cleanIsbn, toIsbn13 } from "./isbn";
 
@@ -15,25 +15,20 @@ export type BookIdentity = {
 // ASIN, then ISBN (either format), then normalized title + first author.
 export async function findExistingBook(identity: BookIdentity) {
   if (identity.asin) {
-    const book = await prisma.book.findUnique({ where: { asin: identity.asin } });
+    const book = await bookModel.findBookByAsin(identity.asin);
     if (book) return book;
   }
 
   const rawIsbn = identity.isbn13 ?? identity.isbn10;
   const isbn13 = rawIsbn ? toIsbn13(rawIsbn) : null;
   if (isbn13) {
-    const book = await prisma.book.findUnique({ where: { isbn13 } });
+    const book = await bookModel.findBookByIsbn13(isbn13);
     if (book) return book;
   }
   if (identity.isbn10) {
-    const book = await prisma.book.findFirst({
-      where: { isbn10: cleanIsbn(identity.isbn10) },
-    });
+    const book = await bookModel.findBookByIsbn10(cleanIsbn(identity.isbn10));
     if (book) return book;
   }
 
-  return prisma.book.findFirst({
-    where: { dedupeKey: dedupeKey(identity.title, identity.authors) },
-    orderBy: { createdAt: "asc" },
-  });
+  return bookModel.findBookByDedupeKey(dedupeKey(identity.title, identity.authors));
 }

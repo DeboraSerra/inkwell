@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { signOut } from "@/lib/auth/actions";
-import { requireUser } from "@/lib/auth/session";
+import { signOut } from "@/server/auth/auth.controller";
+import { requireUser } from "@/server/auth/auth.guard";
 
 export default async function AppLayout({
   children,

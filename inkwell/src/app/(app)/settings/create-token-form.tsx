@@ -1,11 +1,11 @@
 "use client";
 
 import { useActionState } from "react";
-import { createTokenAction, type CreateTokenState } from "./actions";
+import { createApiToken, type CreateTokenState } from "@/server/auth/auth.controller";
 
 export default function CreateTokenForm() {
   const [state, formAction, isPending] = useActionState<CreateTokenState, FormData>(
-    createTokenAction,
+    createApiToken,
     {},
   );
 

@@ -19,6 +19,7 @@ model User {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   apiTokens ApiToken[]
+  userBooks UserBook[]
 }
 
 // Personal access tokens, used by the Chrome extension. Only the SHA-256 hash
@@ -85,6 +86,7 @@ model Book {
   metadataSource MetadataSource
   genres         BookGenre[]
   tropes         BookTrope[]
+  userBooks      UserBook[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -132,4 +134,54 @@ model BookTrope {
 
   @@id([bookId, tropeId])
   @@index([tropeId])
+}
+
+// ---------------------------------------------------------------------------
+// Per-user library: each user's relationship with a catalog book.
+// ---------------------------------------------------------------------------
+
+// NONE means the user doesn't own the book (wishlist, or a borrowed copy).
+enum Ownership {
+  EBOOK
+  PHYSICAL
+  AUDIO
+  NONE
+}
+
+// WISHLIST and TO_READ are both "unread": WISHLIST when the user
+// doesn't own the book, TO_READ when they do. See src/server/library/status.rules.ts.
+enum ReadingStatus {
+  WISHLIST
+  TO_READ
+  READING
+  FINISHED
+  DNF
+}
+
+enum UserBookSource {
+  AMAZON_IMPORT
+  SEARCH
+  ISBN
+  MANUAL
+}
+
+model UserBook {
+  id         String         @id @default(uuid())
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  // Catalog books can't be deleted while anyone has them in their library.
+  book       Book           @relation(fields: [bookId], references: [id], onDelete: Restrict)
+  bookId     String
+  ownership  Ownership
+  status     ReadingStatus
+  source     UserBookSource
+  addedAt    DateTime       @default(now())
+  startedAt  DateTime?
+  // Only set for FINISHED; a DNF book has no finish date.
+  finishedAt DateTime?
+  updatedAt  DateTime       @updatedAt
+
+  @@unique([userId, bookId])
+  @@index([userId, status])
+  @@index([userId, finishedAt])
 }

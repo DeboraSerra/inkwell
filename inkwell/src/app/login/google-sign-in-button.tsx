@@ -9,7 +9,7 @@ import {
 } from "firebase/auth";
 import { useState, useTransition } from "react";
 import { auth } from "@/config/firebase";
-import { signIn } from "@/lib/auth/actions";
+import { signIn } from "@/server/auth/auth.controller";
 
 export default function GoogleSignInButton({ next }: Readonly<{ next?: string }>) {
   const [error, setError] = useState<string | null>(null);

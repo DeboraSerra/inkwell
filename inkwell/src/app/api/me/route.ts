@@ -1,4 +1,4 @@
-import { getRequestUser } from "@/lib/auth/api-tokens";
+import { getRequestUser } from "@/server/auth/auth.guard";
 
 // Lets the extension check that its API token works.
 export async function GET(request: Request) {

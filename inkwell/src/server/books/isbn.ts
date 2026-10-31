@@ -28,7 +28,7 @@ export function isValidIsbn13(isbn: string) {
 
 export function isbn10To13(isbn10: string) {
   if (!isValidIsbn10(isbn10)) return null;
-  const first12 = "978" + cleanIsbn(isbn10).slice(0, 9);
+  const first12 = `978${cleanIsbn(isbn10).slice(0, 9)}`;
   return first12 + isbn13CheckDigit(first12);
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanIsbn, isbn10To13, isValidIsbn10, isValidIsbn13, toIsbn13 } from "./isbn";
+import { cleanIsbn, isbn10To13, isValidIsbn10, isValidIsbn13, toIsbn13 } from "@/server/books/isbn";
 
 describe("cleanIsbn", () => {
   it("removes hyphens and spaces and uppercases X", () => {
