@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Inkwell">
+  <circle cx="32" cy="32" r="32" fill="#1a2b3c"/>
+  <!-- Scaled about the center so the feather tip and bottle corners clear the circle -->
+  <g transform="translate(32 32) scale(.82) translate(-32 -32)">
+    <!-- Feather -->
+    <path fill="#f5f2e9" d="M35 28.5C33 20 42 9 56 6C56 14 50 23 40 28C38 29 36.5 29 35 28.5Z"/>
+    <path fill="#1a2b3c" d="M54.5 17L53 19.8L47.5 19ZM49 23.2L47.2 25.5L42 23.5ZM37 14L36 16.3L41 20Z"/>
+    <path fill="none" stroke="#1a2b3c" stroke-width=".7" stroke-linecap="round" d="M37 26.5C41 22 46 16 52 10"/>
+    <path fill="none" stroke="#f5f2e9" stroke-width="1.6" stroke-linecap="round" d="M36 27.5C33.5 30 31 32.5 29 35"/>
+    <!-- Bottle -->
+    <rect x="20" y="34" width="18" height="4" rx="1.5" fill="#f5f2e9"/>
+    <path fill="#f5f2e9" d="M23 37H35V41C35 42 36 42.500 37 43C41 44.500 44 46.500 44 50V53A4 4 0 0 1 40 57H18A4 4 0 0 1 14 53V50C14 46.500 17 44.500 21 43C22 42.500 23 42 23 41Z"/>
+    <!-- Ink -->
+    <path fill="#d4af37" d="M17 49.500C21 47.500 25 51 29 49.500C33 48 37 51 41 49.500V53A1.500 1.500 0 0 1 39.500 54.500H18.500A1.500 1.500 0 0 1 17 53Z"/>
+  </g>
+</svg>

@@ -26,7 +26,12 @@ export async function createSession(idToken: string) {
   const sessionCookie = await adminAuth.createSessionCookie(idToken, {
     expiresIn: SESSION_MAX_AGE_SECONDS * 1000,
   });
-  await userModel.upsertUser({ id: decoded.uid, email: decoded.email, name: decoded.name });
+  await userModel.upsertUser({
+    id: decoded.uid,
+    email: decoded.email,
+    name: decoded.name,
+    photoUrl: decoded.picture,
+  });
   return sessionCookie;
 }
 

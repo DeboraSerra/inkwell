@@ -98,7 +98,7 @@ export default function AddBookForm() {
           defaultValue={values?.coverUrl}
         />
 
-        <Field orientation='horizontal'>
+        <Field orientation='horizontal' className='flex justify-end'>
           <Button type='submit' size='lg' disabled={isPending}>
             {isPending ? "Adding…" : "Add book"}
           </Button>

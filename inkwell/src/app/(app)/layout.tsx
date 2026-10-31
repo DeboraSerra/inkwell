@@ -1,4 +1,4 @@
-import { AppSidebar, Trigger } from "@/components/layout/Sidebar";
+import { AppSidebar } from "@/components/layout/Sidebar";
 import { requireUser } from "@/server/auth/auth.guard";
 
 export default async function AppLayout({
@@ -11,8 +11,7 @@ export default async function AppLayout({
   return (
     <>
       <AppSidebar />
-      <main className='mx-auto w-full container flex-1 p-10 relative'>
-        <Trigger />
+      <main className='mx-auto w-full h-svh overflow-y-auto container flex-1 p-10 relative'>
         <p className='sr-only'>Signed in as {user.email}</p>
         {children}
       </main>
