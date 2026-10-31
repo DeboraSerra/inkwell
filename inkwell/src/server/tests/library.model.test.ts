@@ -1,101 +1,95 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Ownership, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
+import { BookFormat, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
 
-// A fake Prisma client that records every userBook call. Each method returns
-// whatever is queued in `results` for it (or null).
-type Call = { method: string; args: { where?: Record<string, unknown>; data?: Record<string, unknown> } };
-const calls: Call[] = [];
+// A fake Prisma client that records every call.
+type Args = {
+  where?: { userId?: string; userId_bookId?: { userId?: string }; userBook?: { userId?: string } };
+  data?: { userId?: string }[];
+};
+const calls: { method: string; args: Args }[] = [];
 const results: Record<string, unknown[]> = {};
 
-const userBook = new Proxy(
-  {},
-  {
-    get: (_target, method: string) =>
-      vi.fn(async (args: Call["args"]) => {
-        calls.push({ method, args });
-        const queued = results[method]?.shift();
-        if (queued instanceof Error) throw queued;
-        return queued ?? null;
-      }),
-  },
-);
+const recorder = () =>
+  new Proxy(
+    {},
+    {
+      get: (_target, method: string) =>
+        vi.fn(async (args: Args) => {
+          calls.push({ method, args });
+          return results[method]?.shift() ?? null;
+        }),
+    },
+  );
 
-vi.mock("@/server/db", () => ({ prisma: { userBook } }));
+vi.mock("@/server/db", () => ({ prisma: { userBook: recorder(), readThrough: recorder() } }));
 
 const model = await import("@/server/library/library.model");
+const reads = await import("@/server/library/read-through.model");
 
 const USER = "user-1";
-const state = {
-  status: ReadingStatus.TO_READ,
-  ownership: Ownership.PHYSICAL,
-  startedAt: null,
-  finishedAt: null,
-};
+const state = { status: ReadingStatus.TO_READ, formats: [BookFormat.PHYSICAL] };
+const newBook = { userId: USER, bookId: "book-1", source: UserBookSource.MANUAL, ...state };
 
 beforeEach(() => {
   calls.length = 0;
   for (const key of Object.keys(results)) delete results[key];
+  results.createManyAndReturn = [[{ id: "new" }]];
 });
-
-// Every recorded query must be filtered by the user, directly, through the
-// userId_bookId compound key, or (for inserts) by the row's userId.
-const expectAllScopedTo = (userId: string) => {
-  expect(calls.length).toBeGreaterThan(0);
-  for (const { method, args } of calls) {
-    const where = args.where ?? {};
-    const compound = where.userId_bookId as { userId?: string } | undefined;
-    const scopedUserId = where.userId ?? compound?.userId ?? args.data?.userId;
-    expect(scopedUserId, `${method} must be scoped to the user`).toBe(userId);
-  }
-};
 
 describe("every model function is scoped by userId", () => {
   it.each([
-    ["findUserBookByBookId", () => model.findUserBookByBookId(USER, "book-1")],
-    ["findUserBook", () => model.findUserBook(USER, "ub-1")],
-    ["findUserBookWithCatalog", () => model.findUserBookWithCatalog(USER, "ub-1")],
-    [
-      "createUserBook",
-      () =>
-        model.createUserBook({
-          userId: USER,
-          bookId: "book-1",
-          source: UserBookSource.MANUAL,
-          ...state,
-        }),
-    ],
-    [
-      "listUserBooks",
-      () =>
-        model.listUserBooks(USER, {
-          status: [ReadingStatus.TO_READ],
-          search: { text: "Hobbit", normalized: "hobbit" },
-          take: 10,
-        }),
-    ],
-    ["updateUserBookState", () => model.updateUserBookState(USER, "ub-1", state)],
+    ["findUserBookByBookId", () => model.findUserBookByBookId(USER, "b")],
+    ["findUserBook", () => model.findUserBook(USER, "ub")],
+    ["findUserBooks", () => model.findUserBooks(USER, ["ub"])],
+    ["findUserBookWithCatalog", () => model.findUserBookWithCatalog(USER, "ub")],
+    ["createUserBook", () => model.createUserBook(newBook)],
+    ["listUserBooks", () => model.listUserBooks(USER, { take: 10, formats: [BookFormat.EBOOK] })],
+    ["updateUserBookState", () => model.updateUserBookState(USER, "ub", state)],
+    ["updateUserBookStatuses", () => model.updateUserBookStatuses(USER, ["ub"], ReadingStatus.FINISHED)],
+    ["findChangeableReads", () => reads.findChangeableReads(USER, ["ub"])],
+    ["closeReads", () => reads.closeReads(USER, ["r"], "DNF", null)],
+    ["reopenReads", () => reads.reopenReads(USER, ["r"])],
+    ["deleteOpenReads", () => reads.deleteOpenReads(USER, ["ub"])],
   ])("%s", async (_name, run) => {
     await run();
-    expectAllScopedTo(USER);
+    expect(calls).toHaveLength(1);
+    const { where, data } = calls[0].args;
+    const scoped = where?.userId ?? where?.userId_bookId?.userId ?? where?.userBook?.userId ?? data?.[0]?.userId;
+    expect(scoped).toBe(USER);
   });
 });
 
 describe("createUserBook", () => {
-  it("returns null when the user already has the book", async () => {
-    results.create = [Object.assign(new Error("unique"), { code: "P2002" })];
-    const created = await model.createUserBook({
-      userId: USER,
-      bookId: "book-1",
-      source: UserBookSource.MANUAL,
-      ...state,
-    });
-    expect(created).toBeNull();
+  it("returns the new row", async () => {
+    await expect(model.createUserBook(newBook)).resolves.toEqual({ id: "new" });
   });
 
-  it("rethrows other errors", async () => {
-    results.create = [new Error("connection lost")];
-    await expect(
-      model.createUserBook({ userId: USER, bookId: "b", source: UserBookSource.MANUAL, ...state }),
-    ).rejects.toThrow("connection lost");
+  it("returns null when the user already has the book", async () => {
+    results.createManyAndReturn = [[]];
+    await expect(model.createUserBook(newBook)).resolves.toBeNull();
+  });
+
+  it("uses ON CONFLICT, which can't abort a surrounding transaction", async () => {
+    await model.createUserBook(newBook);
+    expect(calls[0].args).toMatchObject({ skipDuplicates: true });
+  });
+});
+
+describe("listUserBooks", () => {
+  it("matches books owned in any of the formats", async () => {
+    await model.listUserBooks(USER, { take: 10, formats: [BookFormat.EBOOK, BookFormat.AUDIO] });
+    expect(calls[0].args.where).toMatchObject({ formats: { hasSome: ["EBOOK", "AUDIO"] } });
+  });
+});
+
+describe("read history safety", () => {
+  it("only ever deletes open reads", async () => {
+    await reads.deleteOpenReads(USER, ["ub"]);
+    expect(calls[0].args.where).toMatchObject({ outcome: null });
+  });
+
+  it("never loads finished reads to change them", async () => {
+    await reads.findChangeableReads(USER, ["ub"]);
+    expect(calls[0].args.where).toMatchObject({ OR: [{ outcome: null }, { outcome: "DNF" }] });
   });
 });

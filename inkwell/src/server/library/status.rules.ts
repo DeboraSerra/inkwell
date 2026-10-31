@@ -1,99 +1,79 @@
-// Reading-status rules for a user's book. Pure functions, so every rule is
-// unit-tested without a database.
-import { Ownership, ReadingStatus } from "@/generated/prisma/enums";
+// Rules for a user's book: which status (list) it may move to, what that does
+// to its read history, and how formats affect it. Pure functions, so every
+// rule is unit-tested without a database.
+import { type BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { ValidationError } from "@/server/errors";
 
 export type ReadingState = {
   status: ReadingStatus;
-  ownership: Ownership;
-  startedAt: Date | null;
-  finishedAt: Date | null;
+  formats: BookFormat[];
 };
 
+// What a status change does to the book's reads.
+export type ReadChange =
+  | "none"
+  | "open"
+  | "reopen"
+  | "closeFinished"
+  | "closeDnf"
+  | "addFinished"
+  | "addDnf"
+  | "discardOpen";
+
 export class InvalidTransitionError extends ValidationError {
-  constructor(from: ReadingStatus, to: ReadingStatus, ownership: Ownership) {
-    super(`Can't change status from ${from} to ${to} for a book with ownership ${ownership}`);
+  constructor(from: ReadingStatus, to: ReadingStatus, formats: BookFormat[]) {
+    const owned = formats.length ? formats.join(", ") : "no formats";
+    super(`Can't change status from ${from} to ${to} for a book with ${owned}`);
   }
 }
 
-// "Unread" is WISHLIST when the user doesn't own the book, TO_READ when they do.
-export const unreadStatusFor = (ownership: Ownership): ReadingStatus =>
-  ownership === Ownership.NONE ? ReadingStatus.WISHLIST : ReadingStatus.TO_READ;
+// A book nobody has started is on the Wishlist if it isn't owned, or TBR if it is.
+export const notStartedStatusFor = (formats: readonly BookFormat[]): ReadingStatus =>
+  formats.length ? ReadingStatus.TO_READ : ReadingStatus.WISHLIST;
 
-const isUnread = (status: ReadingStatus) =>
+const isNotStarted = (status: ReadingStatus) =>
   status === ReadingStatus.WISHLIST || status === ReadingStatus.TO_READ;
 
-// Which statuses each status may move to. Going back to unread (to reread, or
-// after putting a book down) resolves to WISHLIST or TO_READ by ownership.
-const ALLOWED: Record<ReadingStatus, readonly ReadingStatus[]> = {
-  WISHLIST: [ReadingStatus.READING, ReadingStatus.FINISHED],
-  TO_READ: [ReadingStatus.READING, ReadingStatus.FINISHED],
-  READING: [
-    ReadingStatus.FINISHED,
-    ReadingStatus.DNF,
-    ReadingStatus.WISHLIST,
-    ReadingStatus.TO_READ,
-  ],
-  FINISHED: [ReadingStatus.READING, ReadingStatus.WISHLIST, ReadingStatus.TO_READ],
-  DNF: [ReadingStatus.READING, ReadingStatus.WISHLIST, ReadingStatus.TO_READ],
+const TRANSITIONS: Record<ReadingStatus, Partial<Record<ReadingStatus, ReadChange>>> = {
+  WISHLIST: { READING: "open", FINISHED: "addFinished" },
+  TO_READ: { READING: "open", FINISHED: "addFinished" },
+  READING: { FINISHED: "closeFinished", DNF: "closeDnf", WISHLIST: "discardOpen", TO_READ: "discardOpen" },
+  // A reread opens a new read; the finished one stays in the history.
+  FINISHED: { READING: "open", WISHLIST: "none", TO_READ: "none" },
+  DNF: { READING: "reopen", WISHLIST: "none", TO_READ: "none" },
 };
 
 export function canTransition(state: ReadingState, to: ReadingStatus) {
-  if (isUnread(to) && to !== unreadStatusFor(state.ownership)) return false;
-  return state.status === to || ALLOWED[state.status].includes(to);
+  if (isNotStarted(to) && to !== notStartedStatusFor(state.formats)) return false;
+  return state.status === to || TRANSITIONS[state.status][to] !== undefined;
 }
 
-// Returns the new status and dates. `at` defaults to now; pass an earlier
-// date to record something that happened in the past.
-export function transitionStatus(
-  state: ReadingState,
-  to: ReadingStatus,
-  at: Date = new Date(),
-): ReadingState {
+// Returns what happens to the reads. Throws for a change that isn't allowed.
+export function readChangeFor(state: ReadingState, to: ReadingStatus): ReadChange {
   if (!canTransition(state, to)) {
-    throw new InvalidTransitionError(state.status, to, state.ownership);
+    throw new InvalidTransitionError(state.status, to, state.formats);
   }
-  if (state.status === to) return state;
-
-  switch (to) {
-    case ReadingStatus.READING: {
-      // Picking a DNF book back up resumes it; anything else is a fresh start
-      // (including a reread of a finished book).
-      const resuming = state.status === ReadingStatus.DNF && state.startedAt;
-      return { ...state, status: to, startedAt: resuming ? state.startedAt : at, finishedAt: null };
-    }
-    case ReadingStatus.FINISHED:
-      return { ...state, status: to, startedAt: state.startedAt ?? at, finishedAt: at };
-    case ReadingStatus.DNF:
-      return { ...state, status: to, finishedAt: null };
-    default:
-      // Back to unread. Proper reread history is out of scope for now.
-      return { ...state, status: to, startedAt: null, finishedAt: null };
-  }
+  return state.status === to ? "none" : (TRANSITIONS[state.status][to] ?? "none");
 }
 
-// Changing ownership (buying a wishlist book, giving a book away) keeps an
-// unread book in the matching unread status. Read statuses don't change.
-export function changeOwnership(state: ReadingState, ownership: Ownership): ReadingState {
-  const status = isUnread(state.status) ? unreadStatusFor(ownership) : state.status;
-  return { ...state, ownership, status };
+export const uniqueFormats = (formats: readonly BookFormat[]) => [...new Set(formats)];
+
+// Getting a first format moves a Wishlist book to TBR, and losing the last one
+// moves a TBR book back. Other statuses don't depend on owning the book.
+export function changeFormats(state: ReadingState, formats: readonly BookFormat[]): ReadingState {
+  const next = uniqueFormats(formats);
+  return { formats: next, status: isNotStarted(state.status) ? notStartedStatusFor(next) : state.status };
 }
 
-// The state of a book when it's first added to a library, optionally already
-// read or in progress (e.g. adding a book you finished last year).
+// The state of a book when it's first added, which may already be read or in
+// progress (e.g. adding a book you finished last year).
 export function initialState(
-  ownership: Ownership,
-  status: ReadingStatus = unreadStatusFor(ownership),
-  at?: Date,
-): ReadingState {
-  const unread: ReadingState = {
-    status: unreadStatusFor(ownership),
-    ownership,
-    startedAt: null,
-    finishedAt: null,
-  };
-  if (status === ReadingStatus.DNF) {
-    return transitionStatus(transitionStatus(unread, ReadingStatus.READING, at), status, at);
-  }
-  return transitionStatus(unread, status, at);
+  formats: readonly BookFormat[],
+  status: ReadingStatus = notStartedStatusFor(formats),
+): ReadingState & { readChange: ReadChange } {
+  const unique = uniqueFormats(formats);
+  const notStarted = notStartedStatusFor(unique);
+  if (status === ReadingStatus.DNF) return { formats: unique, status, readChange: "addDnf" };
+  const readChange = readChangeFor({ formats: unique, status: notStarted }, status);
+  return { formats: unique, status, readChange };
 }
