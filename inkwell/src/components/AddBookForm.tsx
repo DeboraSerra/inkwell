@@ -5,7 +5,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
   FieldDescription,
-  FieldError,
   FieldGroup,
   FieldLabel,
   FieldLegend,
@@ -16,13 +15,26 @@ import {
   type AddManualBookState,
   addManualBook,
 } from "@/server/library/library.controller";
-import { useActionState } from "react";
+import { Loader } from "lucide-react";
+import {
+  type ChangeEvent,
+  type SubmitEvent,
+  useActionState,
+  useEffect,
+  useState,
+} from "react";
 import { TextField } from "./TextField";
+import { toast } from "./ui/toast";
 
 const FORMATS = [
   { value: BookFormat.EBOOK, label: "Ebook" },
   { value: BookFormat.PHYSICAL, label: "Physical" },
   { value: BookFormat.AUDIO, label: "Audiobook" },
+];
+
+const REQUIRED_FIELDS = [
+  { name: "title", label: "Title" },
+  { name: "authors", label: "Authors" },
 ];
 
 type FormState = AddManualBookState & { submission: number };
@@ -40,20 +52,61 @@ export default function AddBookForm() {
     { submission: 0 },
   );
   const values = state.values;
+  const [missing, setMissing] = useState<string[]>([]);
+
+  // Cancelling the submit skips the action, so the form isn't remounted and
+  // keeps what was typed.
+  const handleSubmit = (event: SubmitEvent<HTMLFormElement>) => {
+    const formData = new FormData(event.currentTarget);
+    const empty = REQUIRED_FIELDS.filter(({ name }) => {
+      const value = formData.get(name);
+      return typeof value !== "string" || !value.trim();
+    });
+    setMissing(empty.map(({ name }) => name));
+    if (empty.length === 0) return;
+
+    event.preventDefault();
+    for (const { label } of empty) {
+      toast.add({ description: `${label} is required.`, type: "error" });
+    }
+    const firstEmpty = event.currentTarget.elements.namedItem(empty[0].name);
+    if (firstEmpty instanceof HTMLElement) firstEmpty.focus();
+  };
+
+  const handleChange = (event: ChangeEvent<HTMLFormElement>) => {
+    const name = event.target.getAttribute("name");
+    setMissing((current) => current.filter((field) => field !== name));
+  };
+
+  useEffect(() => {
+    if (state.error) {
+      toast.add({ description: state.error, type: "error" });
+    } else if (state.message) {
+      toast.add({ description: state.message });
+    }
+  }, [state]);
 
   return (
-    <form key={state.submission} action={formAction}>
+    <form
+      key={state.submission}
+      action={formAction}
+      onSubmit={handleSubmit}
+      onChange={handleChange}
+      noValidate
+    >
       <FieldGroup>
         <TextField
           name='title'
           label='Title'
           required
+          invalid={missing.includes("title")}
           defaultValue={values?.title}
         />
         <TextField
           name='authors'
           label='Authors'
           required
+          invalid={missing.includes("authors")}
           hint='Separate several authors with a semicolon.'
           defaultValue={values?.authors}
         />
@@ -84,6 +137,23 @@ export default function AddBookForm() {
           name='subtitle'
           label='Subtitle'
           defaultValue={values?.subtitle}
+          info={
+            <p className='flex flex-col justify-start'>
+              <span>
+                A subtitle is the secondary line of a book’s title, usually the
+                part that follows a colon on the cover. For example:
+              </span>
+              <strong>Sapiens: A Brief History of Humankind</strong>
+              <ul className="list-disc list-inside">
+                <li>
+                  <span>Title: Sapiens;</span>
+                </li>
+                <li>
+                  <span>Subtitle: A Brief History of Humankind</span>
+                </li>
+              </ul>
+            </p>
+          }
         />
         <TextField name='isbn' label='ISBN' defaultValue={values?.isbn} />
         <TextField
@@ -100,11 +170,11 @@ export default function AddBookForm() {
 
         <Field orientation='horizontal' className='flex justify-end'>
           <Button type='submit' size='lg' disabled={isPending}>
-            {isPending ? "Adding…" : "Add book"}
+            {isPending ? <Loader className='spin-in' /> : "Add book"}
           </Button>
         </Field>
 
-        <FieldError>{state.error}</FieldError>
+        {/* <FieldError>{state.error}</FieldError>
         {state.message && (
           <p
             role='status'
@@ -112,7 +182,7 @@ export default function AddBookForm() {
           >
             {state.message}
           </p>
-        )}
+        )} */}
       </FieldGroup>
     </form>
   );

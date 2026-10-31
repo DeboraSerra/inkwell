@@ -1,4 +1,5 @@
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { Toaster, ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -30,9 +31,12 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
       <body className='min-h-full flex flex-col bg-slate-950'>
-        <SidebarProvider>
-          <TooltipProvider>{children}</TooltipProvider>
-        </SidebarProvider>
+        <ToastProvider>
+          <SidebarProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+            <Toaster />
+          </SidebarProvider>
+        </ToastProvider>
       </body>
     </html>
   );
