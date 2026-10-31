@@ -4,6 +4,15 @@
 import { type BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { ValidationError } from "@/server/errors";
 
+// What each status is called as a list in the UI.
+export const LIST_NAMES: Record<ReadingStatus, string> = {
+  WISHLIST: "Wishlist",
+  TO_READ: "TBR",
+  READING: "Reading",
+  FINISHED: "Finished",
+  DNF: "DNF",
+};
+
 export type ReadingState = {
   status: ReadingStatus;
   formats: BookFormat[];

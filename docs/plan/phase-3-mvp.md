@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: in progress.** 3a is implemented on `dev`, not committed; 3b is next. This is the current focus. Everything after it waits until it's done.
+**Status: in progress.** 3a is done and 3b is implemented on `dev`, not committed; 3c is next. This is the current focus. Everything after it waits until it's done.
 
 Goal: add books manually or through the Chrome extension, move them between lists, and browse them with filters.
 
@@ -59,18 +59,32 @@ Phase 2c built shelves to hold the lists, and one `ownership` value per book. St
 
 ### 3a outcome
 
-- **Schema:** migration `20261030020000_formats_and_read_history` adds `formats` and `ReadThrough`, moves existing dates into reads, and drops `ownership`, `startedAt`, `finishedAt` and the shelf tables.
+- **Schema:** adds `formats` and `ReadThrough`, and removes `ownership`, `startedAt`, `finishedAt` and the shelf tables.
+- **Migration reset:** after this step, the database and all migrations were deleted and regenerated from `schema.prisma`, so the whole schema is now in one migration, `20261031014133_init`. Older migration names in these plans no longer exist. Nothing was deployed, so no database needs the old history. From here on, migrations are only added.
 - **Code:** `status.rules.ts` is rewritten around formats and read changes; `read-through.model.ts` is new; `library.service.ts` gains `updateFormats` and `updateStatuses`; `src/server/shelves/` is gone.
 - **Choices the plan left open:**
   - A book added or moved straight to Finished gets an end date but no start date, rather than an invented one.
   - A bulk move runs in a fixed number of queries, so it fits in one transaction.
-- **Verified:** tests; the migration over sample rows of every kind in a rolled-back transaction; 21 checks on the local database with throwaway rows.
+- **Verified:** tests, and 21 checks on the local database with throwaway rows.
 
 ## 3b — Add books manually
 
 1. `addManualBook` in the books and library services: find the catalog book with `findExistingBook`, or create it, then add it to the library. Both happen in one transaction.
 2. Controller with input validation using zod (approved as a new dependency): title and at least one author required; subtitle, cover URL, page count and ISBN optional.
 3. Add-book form: the catalog fields, plus checkboxes for ebook, physical and audiobook. **No format ticked means Wishlist.**
+
+### 3b outcome
+
+- **UI:** built with shadcn. Client components live in `src/components/`, and the login, settings and header UI were converted too.
+- **Page:** `/books/new`, linked as "Add book" in the header. After a successful add, the form clears and shows which list the book went to, so you can add several in a row.
+- **Code:** `findOrCreateManualBook` (`book.service.ts`), `addManualBook` (`library.service.ts`), the `addManualBook` server action (`library.controller.ts`), and validation in `library/manual-book.schema.ts`. `addBookToLibrary` can join a caller's transaction.
+- **Choices the plan left open:**
+  - Authors are separated by semicolons, because a name can contain a comma ("Tolkien, J. R. R.").
+  - A book matching one already in the shared catalog is reused as it is, so a subtitle, cover or page count typed for it is ignored. Otherwise one user's typing would change what others see.
+  - Cover URLs must be `https`.
+- **Verified:** tests; the services on the local database with throwaway rows; the form's look on desktop and mobile; and that submitting without a real session goes to `/login` and writes nothing.
+- **Form behaviour:** checked in the browser with real clicks through a temporary action: a rejected form keeps text and ticks, and a success clears them.
+- **Not verified:** a real submit while signed in through Google.
 
 ## 3c — Add books through the extension
 
@@ -89,7 +103,7 @@ Phase 2c built shelves to hold the lists, and one `ownership` value per book. St
    **Bulk move:** select up to 30 books and move them to another list. This is how you clear already-read ebooks from TBR after the first import. Limited to 30 books at a time, and the result says how many moved and how many were skipped.
 4. **Edit formats** on each book, so a wishlist book can become owned and move to TBR.
 5. **Pagination:** "Load more" using the cursor. Show an empty state on each list.
-6. **Covers:** allow only the image hosts actually needed, in `images.remotePatterns`.
+6. **Covers:** allow only the image hosts actually needed, in `images.remotePatterns`. Manual covers can come from any `https` host, so decide here how to show those, for example with a plain `<img>`.
 7. Mobile-first, with `dark:` variants.
 
 ## Done when

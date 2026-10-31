@@ -33,7 +33,7 @@ Key files in `inkwell/`:
 | `src/server/db.ts` | Prisma client singleton (pg driver adapter), the `Db`/`Tx` types and the `transaction()` helper |
 | `src/server/errors.ts` | Domain errors (`NotFoundError`, `ValidationError`, `UnauthorizedError`) and `domainErrorResponse()` for route handlers |
 | `src/server/books/` | Shared catalog: `isbn.ts` and `dedupe.ts` (pure), `book.model.ts`, `book.service.ts` (`findExistingBook`) |
-| `src/server/library/` | Per-user library: `status.rules.ts` (statuses, formats and read changes; pure), `library.model.ts`, `read-through.model.ts`, `library.service.ts` |
+| `src/server/library/` | Per-user library: `status.rules.ts` (statuses, formats and read changes; pure), `library.model.ts`, `read-through.model.ts`, `library.service.ts`, `library.controller.ts`, `manual-book.schema.ts` (zod) |
 | `prisma/schema.prisma`, `prisma/migrations/` | Database schema and migrations |
 | `prisma/seed.ts`, `assets/lists/` | Idempotent seed for the curated genres and tropes |
 | `prisma/load-env.ts` | Loads `.env.local`, then `.env`, for the Prisma CLI and the seed |
@@ -49,7 +49,8 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Backend refactored into model / service / controller layers under `src/server/`; Biome enforces the boundaries
 - ✅ Phase 2c: `Shelf`/`ShelfItem`, system shelves per user kept in sync with status and ownership, sparse ordering (`src/server/shelves/`)
 - ✅ Phase 3a: `UserBook.formats`, status as the list, `ReadThrough` read history; the shelves from 2c are removed
-- ⏭️ Next: **Phase 3b onward, the MVP** (`docs/plan/phase-3-mvp.md`): add books manually and by extension, move them between lists, and browse with filters. Then Phases 4–7
+- ✅ Phase 3b: manual add at `/books/new`, validated with zod (`library/manual-book.schema.ts`)
+- ⏭️ Next: **Phase 3c onward, the MVP** (`docs/plan/phase-3-mvp.md`): add books manually and by extension, move them between lists, and browse with filters. Then Phases 4–7
 
 ## Workflow rules
 
@@ -85,7 +86,10 @@ Follow this arrangement for all backend code and tests:
 ```
 inkwell/src/
 ├── app/                      # Next.js routes: pages, layouts, route handlers (controllers for HTTP)
+├── components/               # Client components, in PascalCase (AddBookForm.tsx)
+│   └── ui/                   # shadcn components: vendored, not linted, don't edit by hand
 ├── config/                   # Firebase client and Admin SDK setup
+├── lib/utils.ts              # shadcn's cn helper
 ├── proxy.ts
 ├── generated/prisma/         # Prisma client (generated, gitignored)
 └── server/
@@ -96,6 +100,7 @@ inkwell/src/
     │   ├── <module>.service.ts
     │   ├── <module>.controller.ts   # server actions, only when the module has mutations
     │   ├── <topic>.rules.ts         # pure logic
+    │   ├── <name>.schema.ts         # zod input validation (never in a "use server" file)
     │   └── (auth only) auth.guard.ts
     └── tests/                # ALL backend tests, flat
         ├── <file-under-test>.test.ts   # e.g. library.service.test.ts, status.rules.test.ts
@@ -142,7 +147,9 @@ inkwell/src/
 
 ## Code style and quality
 
-- **Match the surrounding code:** TypeScript, two-space indentation, double quotes, named exports for helpers and default exports for pages and components. Use Tailwind with `dark:` variants and mobile-first layouts.
+- **Match the surrounding code:** TypeScript, two-space indentation, double quotes, named exports for helpers and default exports for pages and components. Mobile-first layouts.
+- **UI uses shadcn (`base-nova`, on Base UI).** Use `src/components/ui/` rather than raw `<button>` and `<input>`, and theme tokens (`text-muted-foreground`, `border`) rather than colors like `zinc-500`. Add components with `npx shadcn add <name>`.
+- **Base UI checkboxes keep their own state,** so React's automatic form reset doesn't clear them. See how `AddBookForm` remounts the form.
 - **Comments are sparse and explain *why*,** not what.
 - **Keep pure logic in `*.rules.ts` (or pure helpers like `dedupe.ts`)** so it can be unit-tested without Prisma. Tests follow the "Directory layout" section above: rules are tested directly, services with their model mocked (`vi.mock("@/server/<module>/<entity>.model")`), and models with a recording fake of Prisma that asserts every query is scoped by `userId`.
 - **The user runs SonarQube/SonarLint.** Write code that passes the "Sonar way" profile:
@@ -161,7 +168,7 @@ inkwell/src/
 
 - Use npm, run from `inkwell/`. npm here blocks dependency install scripts; `prisma generate` runs from the package's own `postinstall` and `build` scripts.
 - **Don't remove the `overrides` in `package.json`.** They patch vulnerable transitive dependencies that upstream hasn't fixed yet. Re-check them with `npm audit` when upgrading.
-- `npm audit` should report 0 vulnerabilities. Never run `npm audit fix --force` without asking: it can silently downgrade packages (it once replaced ESLint 9 with 4.0.0 and broke linting).
+- `npm audit` reports 6 low or moderate findings, all through the `shadcn` package (`deepmerge`, `minimatch` via `ts-morph`). Anything else is new and needs looking at. Never run `npm audit fix --force` without asking: it can silently downgrade packages (it once replaced ESLint 9 with 4.0.0 and broke linting).
 - zod is approved for input validation (Phase 3).
 - Ask before adding significant dependencies, and pin to an exact or caret version of a release at least two weeks old.
 

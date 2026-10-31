@@ -20,6 +20,8 @@ UserBook        userId, bookId (unique together), status, source, addedAt, updat
 Why it's shaped this way:
 - The catalog fills in each book (metadata and AI) **once**, and every user reuses it.
 
+**Migration names below are historical:** everything now lives in one migration, `20261031014133_init`, after a reset described in [Phase 3](phase-3-mvp.md).
+
 ## Sub-phases
 
 | Step | Scope | Status |

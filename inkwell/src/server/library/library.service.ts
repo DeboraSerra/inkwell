@@ -1,5 +1,6 @@
 import "server-only";
-import type { BookFormat, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
+import { type BookFormat, type ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
+import { findOrCreateManualBook, type ManualBookDetails } from "@/server/books/book.service";
 import { normalizeTitle } from "@/server/books/dedupe";
 import { transaction, type Tx } from "@/server/db";
 import { NotFoundError, ValidationError } from "@/server/errors";
@@ -20,6 +21,10 @@ const MAX_PAGE_SIZE = 100;
 const MAX_BULK_MOVE = 30;
 
 const NOT_IN_LIBRARY = "Book not found in your library";
+
+// Joins the caller's transaction if there is one, or starts a new one.
+const inTransaction = <T>(tx: Tx | undefined, fn: (tx: Tx) => Promise<T>) =>
+  tx ? fn(tx) : transaction(fn);
 
 // Applies status-change effects to the read history in a fixed number of
 // queries however many books move, so a bulk move fits in one transaction.
@@ -85,8 +90,8 @@ export type AddBookInput = {
 // Adding a book already in the library only ever adds formats. Its status,
 // source and reads are never overwritten, except that gaining a first format
 // moves a Wishlist book to TBR.
-function addFormats(userId: string, bookId: string, formats: BookFormat[]) {
-  return transaction(async (tx) => {
+function addFormats(userId: string, bookId: string, formats: BookFormat[], outerTx?: Tx) {
+  return inTransaction(outerTx, async (tx) => {
     const current = await libraryModel.findUserBookByBookId(userId, bookId, tx);
     if (!current) throw new NotFoundError(NOT_IN_LIBRARY);
     const next = changeFormats(current, [...current.formats, ...formats]);
@@ -96,13 +101,13 @@ function addFormats(userId: string, bookId: string, formats: BookFormat[]) {
 }
 
 // Throws InvalidTransitionError for a status that doesn't fit the formats.
-export async function addBookToLibrary(userId: string, input: AddBookInput) {
+export async function addBookToLibrary(userId: string, input: AddBookInput, outerTx?: Tx) {
   const { bookId, formats, source, status, at } = input;
-  const existing = await libraryModel.findUserBookByBookId(userId, bookId);
-  if (existing) return { userBook: await addFormats(userId, bookId, formats), created: false };
+  const existing = await libraryModel.findUserBookByBookId(userId, bookId, outerTx);
+  if (existing) return { userBook: await addFormats(userId, bookId, formats, outerTx), created: false };
 
   const { readChange, ...state } = initialState(formats, status);
-  const created = await transaction(async (tx) => {
+  const created = await inTransaction(outerTx, async (tx) => {
     const userBook = await libraryModel.createUserBook({ userId, bookId, source, ...state }, tx);
     if (userBook) {
       const change = { userBookId: userBook.id, change: readChange };
@@ -113,7 +118,20 @@ export async function addBookToLibrary(userId: string, input: AddBookInput) {
   if (created) return { userBook: created, created: true };
 
   // Another request added the same book at the same moment.
-  return { userBook: await addFormats(userId, bookId, formats), created: false };
+  return { userBook: await addFormats(userId, bookId, formats, outerTx), created: false };
+}
+
+// Adds a typed-in book, reusing the catalog entry if the book is already known.
+export function addManualBook(userId: string, details: ManualBookDetails, formats: BookFormat[]) {
+  return transaction(async (tx) => {
+    const book = await findOrCreateManualBook(details, tx);
+    const added = await addBookToLibrary(
+      userId,
+      { bookId: book.id, formats, source: UserBookSource.MANUAL },
+      tx,
+    );
+    return { ...added, book };
+  });
 }
 
 export function getUserBook(userId: string, userBookId: string) {

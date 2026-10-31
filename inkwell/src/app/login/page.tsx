@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
 import { getCurrentUser } from "@/server/auth/auth.guard";
-import GoogleSignInButton from "./google-sign-in-button";
 
 export default async function LoginPage({
   searchParams,
@@ -15,7 +15,7 @@ export default async function LoginPage({
       <div className="w-full max-w-sm space-y-6 text-center">
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold">Inkwell</h1>
-          <p className="text-zinc-600 dark:text-zinc-400">Your reading journal.</p>
+          <p className="text-muted-foreground">Your reading journal.</p>
         </div>
         <GoogleSignInButton next={next} />
       </div>

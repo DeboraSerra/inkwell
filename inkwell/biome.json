@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
-    "includes": ["**", "!src/generated", "!.next", "!next-env.d.ts"]
+    "includes": ["**", "!src/generated", "!.next", "!src/components/ui", "!next-env.d.ts"]
   },
   "formatter": { "enabled": false },
   "assist": { "enabled": false },
@@ -12,7 +12,7 @@
   },
   "overrides": [
     {
-      "includes": ["src/app/**/*.ts", "src/app/**/*.tsx"],
+      "includes": ["src/app/**/*.ts", "src/app/**/*.tsx", "src/components/**/*.tsx"],
       "linter": {
         "rules": {
           "style": {

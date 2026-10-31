@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BookFormat, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
+import { findOrCreateManualBook } from "@/server/books/book.service";
 import { NotFoundError, ValidationError } from "@/server/errors";
 import * as libraryModel from "@/server/library/library.model";
 import * as readThroughModel from "@/server/library/read-through.model";
 import { InvalidTransitionError } from "@/server/library/status.rules";
 
+vi.mock("@/server/books/book.service");
 vi.mock("@/server/library/library.model");
 vi.mock("@/server/library/read-through.model");
 // Run "transactions" inline; the fake tx is passed through to the mocked models.
@@ -110,6 +112,37 @@ describe("addBookToLibrary", () => {
   it("rejects a list that contradicts the formats", async () => {
     await expect(service.addBookToLibrary(USER, { ...input, formats: [], status: TO_READ })).rejects.toThrow(
       InvalidTransitionError,
+    );
+  });
+});
+
+describe("addManualBook", () => {
+  const details = { title: "The Hobbit", authors: ["J.R.R. Tolkien"] };
+
+  it("creates the catalog book and library row in one transaction", async () => {
+    vi.mocked(findOrCreateManualBook).mockResolvedValue({ id: "book-1" } as never);
+    model.createUserBook.mockResolvedValue(book(WISHLIST, []));
+    const { created, book: catalogBook } = await service.addManualBook(USER, details, []);
+    expect(created).toBe(true);
+    expect(catalogBook).toEqual({ id: "book-1" });
+    expect(findOrCreateManualBook).toHaveBeenCalledWith(details, "tx");
+    expect(model.findUserBookByBookId).toHaveBeenCalledWith(USER, "book-1", "tx");
+    expect(model.createUserBook).toHaveBeenCalledWith(
+      expect.objectContaining({ bookId: "book-1", source: UserBookSource.MANUAL, status: WISHLIST }),
+      "tx",
+    );
+  });
+
+  it("adds formats when the user already has the book", async () => {
+    vi.mocked(findOrCreateManualBook).mockResolvedValue({ id: "book-1" } as never);
+    model.findUserBookByBookId.mockResolvedValue(book(TO_READ, [PHYSICAL]));
+    const { created } = await service.addManualBook(USER, details, [EBOOK]);
+    expect(created).toBe(false);
+    expect(model.updateUserBookState).toHaveBeenCalledWith(
+      USER,
+      "ub-1",
+      { status: TO_READ, formats: [PHYSICAL, EBOOK] },
+      "tx",
     );
   });
 });

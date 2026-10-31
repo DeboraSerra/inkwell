@@ -8,6 +8,8 @@ import {
   signOut as firebaseSignOut,
 } from "firebase/auth";
 import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { FieldError } from "@/components/ui/field";
 import { auth } from "@/config/firebase";
 import { signIn } from "@/server/auth/auth.controller";
 
@@ -37,19 +39,17 @@ export default function GoogleSignInButton({ next }: Readonly<{ next?: string }>
 
   return (
     <div className="space-y-3">
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="lg"
         onClick={handleClick}
         disabled={isPending}
-        className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 font-medium text-zinc-900 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+        className="w-full"
       >
         {isPending ? "Signing in…" : "Continue with Google"}
-      </button>
-      {error && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
-          {error}
-        </p>
-      )}
+      </Button>
+      <FieldError>{error}</FieldError>
     </div>
   );
 }
