@@ -1,0 +1,112 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "files": {
+    "includes": ["**", "!src/generated", "!.next", "!next-env.d.ts"]
+  },
+  "formatter": { "enabled": false },
+  "assist": { "enabled": false },
+  "css": { "parser": { "tailwindDirectives": true } },
+  "linter": {
+    "enabled": true,
+    "domains": { "next": "recommended", "react": "recommended" }
+  },
+  "overrides": [
+    {
+      "includes": ["src/app/**/*.ts", "src/app/**/*.tsx"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@/server/db": "The app layer goes through controllers and services, never models or the database.",
+                  "@/generated/prisma/client": "Import enums from @/generated/prisma/enums; the client belongs to models."
+                },
+                "patterns": [
+                  {
+                    "group": ["**/*.model"],
+                    "message": "The app layer goes through controllers and services, never models or the database."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/server/**/*.service.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "next": "Services are framework-agnostic: no Next.js, cookies, requests or controllers.",
+                  "@/generated/prisma/client": "Services use models for data access.",
+                  "@/server/db": {
+                    "importNames": ["prisma"],
+                    "message": "Services use models for data access; use `transaction` for atomic work."
+                  }
+                },
+                "patterns": [
+                  {
+                    "group": ["next/*", "**/*.controller", "**/*.guard"],
+                    "message": "Services are framework-agnostic: no Next.js, cookies, requests or controllers."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/server/**/*.rules.ts", "src/server/books/dedupe.ts", "src/server/books/isbn.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "next": "Rules are pure functions: no I/O and no other layers.",
+                  "@/server/db": "Rules are pure functions: no I/O and no other layers."
+                },
+                "patterns": [
+                  {
+                    "group": ["next/*", "**/*.model", "**/*.service", "**/*.controller", "**/*.guard"],
+                    "message": "Rules are pure functions: no I/O and no other layers."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/server/**/*.model.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": { "next": "Models only talk to the database." },
+                "patterns": [
+                  {
+                    "group": ["next/*", "**/*.service", "**/*.controller", "**/*.guard"],
+                    "message": "Models only talk to the database."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
