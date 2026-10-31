@@ -20,7 +20,7 @@
 1. [Phase 1 — Foundation and auth](phase-1-foundation-auth.md) ✅ implemented
 2. [Phase 2 — Data model redesign (built to scale)](phase-2-data-model.md)
    - [2a — Catalog](phase-2-data-model.md#phase-2a--catalog) ✅ implemented
-   - [2b — Library](phase-2-data-model.md#phase-2b--library)
+   - [2b — Library](phase-2-data-model.md#phase-2b--library) ✅ implemented
    - [2c — Shelves](phase-2-data-model.md#phase-2c--shelves)
    - [2d — Journal](phase-2-data-model.md#phase-2d--journal)
    - [2e — Goals and imports](phase-2-data-model.md#phase-2e--goals-and-imports)
@@ -30,3 +30,7 @@
 6. [Phase 6 — Journal UI](phase-6-journal-ui.md)
 7. [Phase 7 — Quality and deploy](phase-7-quality-deploy.md)
 8. [Later / nice to have](later.md)
+
+## Architecture
+
+The backend follows a model / service / controller layering under `inkwell/src/server/<module>/`. Biome enforces the boundaries. Every phase from 2c onward builds its feature as a module in that structure. The rules are in [AGENTS.md](../../AGENTS.md#backend-architecture-model--service--controller).

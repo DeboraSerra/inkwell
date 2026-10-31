@@ -56,7 +56,7 @@ Genre / Trope   (curated, seeded) many-to-many with Book (BookGenre, BookTrope)
 
 UserBook        userId, bookId (unique together)
                 ownership: EBOOK | PHYSICAL | AUDIO | NONE      // NONE + WISHLIST shelf = wishlist
-                status:    WANT_TO_READ | TO_READ | READING | FINISHED | DNF
+                status:    WISHLIST | TO_READ | READING | FINISHED | DNF
                 source:    AMAZON_IMPORT | SEARCH | ISBN | MANUAL
                 priority/position (for TBR ordering), addedAt, startedAt?, finishedAt?
 Shelf           userId, name, kind: SYSTEM | CUSTOM            // system shelves: Ebook TBR,

@@ -28,12 +28,13 @@ Key files in `inkwell/`:
 | Path | Purpose |
 |---|---|
 | `src/proxy.ts` | Optimistic auth redirect (checks only that the cookie exists). Next 16 calls this `proxy`, not `middleware`. |
-| `src/lib/auth/session.ts` | `createSession`, `getCurrentUser`, `requireUser`: the real session verification |
-| `src/lib/auth/api-tokens.ts` | Personal API tokens for the extension; `getRequestUser(request)` for route handlers |
-| `src/lib/auth/actions.ts` | `signIn` / `signOut` server actions |
+| `src/server/` | **The backend**, split into model / service / controller layers by feature module. See "Backend architecture" below. |
+| `src/server/auth/` | `auth.guard.ts` (`getCurrentUser`, `requireUser`, `getRequestUser`), `auth.controller.ts` (sign-in/out and API-token server actions), `auth.service.ts`, `user.model.ts`, `api-token.model.ts` |
 | `src/config/firebase.ts`, `src/config/firebase-admin.ts` | Firebase client SDK and Admin SDK |
-| `src/lib/prisma.ts` | Prisma client singleton (uses the pg driver adapter) |
-| `src/lib/books/` | Catalog helpers: `isbn.ts`, `dedupe.ts` (pure, unit-tested), `catalog.ts` (DB lookup) |
+| `src/server/db.ts` | Prisma client singleton (pg driver adapter), the `Db`/`Tx` types and the `transaction()` helper |
+| `src/server/errors.ts` | Domain errors (`NotFoundError`, `ValidationError`, `UnauthorizedError`) and `domainErrorResponse()` for route handlers |
+| `src/server/books/` | Shared catalog: `isbn.ts` and `dedupe.ts` (pure), `book.model.ts`, `book.service.ts` (`findExistingBook`) |
+| `src/server/library/` | Per-user library: `status.rules.ts` (pure status rules), `library.model.ts`, `library.service.ts` |
 | `prisma/schema.prisma`, `prisma/migrations/` | Database schema and migrations |
 | `prisma/seed.ts`, `assets/lists/` | Idempotent seed for the curated genres and tropes |
 | `prisma/load-env.ts` | Loads `.env.local`, then `.env`, for the Prisma CLI and the seed |
@@ -45,7 +46,9 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 0: security upgrades (Next 16.4, Prisma 7, npm `overrides`)
 - ✅ Phase 1: Firebase Google sign-in → httpOnly `__session` cookie; API tokens; `/settings`; `GET /api/me`
 - ✅ Phase 2a: shared `Book` catalog, `BookGenre`/`BookTrope`, dedupe and ISBN helpers, Vitest
-- ⏭️ Next: Phase 2b (`UserBook` library), then 2c (shelves), 2d (journal), 2e (goals and imports), then Phases 3–7
+- ✅ Phase 2b: `UserBook` library, status/ownership rules (`src/server/library/status.rules.ts`), `library.service.ts` / `library.model.ts`
+- ✅ Backend refactored into model / service / controller layers under `src/server/`; Biome enforces the boundaries
+- ⏭️ Next: Phase 2c (shelves), then 2d (journal), 2e (goals and imports), then Phases 3–7
 
 ## Workflow rules
 
@@ -55,21 +58,68 @@ See `docs/plan/README.md` for live status. At the time of writing:
 4. **Verify before you report.** From `inkwell/`, run `npx tsc --noEmit`, `npm run lint`, `npm test` and `npm run build`. If a change is visible in the app, also run it (the root `.claude/launch.json` defines an `inkwell` dev server) and check the affected routes. Report failures honestly, with the output.
 5. **Ask before doing anything destructive.** Resetting or dropping the database, deleting migrations, or deleting user data all need explicit confirmation. `prisma migrate reset` refuses to run for AI agents without consent; never fake that consent.
 
+## Backend architecture (model / service / controller)
+
+All backend code lives in `inkwell/src/server/`, grouped by **feature module** (`auth`, `books`, `library`, and later `shelves`, `journal`, `goals`, `imports`). Inside each module, files are named by layer:
+
+| Layer | Files | Responsibility | May import | Must not import |
+|---|---|---|---|---|
+| **Controller** | `<module>.controller.ts` (`"use server"` server actions), `src/app/api/**/route.ts` (HTTP handlers), `auth/auth.guard.ts` | Entry points. Authenticate (`requireUser` / `getRequestUser`), validate and parse raw input (FormData, JSON, params), call services, map `DomainError`s to form messages or HTTP statuses (`domainErrorResponse`), revalidate and redirect. No business rules and no database access. | services, guard, `next/*`, errors | models, `@/server/db` |
+| **Service** | `<module>.service.ts` | Business logic and orchestration: enforces rules, combines models, owns transactions (`transaction()` from `@/server/db`), throws `DomainError`s. Framework-agnostic: no `next/*`, cookies or `Request`. Every function that touches user data takes `userId` first. | its own and other modules' models and services, rules, errors, external SDK adapters in `src/config/` | `next/*`, controllers, guards, the `prisma` client, `@/generated/prisma/client` (types via enums or models) |
+| **Rules** (part of the service layer) | `<topic>.rules.ts`, plus pure helpers like `books/dedupe.ts` and `books/isbn.ts` | Pure functions with no I/O, for example status transitions. Unit-tested exhaustively. | enums, errors | anything with I/O |
+| **Model** | `<entity>.model.ts` | Data access only: Prisma queries that return records. Every per-user query filters by `userId`. Each function takes an optional `db: Db = prisma` last argument so services can pass a transaction. Translates Prisma-specific errors into plain results (for example `createUserBook` returns `null` on a unique-key conflict). | `@/server/db`, Prisma types and enums | services, controllers, `next/*` |
+
+Other rules:
+
+- **Pages** (Server Components) are presentation. They call `requireUser()` from the guard, then **services for reads**; every **mutation goes through a controller** (server action or route handler). Pages and client components never import models or `@/server/db`.
+- **Anything exported from a `"use server"` file is a public endpoint.** Only put server actions in `*.controller.ts`, and make each one authenticate and validate. Shared request helpers belong in the guard, not in a controller.
+- **Errors:** services throw subclasses of `DomainError` (`NotFoundError`, `ValidationError`, `UnauthorizedError`, or module-specific ones such as `InvalidTransitionError extends ValidationError`). Controllers catch `DomainError` and show its message; anything else is a bug and is rethrown.
+- **A new feature** gets a folder in `src/server/<module>/` with `<entity>.model.ts`, `<module>.service.ts`, `<module>.controller.ts` (when it has mutations), `*.rules.ts` for pure logic. Its tests go in `src/server/tests/` (see "Directory layout" below), not in the module folder.
+- **Biome enforces these boundaries** (the `noRestrictedImports` overrides in `inkwell/biome.json`). Don't disable those rules; restructure instead.
+
+## Directory layout (rule)
+
+Follow this arrangement for all backend code and tests:
+
+```
+inkwell/src/
+├── app/                      # Next.js routes: pages, layouts, route handlers (controllers for HTTP)
+├── config/                   # Firebase client and Admin SDK setup
+├── proxy.ts
+├── generated/prisma/         # Prisma client (generated, gitignored)
+└── server/
+    ├── db.ts                 # Prisma singleton, Db/Tx types, transaction()
+    ├── errors.ts             # DomainError and its subclasses
+    ├── <module>/             # One folder per feature: auth, books, library, …
+    │   ├── <entity>.model.ts
+    │   ├── <module>.service.ts
+    │   ├── <module>.controller.ts   # server actions, only when the module has mutations
+    │   ├── <topic>.rules.ts         # pure logic
+    │   └── (auth only) auth.guard.ts
+    └── tests/                # ALL backend tests, flat
+        ├── <file-under-test>.test.ts   # e.g. library.service.test.ts, status.rules.test.ts
+        └── stubs/                      # test-only module stand-ins (e.g. server-only.ts)
+```
+
+- **Every test file goes in `src/server/tests/`,** named after the file it tests (`<name>.test.ts`). Module folders contain no tests.
+- **Tests import the code under test, and `vi.mock` it, through the `@/server/<module>/<file>` alias,** never by relative path. The alias resolves to the same file the service imports, so `vi.mock("@/server/library/library.model")` replaces it for `library.service.ts` too.
+- Test-only stand-ins live in `src/server/tests/stubs/` and are wired up in `inkwell/vitest.config.ts`.
+
 ## Next.js 16 rules
 
 - The `node_modules/next/dist/docs/` docs are authoritative; your training data is out of date. Read the relevant guide before writing Next-specific code (see `inkwell/AGENTS.md`).
 - Use `proxy.ts`, never `middleware.ts`. The proxy only runs optimistic checks and never touches the database.
 - `cookies()`, `headers()`, `params` and `searchParams` are async: always `await` them.
 - Prefer Server Components, with Server Actions for mutations. Use `"use client"` only for interactivity.
-- Put `import "server-only"` in any module that touches secrets, the Admin SDK, or the database from app code. **Exception:** `src/lib/prisma.ts` must stay importable by the seed script, so don't add it there.
+- Put `import "server-only"` in any module that touches secrets, the Admin SDK, or the database from app code. **Exception:** `src/server/db.ts` must stay importable by the seed script, so don't add it there.
 
 ## Auth and data security rules
 
-- **Every page, server action and route handler verifies the user itself.** Use `requireUser()` (pages and actions) or `getRequestUser(request)` (route handlers, which accept a Bearer API token or the session cookie). Never rely on the proxy for security.
-- **Every query on per-user data filters by `userId`,** and functions in the data access layer take `userId` as their first argument. Use `updateMany`/`deleteMany` with `{ id, userId }` so one user can't touch another's rows.
+- **Every page, server action and route handler verifies the user itself.** Use `requireUser()` (pages and actions) or `getRequestUser(request)` (route handlers, which accept a Bearer API token or the session cookie), both from `src/server/auth/auth.guard.ts`. Never rely on the proxy for security.
+- **Every query on per-user data filters by `userId`,** and service and model functions take `userId` as their first argument. Use `updateMany`/`deleteMany` with `{ id, userId }` so one user can't touch another's rows.
 - **Shared catalog vs. per-user data:** `Book`, `Genre` and `Trope` are shared. Status, ownership, shelves, sessions, reviews and goals belong in per-user tables (Phase 2b onward). Never put per-user state on `Book`.
 - **Validate every input from the client or the extension** (types, lengths, ranges). Treat titles, authors and every other scraped field as untrusted.
-- **Redirect targets** must be relative paths (see `safeRedirectPath` in `src/lib/auth/actions.ts`).
+- **Redirect targets** must be relative paths (see `safeRedirectPath` in `src/server/auth/auth.controller.ts`).
 - **API tokens** are stored only as SHA-256 hashes and shown once. Never log or return them afterwards.
 - **Regexes that run on untrusted text must not backtrack badly** (no `[^)]*\)`-style patterns that can rescan). SonarQube flags these.
 
@@ -83,7 +133,7 @@ See `docs/plan/README.md` for live status. At the time of writing:
 ## Database and Prisma 7 rules
 
 - The connection URL belongs in `prisma.config.ts`, not in `schema.prisma`. At runtime, `DATABASE_URL` (pooled on Neon) is used; migrations use `DIRECT_URL` when it's set.
-- `PrismaClient` requires the driver adapter. Always import the singleton from `@/lib/prisma`; never call `new PrismaClient()` anywhere else.
+- `PrismaClient` requires the driver adapter. The singleton lives in `@/server/db` and only models may use it; never call `new PrismaClient()` anywhere else.
 - **Migrations are additive from now on.** Change `schema.prisma`, then create a new migration (`npx prisma migrate dev --name <change>`). If there's no interactive terminal, write `migration.sql` with `prisma migrate diff`. Never edit a migration that has already been applied.
 - After a schema change, run `npx prisma generate`. The generated client lives in `src/generated/prisma` and is gitignored.
 - The seed must stay idempotent (upsert by unique name). To run it: `npx prisma db seed`.
@@ -93,7 +143,7 @@ See `docs/plan/README.md` for live status. At the time of writing:
 
 - **Match the surrounding code:** TypeScript, two-space indentation, double quotes, named exports for helpers and default exports for pages and components. Use Tailwind with `dark:` variants and mobile-first layouts.
 - **Comments are sparse and explain *why*,** not what.
-- **Keep pure logic separate from database access** (as with `dedupe.ts` vs `catalog.ts`) so it can be unit-tested without Prisma. Tests live next to the code as `*.test.ts`.
+- **Keep pure logic in `*.rules.ts` (or pure helpers like `dedupe.ts`)** so it can be unit-tested without Prisma. Tests follow the "Directory layout" section above: rules are tested directly, services with their model mocked (`vi.mock("@/server/<module>/<entity>.model")`), and models with a recording fake of Prisma that asserts every query is scoped by `userId`.
 - **The user runs SonarQube/SonarLint.** Write code that passes the "Sonar way" profile:
   - Mark component props `Readonly<…>`.
   - No non-null assertions (`!`).
@@ -103,13 +153,14 @@ See `docs/plan/README.md` for live status. At the time of writing:
   - Use top-level `await` rather than `.then` chains in scripts.
   - Use a single boolean `return` rather than `if (x) return true; return false`.
   - Avoid super-linear regexes.
+- **Biome is the linter** (`npm run lint` runs `biome lint`, config in `inkwell/biome.json`). There is no ESLint in this project. Biome's formatter is turned off for now, so don't reformat files in bulk.
 - **`inkwell/package.json` has `"type": "module"`,** so scripts are ESM.
 
 ## Dependencies
 
 - Use npm, run from `inkwell/`. npm here blocks dependency install scripts; `prisma generate` runs from the package's own `postinstall` and `build` scripts.
 - **Don't remove the `overrides` in `package.json`.** They patch vulnerable transitive dependencies that upstream hasn't fixed yet. Re-check them with `npm audit` when upgrading.
-- The only known remaining `npm audit` finding is `braces` (dev-only, via `eslint-config-next`), which has no fixed version.
+- `npm audit` should report 0 vulnerabilities. Never run `npm audit fix --force` without asking: it can silently downgrade packages (it once replaced ESLint 9 with 4.0.0 and broke linting).
 - Ask before adding significant dependencies, and pin to an exact or caret version of a release at least two weeks old.
 
 ## Domain rules (keep these consistent)
