@@ -2,6 +2,22 @@
 
 export const cleanIsbn = (isbn: string) => isbn.replaceAll(/[\s-]/g, "").toUpperCase();
 
+// Groups the characters for easier reading while typing. The official hyphen
+// positions vary by publisher and need range tables, so these are approximate
+// and are never stored.
+export function formatIsbn(isbn: string) {
+  const chars = cleanIsbn(isbn).replaceAll(/[^\dX]/g, "").slice(0, 13);
+  const groups = /^97([89]|$)/.test(chars) || chars.length > 10 ? [3, 1, 4, 4, 1] : [1, 4, 4, 1];
+  const parts: string[] = [];
+  let start = 0;
+  for (const size of groups) {
+    const part = chars.slice(start, start + size);
+    if (part) parts.push(part);
+    start += size;
+  }
+  return parts.join("-");
+}
+
 export function isValidIsbn10(isbn: string) {
   const digits = cleanIsbn(isbn);
   if (!/^\d{9}[\dX]$/.test(digits)) return false;

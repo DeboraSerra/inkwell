@@ -26,9 +26,15 @@ export async function addManualBook(
   const parsed = parseManualBook(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message, values };
 
-  const { formats, ...details } = parsed.data;
+  const { formats, status, dates, ...details } = parsed.data;
   try {
-    const { book, userBook, created } = await libraryService.addManualBook(user.id, details, formats);
+    const { book, userBook, created } = await libraryService.addManualBook(
+      user.id,
+      details,
+      formats,
+      status,
+      dates,
+    );
     revalidatePath("/");
     const list = LIST_NAMES[userBook.status];
     return {

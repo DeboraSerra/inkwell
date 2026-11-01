@@ -188,17 +188,27 @@ model UserBook {
   @@index([userId, status])
 }
 
+// How much of a read date is known. The date itself holds the first day of that
+// month or year, in UTC.
+enum DatePrecision {
+  DAY
+  MONTH
+  YEAR
+}
+
 // One read of a book. A row with no outcome is the current read. Dates are
 // optional because a bulk move doesn't know when a book was read.
 model ReadThrough {
-  id         String       @id @default(uuid())
-  userBook   UserBook     @relation(fields: [userBookId], references: [id], onDelete: Cascade)
-  userBookId String
-  startedAt  DateTime?
-  endedAt    DateTime?
-  outcome    ReadOutcome?
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  id                 String        @id @default(uuid())
+  userBook           UserBook      @relation(fields: [userBookId], references: [id], onDelete: Cascade)
+  userBookId         String
+  startedAt          DateTime?
+  startedAtPrecision DatePrecision @default(DAY)
+  endedAt            DateTime?
+  endedAtPrecision   DatePrecision @default(DAY)
+  outcome            ReadOutcome?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   @@index([userBookId])
 }

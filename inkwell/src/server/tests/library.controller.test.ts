@@ -34,7 +34,24 @@ describe("addManualBook", () => {
       "user-1",
       { title: "The Hobbit", authors: ["J.R.R. Tolkien"] },
       ["PHYSICAL"],
+      undefined,
+      { started: undefined, ended: undefined },
     );
+  });
+
+  it("passes the chosen status and names its list", async () => {
+    service.addManualBook.mockResolvedValue(added(ReadingStatus.FINISHED, true));
+    const state = await addManualBook({}, form({ title: "x", authors: "y", status: "FINISHED" }));
+    expect(state.message).toContain("to Finished");
+    expect(service.addManualBook).toHaveBeenCalledWith("user-1", { title: "x", authors: ["y"] }, [], "FINISHED", {
+      started: undefined,
+      ended: undefined,
+    });
+  });
+
+  it("keeps the chosen status on a rejected form", async () => {
+    const state = await addManualBook({}, form({ ...valid, status: "DNF", isbn: "nope" }));
+    expect(state.values?.status).toBe("DNF");
   });
 
   it("names the Wishlist when no format is ticked", async () => {

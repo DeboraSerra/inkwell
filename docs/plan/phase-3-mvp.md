@@ -85,6 +85,15 @@ Phase 2c built shelves to hold the lists, and one `ownership` value per book. St
 - **Verified:** tests; the services on the local database with throwaway rows; the form's look on desktop and mobile; and that submitting without a real session goes to `/login` and writes nothing.
 - **Form behaviour:** checked in the browser with real clicks through a temporary action: a rejected form keeps text and ticks, and a success clears them.
 - **Not verified:** a real submit while signed in through Google.
+- **Added after the outcome above, status field:** the form can add a book as Currently reading, Already read or Did not finish. The default, Not started, keeps the Wishlist/TBR rule. It's a radio group (`ui/radio-group.tsx`) because a book has one status.
+  - The dates are optional, so a read can have none, and a book read years ago isn't dated today. Phase 6 goals will need to account for finished books with no end date.
+  - Adding a book already in the library still ignores the chosen status and only adds formats.
+  - Verified with real submits on the local database through a temporary page and action, since removed: all statuses, a rejected form, and a re-add. Google sign-in still not exercised.
+- **Added after that, read dates:** Already read asks for optional start and finish dates, and Currently reading for an optional start date. Each takes a day, month and year, of which the year alone or the month and year are enough. Did not finish has no dates.
+  - **Schema:** migration `add_read_date_precision` adds the `DatePrecision` enum (`DAY | MONTH | YEAR`) and `ReadThrough.startedAtPrecision` and `endedAtPrecision`, defaulting to `DAY`. A partial date is stored as the first day of its month or year, in UTC.
+  - **Rules:** `library/partial-date.rules.ts`. Future dates are rejected, with one day's margin for time zones. A start after the finish is rejected only when the two periods can't overlap, so March 2024 to "2024" is allowed.
+  - Dates are ignored when the book is already in the library, like the status.
+  - Verified with real submits on the local database through a temporary page and action, since removed.
 
 ## 3c — Add books through the extension
 

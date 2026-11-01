@@ -1,10 +1,11 @@
 // Validates the add-book form. Kept out of the controller because everything
 // exported from a "use server" file becomes a public endpoint.
 import { z } from "zod";
-import { BookFormat } from "@/generated/prisma/enums";
+import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { toIsbn13 } from "@/server/books/isbn";
+import { isAfter, parsePartialDate, type ReadDates } from "./partial-date.rules";
 
-const MAX_AUTHORS = 20;
+const MAX_AUTHORS = 25;
 
 const isHttpsUrl = (value: string) => {
   try {
@@ -36,6 +37,40 @@ const manualBookSchema = z.object({
   ),
   isbn: optional(z.string().trim().refine((value) => toIsbn13(value) !== null, "That ISBN isn't valid.")),
   formats: z.array(z.enum(BookFormat, "Choose a valid format.")),
+  // Not started is left out: formats decide between Wishlist and TBR.
+  status: optional(
+    z.enum([ReadingStatus.READING, ReadingStatus.FINISHED, ReadingStatus.DNF], "Choose a valid status."),
+  ),
+  startedDay: z.string().optional(),
+  startedMonth: z.string().optional(),
+  startedYear: z.string().optional(),
+  endedDay: z.string().optional(),
+  endedMonth: z.string().optional(),
+  endedYear: z.string().optional(),
+}).transform((data, ctx) => {
+  const { startedDay, startedMonth, startedYear, endedDay, endedMonth, endedYear, ...book } = data;
+  const fail = (message: string) => {
+    ctx.addIssue({ code: "custom", message });
+    return z.NEVER;
+  };
+
+  // Only these statuses have dates, so fields left over from another choice are ignored.
+  const hasStart = book.status === ReadingStatus.READING || book.status === ReadingStatus.FINISHED;
+  const hasEnd = book.status === ReadingStatus.FINISHED;
+  const started = hasStart
+    ? parsePartialDate("Start date", { day: startedDay, month: startedMonth, year: startedYear })
+    : {};
+  if (started.error) return fail(started.error);
+  const ended = hasEnd
+    ? parsePartialDate("Finish date", { day: endedDay, month: endedMonth, year: endedYear })
+    : {};
+  if (ended.error) return fail(ended.error);
+  if (started.value && ended.value && isAfter(started.value, ended.value)) {
+    return fail("The start date can't be after the finish date.");
+  }
+
+  const dates: ReadDates = { started: started.value, ended: ended.value };
+  return { ...book, dates };
 });
 
 export type ManualBookValues = {
@@ -46,6 +81,13 @@ export type ManualBookValues = {
   pageCount?: string;
   isbn?: string;
   formats?: string[];
+  status?: string;
+  startedDay?: string;
+  startedMonth?: string;
+  startedYear?: string;
+  endedDay?: string;
+  endedMonth?: string;
+  endedYear?: string;
 };
 
 const text = (formData: FormData, name: string) => {
@@ -62,6 +104,13 @@ export const manualBookValues = (formData: FormData): ManualBookValues => ({
   pageCount: text(formData, "pageCount"),
   isbn: text(formData, "isbn"),
   formats: formData.getAll("formats").filter((value) => typeof value === "string"),
+  status: text(formData, "status"),
+  startedDay: text(formData, "startedDay"),
+  startedMonth: text(formData, "startedMonth"),
+  startedYear: text(formData, "startedYear"),
+  endedDay: text(formData, "endedDay"),
+  endedMonth: text(formData, "endedMonth"),
+  endedYear: text(formData, "endedYear"),
 });
 
 export function parseManualBook(formData: FormData) {

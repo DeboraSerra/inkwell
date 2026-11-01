@@ -32,7 +32,7 @@ const book = (status: ReadingStatus, formats: BookFormat[] = [PHYSICAL], id = "u
   updatedAt: new Date(),
 });
 const read = (id: string, outcome: "DNF" | null, userBookId = "ub-1") =>
-  ({ id, userBookId, outcome, startedAt: null, endedAt: null, createdAt: new Date(), updatedAt: new Date() });
+  ({ id, userBookId, outcome, startedAt: null, startedAtPrecision: "DAY" as const, endedAt: null, endedAtPrecision: "DAY" as const, createdAt: new Date(), updatedAt: new Date() });
 const input = { bookId: "book-1", formats: [EBOOK], source: UserBookSource.AMAZON_IMPORT };
 
 beforeEach(() => {
@@ -131,6 +131,48 @@ describe("addManualBook", () => {
       expect.objectContaining({ bookId: "book-1", source: UserBookSource.MANUAL, status: WISHLIST }),
       "tx",
     );
+  });
+
+  it.each([
+    [READING, { userBookId: "ub-1", startedAt: null }],
+    [FINISHED, { userBookId: "ub-1", endedAt: null, outcome: "FINISHED" }],
+    [ReadingStatus.DNF, { userBookId: "ub-1", endedAt: null, outcome: "DNF" }],
+  ])("adds a book as %s with a read that has no invented date", async (status, read) => {
+    vi.mocked(findOrCreateManualBook).mockResolvedValue({ id: "book-1" } as never);
+    model.createUserBook.mockResolvedValue(book(status, []));
+    await service.addManualBook(USER, details, [], status);
+    expect(model.createUserBook).toHaveBeenCalledWith(expect.objectContaining({ status, formats: [] }), "tx");
+    expect(reads.createReads).toHaveBeenCalledWith([read], "tx");
+  });
+
+  it("saves the given dates and how much of them is known", async () => {
+    vi.mocked(findOrCreateManualBook).mockResolvedValue({ id: "book-1" } as never);
+    model.createUserBook.mockResolvedValue(book(FINISHED, []));
+    await service.addManualBook(USER, details, [], FINISHED, {
+      started: { date: AT, precision: "YEAR" },
+      ended: { date: AT, precision: "MONTH" },
+    });
+    expect(reads.createReads).toHaveBeenCalledWith(
+      [
+        {
+          userBookId: "ub-1",
+          outcome: "FINISHED",
+          startedAt: AT,
+          startedAtPrecision: "YEAR",
+          endedAt: AT,
+          endedAtPrecision: "MONTH",
+        },
+      ],
+      "tx",
+    );
+  });
+
+  it("keeps the status of a book the user already has", async () => {
+    vi.mocked(findOrCreateManualBook).mockResolvedValue({ id: "book-1" } as never);
+    model.findUserBookByBookId.mockResolvedValue(book(TO_READ, [PHYSICAL]));
+    await service.addManualBook(USER, details, [PHYSICAL], FINISHED);
+    expect(model.updateUserBookState).not.toHaveBeenCalled();
+    expect(reads.createReads).not.toHaveBeenCalled();
   });
 
   it("adds formats when the user already has the book", async () => {

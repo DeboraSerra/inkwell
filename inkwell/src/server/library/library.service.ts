@@ -13,6 +13,7 @@ import {
   type ReadChange,
   readChangeFor,
 } from "./status.rules";
+import { type ReadDates, toReadFields } from "./partial-date.rules";
 
 // Every function takes the signed-in user's id first.
 
@@ -34,6 +35,7 @@ async function applyReadChanges(
   changes: { userBookId: string; change: ReadChange }[],
   at: Date | null,
   tx: Tx,
+  dates: ReadDates = {},
 ) {
   const idsFor = (...kinds: ReadChange[]) =>
     changes.filter(({ change }) => kinds.includes(change)).map(({ userBookId }) => userBookId);
@@ -68,10 +70,11 @@ async function applyReadChanges(
   const discard = idsFor("discardOpen");
   if (discard.length) await readModel.deleteOpenReads(userId, discard, tx);
 
+  const known = toReadFields(dates);
   const newReads = [
-    ...[...idsFor("open"), ...reopenMissing].map((userBookId) => ({ userBookId, startedAt: at })),
-    ...idsFor("addFinished").map((userBookId) => ({ userBookId, endedAt: at, outcome: "FINISHED" as const })),
-    ...idsFor("addDnf").map((userBookId) => ({ userBookId, endedAt: at, outcome: "DNF" as const })),
+    ...[...idsFor("open"), ...reopenMissing].map((userBookId) => ({ userBookId, startedAt: at, ...known })),
+    ...idsFor("addFinished").map((userBookId) => ({ userBookId, endedAt: at, outcome: "FINISHED" as const, ...known })),
+    ...idsFor("addDnf").map((userBookId) => ({ userBookId, endedAt: at, outcome: "DNF" as const, ...known })),
     ...closedWithoutOpenRead,
   ];
   if (newReads.length) await readModel.createReads(newReads, tx);
@@ -83,8 +86,11 @@ export type AddBookInput = {
   formats: BookFormat[];
   source: UserBookSource;
   status?: ReadingStatus;
-  // When the status was reached, for books read or started in the past.
-  at?: Date;
+  // When the status was reached, for books read or started in the past. Null
+  // when that isn't known; left out, it means now.
+  at?: Date | null;
+  // Dates the user gave for the first read, which win over `at`.
+  dates?: ReadDates;
 };
 
 // Adding a book already in the library only ever adds formats. Its status,
@@ -102,7 +108,7 @@ function addFormats(userId: string, bookId: string, formats: BookFormat[], outer
 
 // Throws InvalidTransitionError for a status that doesn't fit the formats.
 export async function addBookToLibrary(userId: string, input: AddBookInput, outerTx?: Tx) {
-  const { bookId, formats, source, status, at } = input;
+  const { bookId, formats, source, status, at, dates } = input;
   const existing = await libraryModel.findUserBookByBookId(userId, bookId, outerTx);
   if (existing) return { userBook: await addFormats(userId, bookId, formats, outerTx), created: false };
 
@@ -111,7 +117,7 @@ export async function addBookToLibrary(userId: string, input: AddBookInput, oute
     const userBook = await libraryModel.createUserBook({ userId, bookId, source, ...state }, tx);
     if (userBook) {
       const change = { userBookId: userBook.id, change: readChange };
-      await applyReadChanges(userId, [change], at ?? new Date(), tx);
+      await applyReadChanges(userId, [change], at === undefined ? new Date() : at, tx, dates);
     }
     return userBook;
   });
@@ -122,12 +128,19 @@ export async function addBookToLibrary(userId: string, input: AddBookInput, oute
 }
 
 // Adds a typed-in book, reusing the catalog entry if the book is already known.
-export function addManualBook(userId: string, details: ManualBookDetails, formats: BookFormat[]) {
+// Dates are only the ones the user gave, so a read can have none.
+export function addManualBook(
+  userId: string,
+  details: ManualBookDetails,
+  formats: BookFormat[],
+  status?: ReadingStatus,
+  dates?: ReadDates,
+) {
   return transaction(async (tx) => {
     const book = await findOrCreateManualBook(details, tx);
     const added = await addBookToLibrary(
       userId,
-      { bookId: book.id, formats, source: UserBookSource.MANUAL },
+      { bookId: book.id, formats, source: UserBookSource.MANUAL, status, at: null, dates },
       tx,
     );
     return { ...added, book };

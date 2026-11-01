@@ -1,5 +1,5 @@
 import "server-only";
-import type { ReadOutcome } from "@/generated/prisma/enums";
+import type { DatePrecision, ReadOutcome } from "@/generated/prisma/enums";
 import { prisma, type Db } from "@/server/db";
 
 // ReadThrough has no userId of its own, so reads are scoped through their book.
@@ -7,7 +7,9 @@ import { prisma, type Db } from "@/server/db";
 export type NewRead = {
   userBookId: string;
   startedAt?: Date | null;
+  startedAtPrecision?: DatePrecision;
   endedAt?: Date | null;
+  endedAtPrecision?: DatePrecision;
   outcome?: ReadOutcome | null;
 };
 
@@ -46,7 +48,7 @@ export function closeReads(
 export function reopenReads(userId: string, readIds: string[], db: Db = prisma) {
   return db.readThrough.updateMany({
     where: { id: { in: readIds }, userBook: { userId } },
-    data: { outcome: null, endedAt: null },
+    data: { outcome: null, endedAt: null, endedAtPrecision: "DAY" },
   });
 }
 

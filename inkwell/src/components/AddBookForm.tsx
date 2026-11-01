@@ -4,18 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
-  FieldDescription,
   FieldGroup,
   FieldLabel,
   FieldLegend,
   FieldSet,
 } from "@/components/ui/field";
 import { BookFormat } from "@/generated/prisma/enums";
+import { formatIsbn } from "@/server/books/isbn";
 import {
   type AddManualBookState,
   addManualBook,
 } from "@/server/library/library.controller";
-import { Loader } from "lucide-react";
+import { Info, Loader } from "lucide-react";
 import {
   type ChangeEvent,
   type SubmitEvent,
@@ -23,8 +23,10 @@ import {
   useEffect,
   useState,
 } from "react";
+import { StatusField } from "./StatusField";
 import { TextField } from "./TextField";
 import { toast } from "./ui/toast";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 const FORMATS = [
   { value: BookFormat.EBOOK, label: "Ebook" },
@@ -38,6 +40,26 @@ const REQUIRED_FIELDS = [
 ];
 
 type FormState = AddManualBookState & { submission: number };
+
+// Rewriting the value sends the caret to the end, so put it back after the same
+// character, or editing the middle of the ISBN would jump.
+const applyIsbnFormat = (input: HTMLInputElement) => {
+  const caret = input.selectionStart ?? input.value.length;
+  const charsBeforeCaret = formatIsbn(input.value.slice(0, caret)).replaceAll(
+    "-",
+    "",
+  ).length;
+  const formatted = formatIsbn(input.value);
+
+  let position = 0;
+  let seen = 0;
+  while (seen < charsBeforeCaret && position < formatted.length) {
+    if (formatted[position] !== "-") seen++;
+    position++;
+  }
+  input.value = formatted;
+  input.setSelectionRange(position, position);
+};
 
 export default function AddBookForm() {
   // Remounting after each submit applies the defaults: empty after a success,
@@ -76,6 +98,10 @@ export default function AddBookForm() {
   const handleChange = (event: ChangeEvent<HTMLFormElement>) => {
     const name = event.target.getAttribute("name");
     setMissing((current) => current.filter((field) => field !== name));
+    // The server strips the hyphens again before saving (cleanIsbn).
+    if (name === "isbn" && event.target instanceof HTMLInputElement) {
+      applyIsbnFormat(event.target);
+    }
   };
 
   useEffect(() => {
@@ -103,6 +129,30 @@ export default function AddBookForm() {
           defaultValue={values?.title}
         />
         <TextField
+          name='subtitle'
+          label='Subtitle'
+          defaultValue={values?.subtitle}
+          info={
+            <div className='flex flex-col justify-start'>
+              <p>
+                A subtitle is the secondary line of a book’s title, usually the
+                part that follows a colon on the cover. For example:
+              </p>
+              <p>
+                <strong>Sapiens: A Brief History of Humankind</strong>
+              </p>
+              <ul className='list-disc list-inside'>
+                <li>
+                  <span>Title: Sapiens;</span>
+                </li>
+                <li>
+                  <span>Subtitle: A Brief History of Humankind</span>
+                </li>
+              </ul>
+            </div>
+          }
+        />
+        <TextField
           name='authors'
           label='Authors'
           required
@@ -111,50 +161,45 @@ export default function AddBookForm() {
           defaultValue={values?.authors}
         />
 
-        <FieldSet>
-          <FieldLegend variant='label'>Formats you own</FieldLegend>
-          <div className='flex flex-wrap gap-x-5 gap-y-2'>
-            {FORMATS.map(({ value, label }) => (
-              <Field key={value} orientation='horizontal' className='w-auto'>
-                <Checkbox
-                  id={`format-${value}`}
-                  name='formats'
-                  value={value}
-                  defaultChecked={values?.formats?.includes(value)}
-                />
-                <FieldLabel htmlFor={`format-${value}`} className='font-normal'>
-                  {label}
-                </FieldLabel>
-              </Field>
-            ))}
-          </div>
-          <FieldDescription>
-            Leave these empty to add the book to your Wishlist.
-          </FieldDescription>
-        </FieldSet>
+        <div className="grid grid-cols-2 gap-5">
+          <FieldSet className="flex flex-col">
+            <FieldLegend variant='label' className="flex gap-1 items-center">
+              <span>Formats you own</span>
+              <Tooltip>
+                <TooltipTrigger aria-label={`About formats`}>
+                  <Info size={16} />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    Leave these empty if you don’t own the book.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </FieldLegend>
+            <div className='flex flex-col gap-x-5 gap-y-2'>
+              {FORMATS.map(({ value, label }) => (
+                <Field key={value} orientation='horizontal' className='w-auto'>
+                  <Checkbox
+                    id={`format-${value}`}
+                    name='formats'
+                    value={value}
+                    defaultChecked={values?.formats?.includes(value)}
+                  />
+                  <FieldLabel
+                    htmlFor={`format-${value}`}
+                    className='font-normal'
+                  >
+                    {label}
+                  </FieldLabel>
+                </Field>
+              ))}
+            </div>
+          </FieldSet>
 
-        <TextField
-          name='subtitle'
-          label='Subtitle'
-          defaultValue={values?.subtitle}
-          info={
-            <p className='flex flex-col justify-start'>
-              <span>
-                A subtitle is the secondary line of a book’s title, usually the
-                part that follows a colon on the cover. For example:
-              </span>
-              <strong>Sapiens: A Brief History of Humankind</strong>
-              <ul className="list-disc list-inside">
-                <li>
-                  <span>Title: Sapiens;</span>
-                </li>
-                <li>
-                  <span>Subtitle: A Brief History of Humankind</span>
-                </li>
-              </ul>
-            </p>
-          }
-        />
+          <StatusField values={values} />
+        </div>
+
+        
         <TextField name='isbn' label='ISBN' defaultValue={values?.isbn} />
         <TextField
           name='pageCount'
@@ -173,16 +218,6 @@ export default function AddBookForm() {
             {isPending ? <Loader className='spin-in' /> : "Add book"}
           </Button>
         </Field>
-
-        {/* <FieldError>{state.error}</FieldError>
-        {state.message && (
-          <p
-            role='status'
-            className='text-sm text-green-700 dark:text-green-400'
-          >
-            {state.message}
-          </p>
-        )} */}
       </FieldGroup>
     </form>
   );

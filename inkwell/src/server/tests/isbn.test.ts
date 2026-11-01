@@ -1,10 +1,43 @@
 import { describe, expect, it } from "vitest";
-import { cleanIsbn, isbn10To13, isValidIsbn10, isValidIsbn13, toIsbn13 } from "@/server/books/isbn";
+import { cleanIsbn, formatIsbn, isbn10To13, isValidIsbn10, isValidIsbn13, toIsbn13 } from "@/server/books/isbn";
 
 describe("cleanIsbn", () => {
   it("removes hyphens and spaces and uppercases X", () => {
     expect(cleanIsbn("0-8044-2957-x")).toBe("080442957X");
     expect(cleanIsbn("978 0 261 10221 7")).toBe("9780261102217");
+  });
+});
+
+describe("formatIsbn", () => {
+  it.each([
+    ["", ""],
+    ["9", "9"],
+    ["97", "97"],
+    ["978", "978"],
+    ["9780", "978-0"],
+    ["97802", "978-0-2"],
+    ["9780261102217", "978-0-2611-0221-7"],
+    ["979-1032305690", "979-1-0323-0569-0"],
+    ["0", "0"],
+    ["02", "0-2"],
+    ["0261102214", "0-2611-0221-4"],
+    ["080442957x", "0-8044-2957-X"],
+    ["971", "9-71"],
+  ])("formats %s as %s", (input, expected) => {
+    expect(formatIsbn(input)).toBe(expected);
+  });
+
+  it("switches to the ISBN-13 grouping past ten characters", () => {
+    expect(formatIsbn("12345678901")).toBe("123-4-5678-901");
+  });
+
+  it("drops other characters and anything past thirteen", () => {
+    expect(formatIsbn("abc 978-0!261")).toBe("978-0-261");
+    expect(formatIsbn("97802611022179999")).toBe("978-0-2611-0221-7");
+  });
+
+  it("stays a valid ISBN once cleaned", () => {
+    expect(toIsbn13(formatIsbn("9780261102217"))).toBe("9780261102217");
   });
 });
 
