@@ -8,6 +8,7 @@ import {
   notStartedStatusFor,
   type ReadChange,
   readChangeFor,
+  startsNewRead,
 } from "@/server/library/status.rules";
 
 const { WISHLIST, TO_READ, READING, FINISHED, DNF } = ReadingStatus;
@@ -95,5 +96,20 @@ describe("initialState", () => {
   it("rejects a list that contradicts the formats", () => {
     expect(() => initialState([], TO_READ)).toThrow(InvalidTransitionError);
     expect(() => initialState([EBOOK], WISHLIST)).toThrow(InvalidTransitionError);
+  });
+});
+
+describe("startsNewRead", () => {
+  const at = (status: ReadingStatus) => ({ status, formats: [] });
+
+  it("is true for a reread and a first read", () => {
+    expect(startsNewRead(at(ReadingStatus.FINISHED), ReadingStatus.READING)).toBe(true);
+    expect(startsNewRead(at(ReadingStatus.WISHLIST), ReadingStatus.READING)).toBe(true);
+  });
+
+  it("is false when the same read carries on", () => {
+    expect(startsNewRead(at(ReadingStatus.READING), ReadingStatus.FINISHED)).toBe(false);
+    expect(startsNewRead(at(ReadingStatus.DNF), ReadingStatus.READING)).toBe(false);
+    expect(startsNewRead(at(ReadingStatus.FINISHED), ReadingStatus.FINISHED)).toBe(false);
   });
 });

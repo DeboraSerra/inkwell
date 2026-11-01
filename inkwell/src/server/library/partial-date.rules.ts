@@ -49,6 +49,27 @@ const lastDayOf = ({ date, precision }: PartialDate) => {
 // Only true when the two can't overlap: March 2024 isn't after "2024".
 export const isAfter = (a: PartialDate, b: PartialDate) => a.date.getTime() > lastDayOf(b);
 
+// The form's text for a stored date, showing only the parts that are known.
+export function toDateValues(name: "started" | "ended", date: Date | null, precision: DatePrecision) {
+  if (!date) return {};
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return {
+    [`${name}Year`]: String(date.getUTCFullYear()),
+    ...(precision !== DatePrecision.YEAR && { [`${name}Month`]: pad(date.getUTCMonth() + 1) }),
+    ...(precision === DatePrecision.DAY && { [`${name}Day`]: pad(date.getUTCDate()) }),
+  };
+}
+
+// For saving an edit, where a date left blank clears the stored one.
+export const toEditedReadFields = ({ started, ended }: ReadDates, withEnd: boolean) => ({
+  startedAt: started?.date ?? null,
+  startedAtPrecision: started?.precision ?? DatePrecision.DAY,
+  ...(withEnd && {
+    endedAt: ended?.date ?? null,
+    endedAtPrecision: ended?.precision ?? DatePrecision.DAY,
+  }),
+});
+
 export const toReadFields = ({ started, ended }: ReadDates) => ({
   ...(started && { startedAt: started.date, startedAtPrecision: started.precision }),
   ...(ended && { endedAt: ended.date, endedAtPrecision: ended.precision }),

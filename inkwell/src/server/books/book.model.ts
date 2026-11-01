@@ -21,7 +21,12 @@ export async function createBook(data: Prisma.BookCreateManyInput, db: Db = pris
   return created.at(0) ?? null;
 }
 
-// Oldest first, so repeated lookups always resolve to the same book.
+// Oldest first, so repeated lookups always resolve to the same book. Private
+// books are left out, so they can never be matched into someone's library.
 export function findBookByDedupeKey(dedupeKey: string, db: Db = prisma) {
-  return db.book.findFirst({ where: { dedupeKey }, orderBy: { createdAt: "asc" } });
+  return db.book.findFirst({ where: { dedupeKey, ownerId: null }, orderBy: { createdAt: "asc" } });
+}
+
+export function findOwnedBookByDedupeKey(ownerId: string, dedupeKey: string, db: Db = prisma) {
+  return db.book.findFirst({ where: { dedupeKey, ownerId }, orderBy: { createdAt: "asc" } });
 }

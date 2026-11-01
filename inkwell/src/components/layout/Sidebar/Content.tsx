@@ -6,46 +6,15 @@ import {
   SidebarMenu,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import {
-  Book,
-  Bookmark,
-  BookOpen,
-  BookPlus,
-  ShelvingUnit,
-  Tombstone,
-} from "lucide-react";
+import { BookPlus, ShelvingUnit } from "lucide-react";
 import Link from "next/link";
 
 const bookShelfList = [
   {
-    id: "tbr",
-    text: "TBR",
-    link: "/books/tbr",
+    id: "shelves",
+    text: "Shelves",
+    link: "/books/shelves",
     Icon: ShelvingUnit,
-  },
-  {
-    id: "wishlist",
-    text: "Wishlist",
-    link: "/books/wishlist",
-    Icon: Bookmark,
-  },
-  {
-    id: "reading",
-    text: "Reading",
-    link: "/books/reading",
-    Icon: BookOpen,
-  },
-  {
-    id: "finished",
-    text: "Finished",
-    link: "/books/finished",
-    Icon: Book,
-  },
-  {
-    id: "dnf",
-    text: "DNF",
-    link: "/books/dnf",
-    Icon: Tombstone,
   },
   {
     id: "new",

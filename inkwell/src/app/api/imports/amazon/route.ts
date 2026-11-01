@@ -1,7 +1,7 @@
 import { getRequestUser } from "@/server/auth/auth.guard";
 import { domainErrorResponse } from "@/server/errors";
 import { parseAmazonImport } from "@/server/imports/amazon-import.schema";
-import { importAmazonBooks } from "@/server/imports/imports.service";
+import { importAmazonBooks, importAmazonDocs } from "@/server/imports/imports.service";
 
 const MAX_BODY_BYTES = 1_000_000;
 
@@ -26,7 +26,10 @@ export async function POST(request: Request) {
   if (!parsed) return Response.json({ error: "The request doesn't contain a valid book list" }, { status: 400 });
 
   try {
-    const result = await importAmazonBooks(user.id, parsed.books);
+    const result =
+      parsed.kind === "docs"
+        ? await importAmazonDocs(user.id, parsed.books)
+        : await importAmazonBooks(user.id, parsed.books);
     return Response.json({ ...result, skipped: parsed.skipped });
   } catch (error) {
     return domainErrorResponse(error);

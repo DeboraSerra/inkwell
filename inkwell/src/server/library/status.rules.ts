@@ -57,6 +57,11 @@ export function canTransition(state: ReadingState, to: ReadingStatus) {
   return state.status === to || TRANSITIONS[state.status][to] !== undefined;
 }
 
+// Whether this change begins a read rather than continuing the latest one, so
+// that read's dates don't apply to it.
+export const startsNewRead = (state: ReadingState, to: ReadingStatus) =>
+  canTransition(state, to) && TRANSITIONS[state.status][to] === "open";
+
 // Returns what happens to the reads. Throws for a change that isn't allowed.
 export function readChangeFor(state: ReadingState, to: ReadingStatus): ReadChange {
   if (!canTransition(state, to)) {

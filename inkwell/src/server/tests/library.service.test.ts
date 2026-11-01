@@ -28,6 +28,10 @@ const book = (status: ReadingStatus, formats: BookFormat[] = [PHYSICAL], id = "u
   source: UserBookSource.MANUAL,
   status,
   formats,
+  pageCount: null,
+  authors: [] as string[],
+  coverUrl: null,
+  authorSearch: "",
   addedAt: new Date(),
   updatedAt: new Date(),
 });
@@ -342,6 +346,79 @@ describe("updateFormats", () => {
   });
 });
 
+describe("listShelfPage with the reader's details", () => {
+  it("shows them over the catalog's", async () => {
+    model.countUserBooks.mockResolvedValue(1);
+    model.listUserBooks.mockResolvedValue([
+      {
+        ...book(TO_READ),
+        pageCount: 310,
+        authors: ["Ann Lee"],
+        coverUrl: "https://example.test/mine.jpg",
+        readThroughs: [],
+        book: { title: "T", authors: ["Original"], coverUrl: "https://example.test/c.jpg", pageCount: 200 },
+      },
+    ] as never);
+    const { books } = await service.listShelfPage(USER, {});
+    expect(books[0]).toMatchObject({ pageCount: 310, authors: ["Ann Lee"], coverUrl: "https://example.test/mine.jpg" });
+  });
+});
+
+describe("listShelfPage", () => {
+  const row = (id: string) => ({
+    ...book(TO_READ, [EBOOK], id),
+    pageCount: null,
+    authors: [],
+    coverUrl: null,
+    readThroughs: [],
+    book: { title: `T${id}`, authors: ["A"], coverUrl: null, pageCount: 200 },
+  });
+
+  const showing = (total: number) => {
+    model.countUserBooks.mockResolvedValue(total);
+    model.listUserBooks.mockResolvedValue([row("b1")] as never);
+  };
+
+  it("returns plain books for a page of 30", async () => {
+    showing(65);
+    const { books, page, pageCount } = await service.listShelfPage(USER, { status: TO_READ }, 2);
+    expect(books[0]).toEqual({ id: "b1", status: TO_READ, formats: [EBOOK], title: "Tb1", authors: ["A"], coverUrl: null, pageCount: 200, readDates: {} });
+    expect([page, pageCount]).toEqual([2, 3]);
+    expect(model.listUserBooks).toHaveBeenCalledWith(
+      USER,
+      expect.objectContaining({ take: 30, skip: 30, status: [TO_READ] }),
+    );
+  });
+
+  it.each([
+    [0, 1, 1],
+    [30, 1, 1],
+    [31, 2, 2],
+    [60, 2, 2],
+    [61, 3, 3],
+  ])("with %i books on page 99, shows page %i of %i", async (total, page, pageCount) => {
+    showing(total);
+    await expect(service.listShelfPage(USER, {}, 99)).resolves.toMatchObject({ page, pageCount });
+    expect(model.listUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining({ skip: (page - 1) * 30 }));
+  });
+
+  it("reports which books of the total the page shows", async () => {
+    showing(65);
+    await expect(service.listShelfPage(USER, {}, 3)).resolves.toMatchObject({ total: 65, firstIndex: 61 });
+  });
+
+  it("counts with the same filters as the list", async () => {
+    showing(1);
+    await service.listShelfPage(USER, { status: TO_READ, formats: [EBOOK], search: "Dune" });
+    expect(model.countUserBooks).toHaveBeenCalledWith(USER, {
+      status: [TO_READ],
+      formats: [EBOOK],
+      source: undefined,
+      search: { text: "Dune", normalized: "dune", author: "dune", surname: "dune" },
+    });
+  });
+});
+
 describe("listUserBooks", () => {
   it("normalizes filters and caps the page size", async () => {
     await service.listUserBooks(USER, { status: READING, formats: [EBOOK], search: "  The Hobbit ", take: 10_000 });
@@ -349,9 +426,10 @@ describe("listUserBooks", () => {
       status: [READING],
       formats: [EBOOK],
       source: undefined,
-      search: { text: "The Hobbit", normalized: "hobbit" },
+      search: { text: "The Hobbit", normalized: "hobbit", author: "the hobbit", surname: "hobbit" },
       take: 100,
       cursor: undefined,
+      skip: undefined,
     });
   });
 
@@ -361,5 +439,139 @@ describe("listUserBooks", () => {
       USER,
       expect.objectContaining({ search: undefined, formats: undefined, take: 50 }),
     );
+  });
+});
+
+describe("editUserBook", () => {
+  const dates = { started: { date: AT, precision: "DAY" as const } };
+  const catalog = { pageCount: 200, authors: ["Original Author"], coverUrl: "https://example.test/c.jpg" };
+  const stored = (status: ReadingStatus) => ({ ...book(status), book: catalog }) as never;
+  const saved = () => model.updateEditedUserBook.mock.calls[0][2];
+
+  beforeEach(() => {
+    model.updateEditedUserBook.mockResolvedValue(book(READING) as never);
+    reads.findChangeableReads.mockResolvedValue([] as never);
+    reads.findLatestRead.mockResolvedValue({ id: "read-1" } as never);
+  });
+
+  it("saves the reader's details on their own book, never the catalog", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(TO_READ));
+    await service.editUserBook(USER, "ub-1", {
+      formats: [EBOOK],
+      pageCount: 310,
+      authors: ["Ann Lee", "Bo Kim"],
+      coverUrl: "https://example.test/mine.jpg",
+      dates: {},
+    });
+    expect(saved()).toEqual({
+      status: TO_READ,
+      formats: [EBOOK],
+      pageCount: 310,
+      authors: ["Ann Lee", "Bo Kim"],
+      authorSearch: "|ann lee|bo kim|",
+      coverUrl: "https://example.test/mine.jpg",
+    });
+    expect(reads.updateReadDates).not.toHaveBeenCalled();
+  });
+
+  it("keeps nothing when the details match the catalog", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(TO_READ));
+    await service.editUserBook(USER, "ub-1", { formats: [EBOOK], ...catalog, dates: {} });
+    expect(saved()).toMatchObject({ pageCount: null, authors: [], authorSearch: "", coverUrl: null });
+  });
+
+  it("goes back to the catalog when details are left blank", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(TO_READ));
+    await service.editUserBook(USER, "ub-1", { formats: [EBOOK], dates: {} });
+    expect(saved()).toMatchObject({ pageCount: null, authors: [], authorSearch: "", coverUrl: null });
+  });
+
+  it("goes to the Wishlist when not started and no format is left", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(TO_READ));
+    await service.editUserBook(USER, "ub-1", { formats: [], dates: {} });
+    expect(saved()).toMatchObject({ status: WISHLIST, formats: [] });
+  });
+
+  it("sets the dates on the latest read", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(READING));
+    await service.editUserBook(USER, "ub-1", { formats: [PHYSICAL], status: READING, dates });
+    expect(reads.updateReadDates).toHaveBeenCalledWith(
+      USER,
+      "read-1",
+      { startedAt: AT, startedAtPrecision: "DAY" },
+      "tx",
+    );
+  });
+
+  it("clears a finish date left blank", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(FINISHED));
+    await service.editUserBook(USER, "ub-1", { formats: [PHYSICAL], status: FINISHED, dates });
+    expect(reads.updateReadDates).toHaveBeenCalledWith(
+      USER,
+      "read-1",
+      expect.objectContaining({ startedAt: AT, endedAt: null }),
+      "tx",
+    );
+  });
+
+  it("rejects someone else's book", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(null);
+    await expect(service.editUserBook(USER, "ub-1", { formats: [], dates: {} })).rejects.toThrow(NotFoundError);
+    expect(model.updateEditedUserBook).not.toHaveBeenCalled();
+  });
+});
+
+describe("removeUserBook", () => {
+  it("removes the book for this user", async () => {
+    model.deleteUserBook.mockResolvedValue(1);
+    await service.removeUserBook(USER, "ub-1");
+    expect(model.deleteUserBook).toHaveBeenCalledWith(USER, "ub-1");
+  });
+
+  it("reports a book that isn't in the library", async () => {
+    model.deleteUserBook.mockResolvedValue(0);
+    await expect(service.removeUserBook(USER, "ub-1")).rejects.toThrow(NotFoundError);
+  });
+});
+
+describe("moveUserBook", () => {
+  const started = { date: AT, precision: "DAY" as const };
+
+  beforeEach(() => {
+    model.updateUserBookState.mockResolvedValue(book(READING) as never);
+    reads.findChangeableReads.mockResolvedValue([] as never);
+    reads.findLatestRead.mockResolvedValue({ id: "read-2" } as never);
+  });
+
+  it("opens a new read for a reread and dates only that one", async () => {
+    model.findUserBook.mockResolvedValue(book(FINISHED));
+    await service.moveUserBook(USER, "ub-1", READING, { started });
+    expect(reads.createReads).toHaveBeenCalledWith([expect.objectContaining({ userBookId: "ub-1" })], "tx");
+    expect(reads.updateReadDates).toHaveBeenCalledWith(USER, "read-2", { startedAt: AT, startedAtPrecision: "DAY" }, "tx");
+  });
+
+  it("rejects a move the rules don't allow", async () => {
+    model.findUserBook.mockResolvedValue(book(DNF));
+    await expect(service.moveUserBook(USER, "ub-1", FINISHED, {})).rejects.toThrow(InvalidTransitionError);
+    expect(model.updateUserBookState).not.toHaveBeenCalled();
+  });
+
+  it("rejects someone else's book", async () => {
+    model.findUserBook.mockResolvedValue(null);
+    await expect(service.moveUserBook(USER, "ub-1", READING, {})).rejects.toThrow(NotFoundError);
+  });
+});
+
+describe("removeUserBooks", () => {
+  it("removes each book once, for this user", async () => {
+    model.deleteUserBooks.mockResolvedValue(2);
+    await expect(service.removeUserBooks(USER, ["a", "b", "a"])).resolves.toBe(2);
+    expect(model.deleteUserBooks).toHaveBeenCalledWith(USER, ["a", "b"]);
+  });
+
+  it("refuses more than 30 at once", () => {
+    const ids = Array.from({ length: 31 }, (_, index) => `ub-${index}`);
+    expect(() => service.removeUserBooks(USER, ids)).toThrow(ValidationError);
+    expect(model.deleteUserBooks).not.toHaveBeenCalled();
   });
 });

@@ -29,12 +29,12 @@ chrome.action.onClicked.addListener(async (tab) => {
   }
 });
 
-const sendBatch = async (books) => {
+const sendBatch = async (books, kind) => {
   const { appUrl, token } = await chrome.storage.local.get(["appUrl", "token"]);
   const response = await fetch(`${appUrl}/api/imports/amazon`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ books }),
+    body: JSON.stringify({ books, kind }),
   }).catch(() => {
     throw new Error(`Inkwell couldn't be reached at ${appUrl}. Check that it's running.`);
   });
@@ -53,7 +53,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     return false;
   }
   if (message.type !== "import-batch") return false;
-  sendBatch(message.books)
+  sendBatch(message.books, message.kind)
     .then((result) => reply({ result }))
     .catch((error) => reply({ error: error.message }));
   return true; // The reply comes after the request finishes.

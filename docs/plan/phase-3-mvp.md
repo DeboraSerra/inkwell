@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: in progress.** 3a and 3b are done, and 3c is implemented on `dev`, not committed; 3d is next. This is the current focus. Everything after it waits until it's done.
+**Status: in progress.** 3a to 3c are done, and 3d is implemented on `dev`, not committed. This is the current focus. Everything after it waits until it's done.
 
 Goal: add books manually or through the Chrome extension, move them between lists, and browse them with filters.
 
@@ -129,6 +129,32 @@ Phase 2c built shelves to hold the lists, and one `ownership` value per book. St
 5. **Pagination:** "Load more" using the cursor. Show an empty state on each list.
 6. **Covers:** allow only the image hosts actually needed, in `images.remotePatterns`. Manual covers can come from any `https` host, so decide here how to show those, for example with a plain `<img>`.
 7. Mobile-first, with `dark:` variants.
+
+### 3d outcome
+
+- **Route, changed at the user's request:** `/books/shelves` instead of the plan's tabs on `/`, and no `/books/tbr`-style routes. The sidebar has one "Shelves" link. The shelf is in the query string with the other filters, as in `/books/shelves?shelf=finished&format=EBOOK&q=dune`, and it opens on TBR. `/` is still the welcome page.
+- **Code:** `library/shelf-filters.ts` (URL parsing, pure), `library/shelf-actions.schema.ts`, `listShelfPage` in the service, four actions in `library.controller.ts` (`loadMoreBooks`, `changeBookStatus`, `changeBookFormats`, `moveBooks`), and `components/shelves/`.
+- **Choices the plan left open:**
+  - "Move to" on a book only offers moves the status rules allow. The bulk menu offers every other shelf, and the server skips what can't move.
+  - Choosing Reading or Finished from a book's menu opens a dialog for the dates, starting from today. Dates left blank stay unknown. A bulk move opens no dialog and records no date.
+  - Finished → Reading is a reread, so the dialogs start its dates fresh and the finished read stays as it was.
+  - "Select first N" selects up to 30 at once; past 30, other checkboxes are disabled.
+  - Author search runs against a new `Book.authorSearch` column holding every author's normalized name, so it finds any author by first name, last name or full name, ignoring case and accents. A full name also matches by its last word, so "JRR Tolkien" finds "J. R. R. Tolkien".
+  - `dedupeKey` now uses every author's surname, sorted, so author order doesn't matter. A book listed with fewer authors than an existing copy gets a different key, so it's only matched by ASIN or ISBN.
+  - The Amazon import splits authors on commas, since Amazon doesn't use semicolons. A two-part value with a one-word first part ("Tolkien, J. R. R.") stays one surname-first name, so "Madonna, Prince Rogers" would stay whole too. Manual entry still uses semicolons.
+  - Migration `add_book_author_search` adds the column. After applying it to any database, run `npx tsx prisma/backfill-book-authors.ts` to fill it, recompute `dedupeKey` and split comma-joined Amazon authors. Already run on the local database.
+  - Covers use a plain `<img>` with no referrer, since manual covers can come from any `https` host. Biome warns about this one `<img>`.
+- **Edit and delete on each card, added at the user's request:**
+  - Edit changes status, formats, the latest read's dates, pages, authors and cover. The title can't be edited. A date left blank clears the stored one.
+  - Pages, authors and cover are saved on `UserBook` (migrations `add_user_book_page_count` and `add_user_book_authors_cover`) and take priority over the catalog's values, which never change. Clearing one, or entering the catalog's value, goes back to the catalog.
+  - Search also covers the reader's own authors (`UserBook.authorSearch`). A book still matches its catalog authors after they're overridden. Dedupe only uses the catalog, so a re-import still finds the same book.
+  - Delete asks for confirmation in a dialog, then shows a toast. It removes the `UserBook` and its reads; the `Book` stays. This is the one case where read history is erased, and the dialog says so.
+- **Deleting selected books:** the trash button in the selection bar asks for confirmation, then removes up to 30 selected books the same way as a single delete, and shows a toast with the count.
+- **Private documents, added at the user's request:** rows from Amazon's Docs tab are sent with `kind: "docs"` and saved as a `Book` with `ownerId` set (migration `add_book_owner`). Only that user's imports can match one, shared lookups skip them, and they carry no ASIN and may have no author. Books already imported from Docs before this can't be told apart and stay shared. The extension detects the tab from `/contentlist/pdocs` in the URL, which still needs checking on the real Amazon page.
+- **Pagination, replacing the plan's "Load more":** numbered pages of 30 books, with the page in the URL (`?shelf=tbr&page=2`). The page reloads from the server after a move, so it stays full. A page past the end shows the last one, and changing shelf goes back to page 1. `listShelfPage` and `countUserBooks` use offset paging; `listUserBooks` keeps its cursor option.
+- **UI reworked by the user:** tabs (`ui/tabs.tsx`), `BookShelf.tsx` and a menu on each card. Clicking a card selects it; the menu sits outside the label so it doesn't. The selection bar appears once a book is selected, and `ShelfFilterBar` holds search and format filters under the tabs.
+- **Verified:** tests, and in the browser against a production build, a throwaway user and 96 seeded books, since removed: paging forward and back with no repeats, a full-size refill after a bulk move, the tabs, out-of-range and invalid pages, no page links on a short shelf, moving a single selected book, search and format filters from the page, both empty messages, and the mobile layout.
+- **Not verified:** real Google sign-in (auth was temporarily bypassed for the test), real covers, and paging through a filtered list of more than 30 books.
 
 ## Done when
 

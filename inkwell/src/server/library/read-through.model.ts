@@ -57,3 +57,19 @@ export function deleteOpenReads(userId: string, userBookIds: string[], db: Db = 
     where: { userBookId: { in: userBookIds }, userBook: { userId }, outcome: null },
   });
 }
+
+export function findLatestRead(userId: string, userBookId: string, db: Db = prisma) {
+  return db.readThrough.findFirst({
+    where: { userBookId, userBook: { userId } },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+  });
+}
+
+export function updateReadDates(
+  userId: string,
+  readId: string,
+  dates: Pick<NewRead, "startedAt" | "startedAtPrecision" | "endedAt" | "endedAtPrecision">,
+  db: Db = prisma,
+) {
+  return db.readThrough.updateMany({ where: { id: readId, userBook: { userId } }, data: dates });
+}

@@ -2,6 +2,7 @@
 
 import { ReadingStatus } from "@/generated/prisma/enums";
 import type { ManualBookValues } from "@/server/library/manual-book.schema";
+import { type ReadingState, startsNewRead } from "@/server/library/status.rules";
 import { Info } from "lucide-react";
 import { useState } from "react";
 import { PartialDateField } from "./PartialDateField";
@@ -28,10 +29,17 @@ const STATUS = [
 
 // Keeps the choice here rather than in the form, so the form's remount after
 // each submit also resets it.
-export function StatusField({ values }: Readonly<{ values?: ManualBookValues }>) {
+// `current` is the book being edited, if any.
+export function StatusField({
+  values,
+  current,
+}: Readonly<{ values?: ManualBookValues; current?: ReadingState }>) {
   const [status, setStatus] = useState(values?.status ?? "");
   const hasStart = status === ReadingStatus.READING || status === ReadingStatus.FINISHED;
   const hasEnd = status === ReadingStatus.FINISHED;
+  // Rereading a finished book starts a new read, so the old dates don't apply.
+  const isNewRead = hasStart && current !== undefined && startsNewRead(current, status as ReadingStatus);
+  const dateValues = isNewRead ? undefined : values;
 
   return (
     <>
@@ -83,10 +91,11 @@ export function StatusField({ values }: Readonly<{ values?: ManualBookValues }>)
       </FieldSet>
 
       {hasStart && (
-        <div className='col-span-2 flex flex-col gap-3'>
+        // The inputs keep their own text, so a new key applies the right defaults.
+        <div key={String(isNewRead)} className='col-span-2 flex flex-col gap-3'>
           <div className='flex flex-wrap gap-x-10 gap-y-4'>
-            <PartialDateField name='started' legend='Started' values={values} />
-            {hasEnd && <PartialDateField name='ended' legend='Finished' values={values} />}
+            <PartialDateField name='started' legend='Started' values={dateValues} />
+            {hasEnd && <PartialDateField name='ended' legend='Finished' values={dateValues} />}
           </div>
           <FieldDescription>
             Optional. Fill in as much as you remember: just the year, the month

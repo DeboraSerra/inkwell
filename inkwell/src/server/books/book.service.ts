@@ -3,7 +3,7 @@ import { MetadataSource } from "@/generated/prisma/enums";
 import type { Tx } from "@/server/db";
 import { NotFoundError } from "@/server/errors";
 import * as bookModel from "./book.model";
-import { dedupeKey } from "./dedupe";
+import { authorSearchText, dedupeKey } from "./dedupe";
 import { cleanIsbn, toIsbn13 } from "./isbn";
 
 export type BookIdentity = {
@@ -15,7 +15,7 @@ export type BookIdentity = {
 };
 
 // Finds a catalog book matching any identifier, strongest first:
-// ASIN, then ISBN (either format), then normalized title + first author.
+// ASIN, then ISBN (either format), then normalized title + authors' surnames.
 export async function findExistingBook(identity: BookIdentity, tx?: Tx) {
   if (identity.asin) {
     const book = await bookModel.findBookByAsin(identity.asin, tx);
@@ -77,6 +77,7 @@ export function findOrCreateManualBook(details: ManualBookDetails, tx?: Tx) {
       isbn13,
       isbn10,
       dedupeKey: dedupeKey(details.title, details.authors),
+      authorSearch: authorSearchText(details.authors),
       metadataSource: MetadataSource.MANUAL,
     },
     tx,
@@ -90,12 +91,40 @@ export type AmazonBookDetails = {
   coverUrl?: string;
 };
 
+export type AmazonDocDetails = {
+  title: string;
+  authors: string[];
+  coverUrl?: string;
+};
+
+// A personal document belongs to one user, so it's only ever matched against
+// their own documents. It has no ASIN: identifiers are for the shared catalog.
+export async function findOrCreateAmazonDoc(ownerId: string, details: AmazonDocDetails, tx?: Tx) {
+  const key = dedupeKey(details.title, details.authors);
+  const existing = await bookModel.findOwnedBookByDedupeKey(ownerId, key, tx);
+  if (existing) return existing;
+
+  const created = await bookModel.createBook(
+    {
+      ...details,
+      ownerId,
+      dedupeKey: key,
+      authorSearch: authorSearchText(details.authors),
+      metadataSource: MetadataSource.AMAZON,
+    },
+    tx,
+  );
+  if (!created) throw new NotFoundError("Book not found");
+  return created;
+}
+
 export function findOrCreateAmazonBook(details: AmazonBookDetails, tx?: Tx) {
   return findOrCreateBook(
     details,
     {
       ...details,
       dedupeKey: dedupeKey(details.title, details.authors),
+      authorSearch: authorSearchText(details.authors),
       metadataSource: MetadataSource.AMAZON,
     },
     tx,

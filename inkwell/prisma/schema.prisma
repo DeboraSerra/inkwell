@@ -20,6 +20,7 @@ model User {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   apiTokens ApiToken[]
+  ownedBooks Book[]
   userBooks UserBook[]
 }
 
@@ -66,12 +67,18 @@ enum TagSource {
 
 model Book {
   id             String          @id @default(uuid())
+  // Set for a private book, such as a personal document from Amazon, which only
+  // this user can ever get. Null means the shared catalog.
+  owner          User?           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId        String?
   title          String
   subtitle       String?
   authors        String[]
-  // Normalized title + first author; see src/lib/books/dedupe.ts. Not unique,
-  // because different editions of the same book share it.
+  // Normalized title + sorted surnames; see src/server/books/dedupe.ts. Not
+  // unique, because different editions of the same book share it.
   dedupeKey      String
+  // Every author's normalized name, for search; see authorSearchText.
+  authorSearch   String          @default("")
   isbn10         String?
   isbn13         String?         @unique
   asin           String?         @unique
@@ -92,6 +99,7 @@ model Book {
   updatedAt      DateTime        @updatedAt
 
   @@index([dedupeKey])
+  @@index([ownerId])
   @@index([isbn10])
 }
 
@@ -179,6 +187,13 @@ model UserBook {
   bookId       String
   formats      BookFormat[]
   status       ReadingStatus
+  // This reader's own details, when they differ from the catalog's. Empty or
+  // null means the catalog's value is used.
+  pageCount    Int?
+  authors      String[]
+  coverUrl     String?
+  // Search text for `authors`; see authorSearchText.
+  authorSearch String         @default("")
   source       UserBookSource
   addedAt      DateTime       @default(now())
   updatedAt    DateTime       @updatedAt

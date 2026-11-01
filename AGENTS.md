@@ -51,7 +51,8 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 3a: `UserBook.formats`, status as the list, `ReadThrough` read history; the shelves from 2c are removed
 - ✅ Phase 3b: manual add at `/books/new`, validated with zod (`library/manual-book.schema.ts`)
 - ✅ Phase 3c: extension import through `POST /api/imports/amazon` (`src/server/imports/`), not yet run on the real Amazon page
-- ⏭️ Next: **Phase 3d, the rest of the MVP** (`docs/plan/phase-3-mvp.md`): move books between lists and browse with filters. Then Phases 4–7
+- ✅ Phase 3d: browse, filter and move books at `/books/shelves`
+- ⏭️ Next: check Phase 3's "Done when" list (`docs/plan/phase-3-mvp.md`), then Phases 4–7
 
 ## Workflow rules
 
@@ -175,9 +176,11 @@ inkwell/src/
 
 ## Domain rules (keep these consistent)
 
-- **Dedupe order:** ASIN → ISBN-13 (convert ISBN-10 with `toIsbn13`) → `dedupeKey`, which is the normalized title plus the first author's surname. Re-importing a book only ever adds a format; it never overwrites a user's status, dates or list order.
+- **Dedupe order:** ASIN → ISBN-13 (convert ISBN-10 with `toIsbn13`) → `dedupeKey`, which is the normalized title plus every author's surname, sorted so author order doesn't matter. Re-importing a book only ever adds a format; it never overwrites a user's status, dates or list order.
 - **Genres and tropes** come only from the curated lists in `assets/lists/`. The AI picks from these lists; `source: AI | USER` records who attached each one, and AI updates must never overwrite `USER` rows.
 - **Goal progress** is always computed, never stored.
+- **A reader's own details override the catalog's:** `UserBook.pageCount`, `authors` and `coverUrl` hold what a reader edited, and empty means the catalog's value is used. Show the reader's value first; dedupe only ever uses `Book`.
+- **Private books:** a `Book` with `ownerId` set (a personal document from Amazon's Docs tab) belongs to that user alone. Any lookup that matches books for a library must exclude other users' private books, and they must not be sent to the AI enrichment in Phase 5 without asking the user.
 - **There are five lists, and the list is the status:** Wishlist, TBR, Reading, Finished and DNF are views of `UserBook.status`. Don't store lists separately.
 - **Formats are a detail of the book, not a list:** `UserBook.formats` holds any of ebook, physical and audiobook, and empty means not owned. A `WISHLIST` book becomes `TO_READ` as soon as it gets a format, and a `TO_READ` book with no formats left becomes `WISHLIST`. Other statuses don't change.
 - **A book can be read more than once** (`ReadThrough`, Phase 3a), and earlier reads are never erased. Read dates are optional: a bulk move records none rather than inventing them.

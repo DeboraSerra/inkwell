@@ -6,6 +6,7 @@ const row = { asin: "B0ABCDEFGH", title: " Fourth Wing ", authors: "Yarros, Rebe
 describe("parseAmazonImport", () => {
   it("cleans a good row", () => {
     expect(parseAmazonImport({ books: [row] })).toEqual({
+      kind: "books",
       books: [{ asin: "B0ABCDEFGH", title: "Fourth Wing", authors: ["Yarros, Rebecca"], coverUrl: "https://example.test/c.jpg" }],
       skipped: 0,
     });
@@ -40,5 +41,32 @@ describe("parseAmazonImport", () => {
     ["too many books", { books: Array(MAX_BOOKS_PER_REQUEST + 1).fill(row) }],
   ])("rejects %s", (_name, body) => {
     expect(parseAmazonImport(body)).toBeNull();
+  });
+});
+
+describe("parseAmazonImport authors", () => {
+  it("separates authors listed with commas", () => {
+    const parsed = parseAmazonImport({ books: [{ ...row, authors: "Kerrigan Byrne, Cynthia St. Aubin" }] });
+    expect(parsed?.books[0].authors).toEqual(["Kerrigan Byrne", "Cynthia St. Aubin"]);
+  });
+});
+
+describe("parseAmazonImport docs", () => {
+  it("treats rows as books unless told otherwise", () => {
+    expect(parseAmazonImport({ books: [row] })?.kind).toBe("books");
+    expect(parseAmazonImport({ kind: "nonsense", books: [row] })).toBeNull();
+  });
+
+  it("drops the id and allows no author", () => {
+    const parsed = parseAmazonImport({
+      kind: "docs",
+      books: [{ asin: "B0ABCDEFGH", title: " My notes ", coverUrl: "http://bad.test/c.jpg" }, { title: "" }],
+    });
+    expect(parsed).toEqual({ kind: "docs", books: [{ title: "My notes", authors: [], coverUrl: undefined }], skipped: 1 });
+  });
+
+  it("keeps an author when there is one", () => {
+    const parsed = parseAmazonImport({ kind: "docs", books: [{ title: "Notes", authors: "Ann Lee, Bo Kim" }] });
+    expect(parsed?.books[0].authors).toEqual(["Ann Lee", "Bo Kim"]);
   });
 });

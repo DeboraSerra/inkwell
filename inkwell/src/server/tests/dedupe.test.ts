@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dedupeKey, normalizeAuthor, normalizeTitle } from "@/server/books/dedupe";
+import { authorSearchText, dedupeKey, normalizeAuthor, normalizeTitle, splitAmazonAuthors } from "@/server/books/dedupe";
 
 describe("normalizeTitle", () => {
   it("ignores leading and trailing articles", () => {
@@ -55,7 +55,13 @@ describe("dedupeKey", () => {
       dedupeKey("Hobbit, The", ["Tolkien, J. R. R."]),
     );
     expect(dedupeKey("Fourth Wing (The Empyrean Book 1)", ["Rebecca Yarros"])).toBe(
-      dedupeKey("Fourth Wing: Special Edition", ["Rebecca Yarros", "Someone Else"]),
+      dedupeKey("Fourth Wing: Special Edition", ["Yarros, Rebecca"]),
+    );
+  });
+
+  it("ignores the order of the authors", () => {
+    expect(dedupeKey("Good Omens", ["Terry Pratchett", "Neil Gaiman"])).toBe(
+      dedupeKey("Good Omens", ["Neil Gaiman", "Terry Pratchett"]),
     );
   });
 
@@ -66,13 +72,45 @@ describe("dedupeKey", () => {
     expect(dedupeKey("Emma", ["Jane Austen"])).not.toBe(dedupeKey("Emma", ["Someone Else"]));
   });
 
-  it("uses only the first author", () => {
+  it("uses every author's surname, sorted", () => {
     expect(dedupeKey("Good Omens", ["Terry Pratchett", "Neil Gaiman"])).toBe(
-      "good omens|pratchett",
+      "good omens|gaiman,pratchett",
     );
   });
 
   it("works without authors", () => {
     expect(dedupeKey("Anonymous Book", [])).toBe("anonymous book|");
+  });
+});
+
+describe("authorSearchText", () => {
+  it("holds every author's name in natural order", () => {
+    expect(authorSearchText(["Tolkien, J. R. R.", "Gabriel García Márquez"])).toBe(
+      "|j r r tolkien|gabriel garcia marquez|",
+    );
+  });
+
+  it("is empty without authors", () => {
+    expect(authorSearchText([])).toBe("");
+  });
+});
+
+describe("splitAmazonAuthors", () => {
+  it("splits names separated by commas", () => {
+    expect(splitAmazonAuthors("Kerrigan Byrne, Cynthia St. Aubin")).toEqual(["Kerrigan Byrne", "Cynthia St. Aubin"]);
+    expect(splitAmazonAuthors("Ann Lee, Bo Kim, Cy Young")).toEqual(["Ann Lee", "Bo Kim", "Cy Young"]);
+  });
+
+  it("keeps a surname-first name whole", () => {
+    expect(splitAmazonAuthors("Tolkien, J. R. R.")).toEqual(["Tolkien, J. R. R."]);
+    expect(splitAmazonAuthors("Yarros, Rebecca; Doe, Jane")).toEqual(["Yarros, Rebecca", "Doe, Jane"]);
+  });
+
+  it("keeps a name suffix with its name", () => {
+    expect(splitAmazonAuthors("Martin Luther King, Jr., Ann Lee")).toEqual(["Martin Luther King, Jr.", "Ann Lee"]);
+  });
+
+  it("keeps a single name as it is", () => {
+    expect(splitAmazonAuthors("Rebecca Yarros")).toEqual(["Rebecca Yarros"]);
   });
 });

@@ -46,40 +46,67 @@ export async function createUserBook(
   return created.at(0) ?? null;
 }
 
-export type UserBookQuery = {
+export type UserBookFilter = {
   status?: ReadingStatus[];
   // Owned in any of these formats.
   formats?: BookFormat[];
   source?: UserBookSource;
-  // Raw text matched against the title, and its normalized form matched
-  // against the dedupe key (title + first author's surname).
-  search?: { text: string; normalized: string };
+  // Raw text matched against the title and its normalized form against the
+  // dedupe key. `author` is matched against any author's name, and `surname`
+  // against any author's last word, so "JRR Tolkien" finds "J. R. R. Tolkien".
+  // Authors are searched in the catalog and in the reader's own list.
+  search?: { text: string; normalized: string; author: string; surname: string };
+};
+
+export type UserBookQuery = UserBookFilter & {
   take: number;
   cursor?: string;
+  skip?: number;
+};
+
+const userBookWhere = (userId: string, query: UserBookFilter) => {
+  const { search } = query;
+  const authorMatches = search
+    ? [
+        ...(search.author ? [{ authorSearch: { contains: search.author } }] : []),
+        ...(search.surname ? [{ authorSearch: { contains: ` ${search.surname}|` } }] : []),
+      ]
+    : [];
+  return {
+    userId,
+    status: query.status ? { in: query.status } : undefined,
+    formats: query.formats ? { hasSome: query.formats } : undefined,
+    source: query.source,
+    OR: search
+      ? [
+          ...authorMatches,
+          {
+            book: {
+              OR: [
+                { title: { contains: search.text, mode: "insensitive" as const } },
+                // Text that normalizes to nothing ("!!") would otherwise match every book.
+                ...(search.normalized ? [{ dedupeKey: { contains: search.normalized } }] : []),
+                ...authorMatches,
+              ],
+            },
+          },
+        ]
+      : undefined,
+  } satisfies Prisma.UserBookWhereInput;
 };
 
 export function listUserBooks(userId: string, query: UserBookQuery, db: Db = prisma) {
-  const { search } = query;
   return db.userBook.findMany({
-    where: {
-      userId,
-      status: query.status ? { in: query.status } : undefined,
-      formats: query.formats ? { hasSome: query.formats } : undefined,
-      source: query.source,
-      book: search
-        ? {
-            OR: [
-              { title: { contains: search.text, mode: "insensitive" } },
-              { dedupeKey: { contains: search.normalized } },
-            ],
-          }
-        : undefined,
-    },
+    where: userBookWhere(userId, query),
     include: withCatalog,
     orderBy: [{ addedAt: "desc" }, { id: "asc" }],
     take: query.take,
-    ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+    ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : { skip: query.skip }),
   });
+}
+
+export function countUserBooks(userId: string, query: UserBookFilter, db: Db = prisma) {
+  return db.userBook.count({ where: userBookWhere(userId, query) });
 }
 
 export function updateUserBookState(
@@ -92,6 +119,32 @@ export function updateUserBookState(
     where: { id: userBookId, userId },
     data: { status, formats },
   });
+}
+
+export function updateEditedUserBook(
+  userId: string,
+  userBookId: string,
+  data: ReadingState & {
+    pageCount: number | null;
+    authors: string[];
+    authorSearch: string;
+    coverUrl: string | null;
+  },
+  db: Db = prisma,
+) {
+  return db.userBook.update({ where: { id: userBookId, userId }, data });
+}
+
+// Removes the book from this user's library, and its reads by cascade. The
+// catalog book stays. Returns how many rows went, which is 0 for someone else's.
+export async function deleteUserBook(userId: string, userBookId: string, db: Db = prisma) {
+  const { count } = await db.userBook.deleteMany({ where: { id: userBookId, userId } });
+  return count;
+}
+
+export async function deleteUserBooks(userId: string, userBookIds: string[], db: Db = prisma) {
+  const { count } = await db.userBook.deleteMany({ where: { id: { in: userBookIds }, userId } });
+  return count;
 }
 
 export function updateUserBookStatuses(

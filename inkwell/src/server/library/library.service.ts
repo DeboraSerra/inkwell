@@ -1,7 +1,7 @@
 import "server-only";
-import { type BookFormat, type ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
+import { type BookFormat, type DatePrecision, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
 import { findOrCreateManualBook, type ManualBookDetails } from "@/server/books/book.service";
-import { normalizeTitle } from "@/server/books/dedupe";
+import { authorSearchText, normalizeAuthor, normalizeAuthorName, normalizeTitle } from "@/server/books/dedupe";
 import { transaction, type Tx } from "@/server/db";
 import { NotFoundError, ValidationError } from "@/server/errors";
 import * as libraryModel from "./library.model";
@@ -10,16 +10,18 @@ import {
   canTransition,
   changeFormats,
   initialState,
+  notStartedStatusFor,
   type ReadChange,
   readChangeFor,
 } from "./status.rules";
-import { type ReadDates, toReadFields } from "./partial-date.rules";
+import { type ReadDates, toDateValues, toEditedReadFields, toReadFields } from "./partial-date.rules";
 
 // Every function takes the signed-in user's id first.
 
 const DEFAULT_PAGE_SIZE = 50;
+const SHELF_PAGE_SIZE = 30;
 const MAX_PAGE_SIZE = 100;
-const MAX_BULK_MOVE = 30;
+const MAX_BULK_BOOKS = 30;
 
 const NOT_IN_LIBRARY = "Book not found in your library";
 
@@ -156,11 +158,12 @@ export type UserBookFilters = {
   // Owned in any of these formats.
   formats?: BookFormat[];
   source?: UserBookSource;
-  // Matches the title or the first author's surname, ignoring case and accents.
+  // Matches the title or any author's first or last name, ignoring case and accents.
   search?: string;
   take?: number;
   // The id of the last row of the previous page.
   cursor?: string;
+  skip?: number;
 };
 
 function toArray<T extends string>(value: T | T[] | undefined): T[] | undefined {
@@ -168,16 +171,77 @@ function toArray<T extends string>(value: T | T[] | undefined): T[] | undefined 
   return Array.isArray(value) ? value : [value];
 }
 
-export function listUserBooks(userId: string, filters: UserBookFilters = {}) {
+const toUserBookFilter = (filters: UserBookFilters) => {
   const text = filters.search?.trim();
-  return libraryModel.listUserBooks(userId, {
+  return {
     status: toArray(filters.status),
     formats: filters.formats?.length ? filters.formats : undefined,
     source: filters.source,
-    search: text ? { text, normalized: normalizeTitle(text) } : undefined,
+    search: text
+      ? { text, normalized: normalizeTitle(text), author: normalizeAuthorName(text), surname: normalizeAuthor(text) }
+      : undefined,
+  };
+};
+
+export function listUserBooks(userId: string, filters: UserBookFilters = {}) {
+  return libraryModel.listUserBooks(userId, {
+    ...toUserBookFilter(filters),
     take: Math.min(Math.max(filters.take ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE),
     cursor: filters.cursor,
+    skip: filters.skip,
   });
+}
+
+const latestReadValues = (read?: {
+  startedAt: Date | null;
+  startedAtPrecision: DatePrecision;
+  endedAt: Date | null;
+  endedAtPrecision: DatePrecision;
+}) =>
+  read
+    ? {
+        ...toDateValues("started", read.startedAt, read.startedAtPrecision),
+        ...toDateValues("ended", read.endedAt, read.endedAtPrecision),
+      }
+    : {};
+
+// Authors, cover and pages are this reader's if they set them, or else the catalog's.
+export type ShelfBook = {
+  id: string;
+  title: string;
+  authors: string[];
+  coverUrl: string | null;
+  status: ReadingStatus;
+  formats: BookFormat[];
+  pageCount: number | null;
+  // The latest read's dates, as the edit form's text.
+  readDates: Record<string, string>;
+};
+
+// One page of a shelf, in the plain shape the page and client components share.
+// A page past the end shows the last one, which happens when moving books away
+// empties the page being viewed.
+export async function listShelfPage(
+  userId: string,
+  filters: Pick<UserBookFilters, "status" | "formats" | "search">,
+  requestedPage = 1,
+) {
+  const total = await libraryModel.countUserBooks(userId, toUserBookFilter(filters));
+  const pageCount = Math.max(Math.ceil(total / SHELF_PAGE_SIZE), 1);
+  const page = Math.min(Math.max(requestedPage, 1), pageCount);
+  const skip = (page - 1) * SHELF_PAGE_SIZE;
+  const rows = await listUserBooks(userId, { ...filters, take: SHELF_PAGE_SIZE, skip });
+  const books: ShelfBook[] = rows.map(({ id, status, formats, pageCount, authors, coverUrl, readThroughs, book }) => ({
+    id,
+    status,
+    formats,
+    pageCount: pageCount ?? book.pageCount,
+    readDates: latestReadValues(readThroughs.at(0)),
+    title: book.title,
+    authors: authors.length ? authors : book.authors,
+    coverUrl: coverUrl ?? book.coverUrl,
+  }));
+  return { books, page, pageCount, total, firstIndex: skip + 1 };
 }
 
 // Throws InvalidTransitionError for a change that isn't allowed. `at` lets a
@@ -208,8 +272,8 @@ export async function updateStatuses(
   status: ReadingStatus,
 ) {
   const ids = [...new Set(userBookIds)];
-  if (ids.length > MAX_BULK_MOVE) {
-    throw new ValidationError(`You can move up to ${MAX_BULK_MOVE} books at once.`);
+  if (ids.length > MAX_BULK_BOOKS) {
+    throw new ValidationError(`You can move up to ${MAX_BULK_BOOKS} books at once.`);
   }
 
   return transaction(async (tx) => {
@@ -239,4 +303,94 @@ export function updateFormats(userId: string, userBookId: string, formats: BookF
     if (!current) throw new NotFoundError(NOT_IN_LIBRARY);
     return libraryModel.updateUserBookState(userId, userBookId, changeFormats(current, formats), tx);
   });
+}
+
+async function saveLatestReadDates(
+  userId: string,
+  userBookId: string,
+  status: ReadingStatus,
+  dates: ReadDates,
+  tx: Tx,
+) {
+  if (status !== ReadingStatus.READING && status !== ReadingStatus.FINISHED) return;
+  const read = await readModel.findLatestRead(userId, userBookId, tx);
+  const fields = toEditedReadFields(dates, status === ReadingStatus.FINISHED);
+  if (read) await readModel.updateReadDates(userId, read.id, fields, tx);
+}
+
+// Moves one book with the dates the reader chose. Dates left blank stay unknown.
+export function moveUserBook(userId: string, userBookId: string, status: ReadingStatus, dates: ReadDates) {
+  return transaction(async (tx) => {
+    const current = await libraryModel.findUserBook(userId, userBookId, tx);
+    if (!current) throw new NotFoundError(NOT_IN_LIBRARY);
+    const change = readChangeFor(current, status);
+    await applyReadChanges(userId, [{ userBookId, change }], null, tx);
+    const updated = await libraryModel.updateUserBookState(userId, userBookId, { status, formats: current.formats }, tx);
+    await saveLatestReadDates(userId, userBookId, status, dates, tx);
+    return updated;
+  });
+}
+
+export type BookEdit = {
+  formats: BookFormat[];
+  // Left out means not started: formats decide between Wishlist and TBR.
+  status?: ReadingStatus;
+  // Left out, or the same as the catalog, means the catalog's value is used.
+  pageCount?: number;
+  authors?: string[];
+  coverUrl?: string;
+  dates: ReadDates;
+};
+
+const sameList = (a: string[], b: string[]) => a.join(";") === b.join(";");
+
+// Saves what belongs to this reader. The dates apply to the latest read, so
+// earlier reads stay as they are. Throws InvalidTransitionError for a status
+// change that isn't allowed.
+export function editUserBook(userId: string, userBookId: string, edit: BookEdit) {
+  return transaction(async (tx) => {
+    const current = await libraryModel.findUserBookWithCatalog(userId, userBookId, tx);
+    if (!current) throw new NotFoundError(NOT_IN_LIBRARY);
+
+    const owned = changeFormats(current, edit.formats);
+    const status = edit.status ?? notStartedStatusFor(owned.formats);
+    const change = readChangeFor(owned, status);
+    await applyReadChanges(userId, [{ userBookId, change }], null, tx);
+    // Only real differences are kept, so later catalog fixes still reach this book.
+    const { book } = current;
+    const authors = edit.authors && !sameList(edit.authors, book.authors) ? edit.authors : [];
+    const updated = await libraryModel.updateEditedUserBook(
+      userId,
+      userBookId,
+      {
+        status,
+        formats: owned.formats,
+        pageCount: edit.pageCount === book.pageCount ? null : (edit.pageCount ?? null),
+        authors,
+        authorSearch: authorSearchText(authors),
+        coverUrl: edit.coverUrl === book.coverUrl ? null : (edit.coverUrl ?? null),
+      },
+      tx,
+    );
+
+    await saveLatestReadDates(userId, userBookId, status, edit.dates, tx);
+    return updated;
+  });
+}
+
+// Takes the book out of this user's library, with its read history. The shared
+// catalog book stays, for other readers and for adding it again later.
+export async function removeUserBook(userId: string, userBookId: string) {
+  const removed = await libraryModel.deleteUserBook(userId, userBookId);
+  if (removed === 0) throw new NotFoundError(NOT_IN_LIBRARY);
+}
+
+// The same as removeUserBook for many books. Returns how many were removed, which
+// leaves out any that aren't in this user's library.
+export function removeUserBooks(userId: string, userBookIds: string[]) {
+  const ids = [...new Set(userBookIds)];
+  if (ids.length > MAX_BULK_BOOKS) {
+    throw new ValidationError(`You can delete up to ${MAX_BULK_BOOKS} books at once.`);
+  }
+  return libraryModel.deleteUserBooks(userId, ids);
 }

@@ -3,6 +3,7 @@
   const PAGE_LOAD_MS = 3000;
   const BATCH_SIZE = 100;
   const EXPECTED_URL = "/hz/mycd/digital-console/contentlist";
+  const DOCS_URL = `${EXPECTED_URL}/pdocs`;
   const ROW_CLASS = "ListItem-module_row";
   // Kindle ASINs start with B; found in the row's element ids or links.
   const ASIN = /(?<![0-9A-Z])B[0-9A-Z]{9}(?![0-9A-Z])/;
@@ -147,12 +148,13 @@
     return books;
   };
 
-  const sendBooks = async (books) => {
+  const sendBooks = async (books, kind) => {
     const totals = { created: 0, existing: 0, skipped: 0 };
     for (let start = 0; start < books.length; start += BATCH_SIZE) {
       showStatus(`Sending to Inkwell: ${start} of ${books.length}\u2026`);
       const { result, error } = await chrome.runtime.sendMessage({
         type: "import-batch",
+        kind,
         books: books.slice(start, start + BATCH_SIZE),
       });
       if (error) throw new Error(error);
@@ -166,19 +168,21 @@
   const runImport = async () => {
     if (running) return;
     if (!(globalThis.location.hostname.startsWith("www.amazon.") && globalThis.location.pathname.includes(EXPECTED_URL))) {
-      showResult("error", "Open the Books tab of Manage Your Content, then click the extension again.");
+      showResult("error", "Open the Books or Docs tab of Manage Your Content, then click the extension again.");
       return;
     }
     running = true;
     try {
       const maxPages = await askForPages();
       if (maxPages === undefined) return;
+      // Read before scraping, while the page is still where the user started.
+      const kind = globalThis.location.pathname.includes(DOCS_URL) ? "docs" : "books";
       const books = await scrapePages(maxPages);
       if (books.length === 0) {
         showResult("error", "No books found on this page. Amazon may have changed its layout.");
         return;
       }
-      const { created, existing, skipped } = await sendBooks(books);
+      const { created, existing, skipped } = await sendBooks(books, kind);
       const skippedNote = skipped ? `, ${skipped} skipped` : "";
       showResult(
         skipped ? "warning" : "success",

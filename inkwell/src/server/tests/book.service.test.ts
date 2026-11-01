@@ -52,6 +52,7 @@ describe("findOrCreateManualBook", () => {
         isbn13: "9780261102217",
         isbn10: undefined,
         dedupeKey: "hobbit|tolkien",
+        authorSearch: "|j r r tolkien|",
         metadataSource: "MANUAL",
       },
       TX,
@@ -102,5 +103,26 @@ describe("findOrCreateAmazonBook", () => {
     model.createBook.mockResolvedValue(null);
     model.findBookByAsin.mockResolvedValueOnce(null).mockResolvedValueOnce(existing);
     await expect(service.findOrCreateAmazonBook(amazon, TX)).resolves.toBe(existing);
+  });
+});
+
+describe("findOrCreateAmazonDoc", () => {
+  const doc = { title: "My Notes", authors: [] };
+
+  it("only looks among the owner's own documents", async () => {
+    model.findOwnedBookByDedupeKey.mockResolvedValue(existing);
+    await expect(service.findOrCreateAmazonDoc("user-1", doc, TX)).resolves.toBe(existing);
+    expect(model.findOwnedBookByDedupeKey).toHaveBeenCalledWith("user-1", "my notes|", TX);
+    expect(model.findBookByDedupeKey).not.toHaveBeenCalled();
+    expect(model.createBook).not.toHaveBeenCalled();
+  });
+
+  it("creates a book owned by the user, without an ASIN", async () => {
+    model.createBook.mockResolvedValue(existing);
+    await service.findOrCreateAmazonDoc("user-1", doc, TX);
+    expect(model.createBook).toHaveBeenCalledWith(
+      { ...doc, ownerId: "user-1", dedupeKey: "my notes|", authorSearch: "", metadataSource: "AMAZON" },
+      TX,
+    );
   });
 });

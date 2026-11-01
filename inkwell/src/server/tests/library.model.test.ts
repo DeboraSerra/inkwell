@@ -44,6 +44,7 @@ describe("every model function is scoped by userId", () => {
     ["findUserBookWithCatalog", () => model.findUserBookWithCatalog(USER, "ub")],
     ["createUserBook", () => model.createUserBook(newBook)],
     ["listUserBooks", () => model.listUserBooks(USER, { take: 10, formats: [BookFormat.EBOOK] })],
+    ["countUserBooks", () => model.countUserBooks(USER, { formats: [BookFormat.EBOOK] })],
     ["updateUserBookState", () => model.updateUserBookState(USER, "ub", state)],
     ["updateUserBookStatuses", () => model.updateUserBookStatuses(USER, ["ub"], ReadingStatus.FINISHED)],
     ["findChangeableReads", () => reads.findChangeableReads(USER, ["ub"])],
@@ -79,6 +80,63 @@ describe("listUserBooks", () => {
   it("matches books owned in any of the formats", async () => {
     await model.listUserBooks(USER, { take: 10, formats: [BookFormat.EBOOK, BookFormat.AUDIO] });
     expect(calls[0].args.where).toMatchObject({ formats: { hasSome: ["EBOOK", "AUDIO"] } });
+  });
+});
+
+describe("listUserBooks search", () => {
+  it("finds the title, the normalized key and any author's name or surname", async () => {
+    await model.listUserBooks(USER, {
+      take: 10,
+      search: { text: "Rebecca Yarros", normalized: "rebecca yarros", author: "rebecca yarros", surname: "yarros" },
+    });
+    const authors = [{ authorSearch: { contains: "rebecca yarros" } }, { authorSearch: { contains: " yarros|" } }];
+    expect(calls[0].args.where).toMatchObject({
+      // The reader's own authors, then the catalog's.
+      OR: [
+        ...authors,
+        { book: { OR: expect.arrayContaining([{ dedupeKey: { contains: "rebecca yarros" } }, ...authors]) } },
+      ],
+    });
+  });
+
+  it("doesn't match every book when the text normalizes to nothing", async () => {
+    await model.listUserBooks(USER, { take: 10, search: { text: "!!", normalized: "", author: "", surname: "" } });
+    expect(calls[0].args.where).toMatchObject({
+      OR: [{ book: { OR: [{ title: { contains: "!!", mode: "insensitive" } }] } }],
+    });
+  });
+});
+
+describe("removing and editing a book", () => {
+  it("only deletes the user's own row", async () => {
+    results.deleteMany = [{ count: 1 }];
+    await expect(model.deleteUserBook(USER, "ub")).resolves.toBe(1);
+    expect(calls[0].args.where).toEqual({ id: "ub", userId: USER });
+  });
+
+  it("only deletes the user's own rows in bulk", async () => {
+    results.deleteMany = [{ count: 2 }];
+    await expect(model.deleteUserBooks(USER, ["a", "b"])).resolves.toBe(2);
+    expect(calls[0].args.where).toEqual({ id: { in: ["a", "b"] }, userId: USER });
+  });
+
+  it("scopes an edit by user", async () => {
+    await model.updateEditedUserBook(USER, "ub", {
+      status: "TO_READ",
+      formats: [],
+      pageCount: 310,
+      authors: [],
+      authorSearch: "",
+      coverUrl: null,
+    });
+    expect(calls[0].args.where).toEqual({ id: "ub", userId: USER });
+  });
+
+  it("scopes read dates by user", async () => {
+    await reads.findLatestRead(USER, "ub");
+    await reads.updateReadDates(USER, "r", { startedAt: null });
+    expect(calls[0].args.where).toMatchObject({ userBook: { userId: USER } });
+    expect(calls[1].args.where).toMatchObject({ userBook: { userId: USER } });
   });
 });
 
