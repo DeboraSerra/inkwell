@@ -7,7 +7,7 @@ import { isAfter, parsePartialDate, type ReadDates } from "./partial-date.rules"
 
 const MAX_AUTHORS = 25;
 
-const isHttpsUrl = (value: string) => {
+export const isHttpsUrl = (value: string) => {
   try {
     return new URL(value).protocol === "https:";
   } catch {
@@ -19,15 +19,18 @@ const isHttpsUrl = (value: string) => {
 const optional = <T extends z.ZodType>(schema: T) =>
   z.preprocess((value) => (value === "" ? undefined : value), schema.optional());
 
-const manualBookSchema = z.object({
-  title: z.string().trim().min(1, "Enter a title.").max(300, "That title is too long."),
-  authors: z
+// Separated by semicolons, because a name can contain a comma ("Tolkien, J. R. R.").
+export const authorsField = z
     .string()
     .max(4000, "That's too much author text.")
     .transform((value) => value.split(";").map((name) => name.trim()).filter(Boolean))
     .refine((names) => names.length > 0, "Enter at least one author.")
     .refine((names) => names.length <= MAX_AUTHORS, `Enter at most ${MAX_AUTHORS} authors.`)
-    .refine((names) => names.every((name) => name.length <= 200), "An author name is too long."),
+    .refine((names) => names.every((name) => name.length <= 200), "An author name is too long.");
+
+const manualBookSchema = z.object({
+  title: z.string().trim().min(1, "Enter a title.").max(300, "That title is too long."),
+  authors: authorsField,
   subtitle: optional(z.string().trim().max(300, "That subtitle is too long.")),
   coverUrl: optional(
     z.string().trim().max(2000, "That cover URL is too long.").refine(isHttpsUrl, "The cover URL must start with https://."),

@@ -50,7 +50,8 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 2c: `Shelf`/`ShelfItem`, system shelves per user kept in sync with status and ownership, sparse ordering (`src/server/shelves/`)
 - ✅ Phase 3a: `UserBook.formats`, status as the list, `ReadThrough` read history; the shelves from 2c are removed
 - ✅ Phase 3b: manual add at `/books/new`, validated with zod (`library/manual-book.schema.ts`)
-- ⏭️ Next: **Phase 3c onward, the MVP** (`docs/plan/phase-3-mvp.md`): add books manually and by extension, move them between lists, and browse with filters. Then Phases 4–7
+- ✅ Phase 3c: extension import through `POST /api/imports/amazon` (`src/server/imports/`), not yet run on the real Amazon page
+- ⏭️ Next: **Phase 3d, the rest of the MVP** (`docs/plan/phase-3-mvp.md`): move books between lists and browse with filters. Then Phases 4–7
 
 ## Workflow rules
 

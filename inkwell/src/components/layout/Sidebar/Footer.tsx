@@ -9,6 +9,8 @@ import {
 import { SidebarFooter, SidebarMenuButton } from "@/components/ui/sidebar";
 import { requireUser } from "@/server/auth/auth.guard";
 import { SignOutItem } from "./SignOutItem";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export const Footer = async () => {
   const user = await requireUser();
@@ -43,7 +45,7 @@ export const Footer = async () => {
         <DropdownMenuContent className='w-40' align='end' side='right'>
           <DropdownMenuGroup>
             <DropdownMenuItem>Profile</DropdownMenuItem>
-            <DropdownMenuItem>Settings</DropdownMenuItem>
+            <DropdownMenuItem render={<Button as={Link} href="/settings">Settings</Button>} />
             <SignOutItem />
           </DropdownMenuGroup>
         </DropdownMenuContent>

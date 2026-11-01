@@ -73,3 +73,34 @@ describe("findOrCreateManualBook", () => {
     await expect(service.findOrCreateManualBook(details, TX)).resolves.toBe(existing);
   });
 });
+
+describe("findOrCreateAmazonBook", () => {
+  const amazon = { asin: "B0ABCDEFGH", ...details };
+
+  it("reuses a book already known by ASIN", async () => {
+    model.findBookByAsin.mockResolvedValue(existing);
+    await expect(service.findOrCreateAmazonBook(amazon, TX)).resolves.toBe(existing);
+    expect(model.createBook).not.toHaveBeenCalled();
+  });
+
+  it("reuses a book known by title and author without changing it", async () => {
+    model.findBookByDedupeKey.mockResolvedValue(existing);
+    await expect(service.findOrCreateAmazonBook(amazon, TX)).resolves.toBe(existing);
+    expect(model.createBook).not.toHaveBeenCalled();
+  });
+
+  it("creates a new book marked as coming from Amazon", async () => {
+    model.createBook.mockResolvedValue(existing);
+    await service.findOrCreateAmazonBook(amazon, TX);
+    expect(model.createBook).toHaveBeenCalledWith(
+      expect.objectContaining({ asin: "B0ABCDEFGH", dedupeKey: "hobbit|tolkien", metadataSource: "AMAZON" }),
+      TX,
+    );
+  });
+
+  it("finds the book when another import created it first", async () => {
+    model.createBook.mockResolvedValue(null);
+    model.findBookByAsin.mockResolvedValueOnce(null).mockResolvedValueOnce(existing);
+    await expect(service.findOrCreateAmazonBook(amazon, TX)).resolves.toBe(existing);
+  });
+});

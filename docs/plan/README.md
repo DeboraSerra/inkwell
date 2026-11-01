@@ -28,7 +28,7 @@
 3. **[Phase 3 — MVP: add books and browse them](phase-3-mvp.md) ⏭️ in progress**
    - 3a — Rework the model (formats, status as the list, read history) ✅ implemented
    - 3b — Add books manually ✅ implemented
-   - 3c — Add books through the extension
+   - 3c — Add books through the extension ✅ implemented, not yet run on Amazon
    - 3d — Browse, filter and move books
 4. [Phase 4 — Search and ISBN](phase-4-adding-books.md)
 5. [Phase 5 — AI enrichment (Claude API)](phase-5-ai-enrichment.md)

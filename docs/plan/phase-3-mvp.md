@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: in progress.** 3a is done and 3b is implemented on `dev`, not committed; 3c is next. This is the current focus. Everything after it waits until it's done.
+**Status: in progress.** 3a and 3b are done, and 3c is implemented on `dev`, not committed; 3d is next. This is the current focus. Everything after it waits until it's done.
 
 Goal: add books manually or through the Chrome extension, move them between lists, and browse them with filters.
 
@@ -103,6 +103,21 @@ Phase 2c built shelves to hold the lists, and one `ownership` value per book. St
    - Add an options page for the app URL and API token, with progress and a result message ("42 new, 310 already in library").
 2. **`manifest.json`:** run the content script only on `https://www.amazon.*/hz/mycd/*`, with `host_permissions` for the app URL.
 3. **Route handler:** authenticate with `getRequestUser`, validate the payload with a size limit, and treat every scraped field as untrusted. Upsert `Book` rows (ASIN → ISBN → dedupe key), add each to the library with `EBOOK` and source `AMAZON_IMPORT`, and return the created and existing counts.
+
+### 3c outcome
+
+- **Route:** `POST /api/imports/amazon` takes `{ books: [{ asin, title, authors, coverUrl }] }`, up to 200 books and 1 MB per request, and returns `{ created, existing, skipped }`.
+- **Code:** `src/server/imports/` (`amazon-import.schema.ts`, `imports.service.ts`) and `findOrCreateAmazonBook` in `book.service.ts`.
+- **Extension:** clicking it asks how many pages to read, starting from the open one (empty means all), then sends 100 books at a time, with progress in a banner on the page. The result stays on screen until closed, green for success, amber if books were skipped and red for a failure, with a matching badge on the extension's icon. `options.html` holds the app URL and token and tests them against `/api/me`. The service worker makes the requests, because a content script on Amazon would be blocked by CORS, and the token is kept out of reach of the content script.
+- **Deviations and choices:**
+  - There's no declared content script. The plan's `https://www.amazon.*/hz/mycd/*` isn't a valid Chrome match pattern, and a declared script misses tabs opened before installing, so clicking the extension injects `app.js` into the current tab (`activeTab` and `scripting`). It reaches Amazon only when clicked, on any Amazon domain.
+  - `host_permissions` covers localhost, and any other app URL must be `https` and is requested as an optional permission when saved in the options, since the deployed URL doesn't exist yet.
+  - A bad row is counted as skipped rather than failing the import. A bad ASIN or cover is dropped and the book kept.
+  - Each book has its own transaction, so a failed import can just be run again.
+  - A book matched by title and author keeps its catalog entry unchanged, so it doesn't gain the ASIN.
+  - Authors are split on semicolons only, so a comma-separated list from Amazon would stay one author.
+- **Verified:** tests; the real `app.js` on a fake content page with a stubbed `chrome` API, against the real route and local database with throwaway rows (two pages, a row with no author, a re-import adding nothing); and route errors with curl.
+- **Not verified, needs the user:** loading the extension in Chrome, the options page, `background.js`, and a run on the real Amazon page. In particular, where Amazon puts the ASIN in a row is an assumption: the code searches the row's element ids and links, and a book without one still imports by title and author.
 
 ## 3d — Browse, filter and move books
 

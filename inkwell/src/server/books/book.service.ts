@@ -45,19 +45,33 @@ export type ManualBookDetails = {
   isbn?: string;
 };
 
-// The catalog is shared, so a match is reused as it is: what one user typed
-// never overwrites details other users see.
-export async function findOrCreateManualBook(details: ManualBookDetails, tx?: Tx) {
+// The catalog is shared, so a match is reused as it is: what one user typed or
+// imported never overwrites details other users see.
+async function findOrCreateBook(
+  identity: BookIdentity,
+  data: Parameters<typeof bookModel.createBook>[0],
+  tx?: Tx,
+) {
+  const existing = await findExistingBook(identity, tx);
+  if (existing) return existing;
+
+  const created = await bookModel.createBook(data, tx);
+  if (created) return created;
+
+  // Another request created the same book at the same moment.
+  const raced = await findExistingBook(identity, tx);
+  if (!raced) throw new NotFoundError("Book not found");
+  return raced;
+}
+
+export function findOrCreateManualBook(details: ManualBookDetails, tx?: Tx) {
   const { isbn, ...fields } = details;
   const cleaned = isbn ? cleanIsbn(isbn) : undefined;
   const isbn13 = cleaned ? (toIsbn13(cleaned) ?? undefined) : undefined;
   const isbn10 = cleaned?.length === 10 ? cleaned : undefined;
 
-  const identity = { isbn13, isbn10, title: details.title, authors: details.authors };
-  const existing = await findExistingBook(identity, tx);
-  if (existing) return existing;
-
-  const created = await bookModel.createBook(
+  return findOrCreateBook(
+    { isbn13, isbn10, title: details.title, authors: details.authors },
     {
       ...fields,
       isbn13,
@@ -67,10 +81,23 @@ export async function findOrCreateManualBook(details: ManualBookDetails, tx?: Tx
     },
     tx,
   );
-  if (created) return created;
+}
 
-  // Another request created the same book at the same moment.
-  const raced = await findExistingBook(identity, tx);
-  if (!raced) throw new NotFoundError("Book not found");
-  return raced;
+export type AmazonBookDetails = {
+  asin?: string;
+  title: string;
+  authors: string[];
+  coverUrl?: string;
+};
+
+export function findOrCreateAmazonBook(details: AmazonBookDetails, tx?: Tx) {
+  return findOrCreateBook(
+    details,
+    {
+      ...details,
+      dedupeKey: dedupeKey(details.title, details.authors),
+      metadataSource: MetadataSource.AMAZON,
+    },
+    tx,
+  );
 }

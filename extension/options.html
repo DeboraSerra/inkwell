@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Inkwell Kindle import</title>
+    <style>
+      body { max-width: 420px; margin: 32px auto; padding: 0 16px; font: 14px sans-serif; }
+      label { display: block; margin-top: 16px; font-weight: 600; }
+      input { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px; }
+      button { margin-top: 16px; padding: 8px 16px; }
+    </style>
+  </head>
+  <body>
+    <h1>Inkwell Kindle import</h1>
+    <form id="form">
+      <label for="appUrl">App URL</label>
+      <input id="appUrl" placeholder="http://localhost:3000" required />
+      <label for="token">API token</label>
+      <input id="token" type="password" autocomplete="off" placeholder="Create one in Inkwell's settings" required />
+      <button type="submit">Save and test</button>
+    </form>
+    <output id="result"><output/>
+    <script src="options.js"></script>
+  </body>
+</html>
