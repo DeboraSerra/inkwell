@@ -2,4 +2,9 @@
 // script don't, so load them here with the same precedence.
 import { config } from "dotenv";
 
-config({ path: [".env.local", ".env"], quiet: true });
+const env = process.env.NODE_ENV;
+
+config({
+  path: env === "production" ? [".env.prod"] : [".env.local", ".env"],
+  quiet: true,
+});
