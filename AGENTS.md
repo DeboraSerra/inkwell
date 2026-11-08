@@ -172,6 +172,7 @@ inkwell/src/
 - **Don't remove the `overrides` in `package.json`.** They patch vulnerable transitive dependencies that upstream hasn't fixed yet. Re-check them with `npm audit` when upgrading.
 - `npm audit` reports 6 low or moderate findings, all through the `shadcn` package (`deepmerge`, `minimatch` via `ts-morph`). Anything else is new and needs looking at. Never run `npm audit fix --force` without asking: it can silently downgrade packages (it once replaced ESLint 9 with 4.0.0 and broke linting).
 - zod is approved for input validation (Phase 3).
+- `barcode-detector` (on `zxing-wasm`) is approved for barcode scanning (Phase 4d); load it only where the browser lacks `BarcodeDetector`.
 - Ask before adding significant dependencies, and pin to an exact or caret version of a release at least two weeks old.
 
 ## Domain rules (keep these consistent)
