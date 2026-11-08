@@ -34,6 +34,8 @@ Key files in `inkwell/`:
 | `src/server/errors.ts` | Domain errors (`NotFoundError`, `ValidationError`, `UnauthorizedError`) and `domainErrorResponse()` for route handlers |
 | `src/server/books/` | Shared catalog: `isbn.ts` and `dedupe.ts` (pure), `book.model.ts`, `book.service.ts` (`findExistingBook`) |
 | `src/server/library/` | Per-user library: `status.rules.ts` (statuses, formats and read changes; pure), `library.model.ts`, `read-through.model.ts`, `library.service.ts`, `library.controller.ts`, `manual-book.schema.ts` (zod) |
+| `src/server/metadata/` | Book details from Open Library and Google Books (Phase 4a): `metadata.service.ts` (`lookupIsbn`, `searchBooks`), one `*.provider.ts` per source, `sanitize.ts` (pure cleaners for untrusted fields), `http.ts` (timeout, size cap, day-long cache) |
+| `src/server/rate-limit/` | Per-user request limits counted in Postgres: `consumeRateLimit` throws `RateLimitError` (HTTP 429) |
 | `prisma/schema.prisma`, `prisma/migrations/` | Database schema and migrations |
 | `prisma/seed.ts`, `assets/lists/` | Idempotent seed for the curated genres and tropes |
 | `prisma/load-env.ts` | Loads `.env.local`, then `.env`, for the Prisma CLI and the seed |
@@ -52,7 +54,8 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 3b: manual add at `/books/new`, validated with zod (`library/manual-book.schema.ts`)
 - ✅ Phase 3c: extension import through `POST /api/imports/amazon` (`src/server/imports/`), not yet run on the real Amazon page
 - ✅ Phase 3d: browse, filter and move books at `/books/shelves`
-- ⏭️ Next: check Phase 3's "Done when" list (`docs/plan/phase-3-mvp.md`), then Phases 4–7
+- ✅ Phase 4a: metadata providers (Open Library, Google Books) and the per-user rate limit, not yet wired to any page
+- ⏭️ Next: Phase 4b (add by ISBN); Phase 3's "Done when" list (`docs/plan/phase-3-mvp.md`) is still unchecked
 
 ## Workflow rules
 

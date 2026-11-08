@@ -30,8 +30,8 @@
    - 3b — Add books manually ✅ implemented
    - 3c — Add books through the extension ✅ implemented, not yet run on Amazon
    - 3d — Browse, filter and move books ✅ implemented, at `/books/shelves`
-4. [Phase 4 — Search and ISBN](phase-4-adding-books.md)
-   - 4a — Metadata providers (Open Library, Google Books)
+4. [Phase 4 — Search and ISBN](phase-4-adding-books.md) ⏭️ in progress
+   - 4a — Metadata providers (Open Library, Google Books) ✅ implemented, plus the per-user rate limit
    - 4b — Add by ISBN
    - 4c — Search by title or author
    - 4d — Scan the barcode

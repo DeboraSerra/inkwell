@@ -1,0 +1,77 @@
+{
+  "numFound": 279,
+  "start": 0,
+  "numFoundExact": true,
+  "num_found": 279,
+  "documentation_url": "https://openlibrary.org/dev/docs/api/search",
+  "q": "dune herbert",
+  "offset": null,
+  "docs": [
+    {
+      "author_name": [
+        "Frank Herbert"
+      ],
+      "cover_i": 11481354,
+      "edition_key": [
+        "OL62445412M",
+        "OL58201616M",
+        "OL48154015M"
+      ],
+      "first_publish_year": 1965,
+      "isbn": [
+        "9780425043769",
+        "9780575122796",
+        "9788417347628",
+        "9788576573135",
+        "1399611178"
+      ],
+      "key": "/works/OL893414W",
+      "number_of_pages_median": 608,
+      "title": "Dune"
+    },
+    {
+      "author_name": [
+        "Frank Herbert"
+      ],
+      "cover_i": 980253,
+      "edition_key": [
+        "OL53238344M",
+        "OL61860842M",
+        "OL50718767M"
+      ],
+      "first_publish_year": 1969,
+      "isbn": [
+        "8418037679",
+        "9788466372015",
+        "8373017259",
+        "2266320491",
+        "9780441172696"
+      ],
+      "key": "/works/OL893461W",
+      "number_of_pages_median": 279,
+      "title": "Dune Messiah"
+    },
+    {
+      "author_name": [
+        "Frank Herbert"
+      ],
+      "cover_i": 6976407,
+      "edition_key": [
+        "OL47362500M",
+        "OL43022658M",
+        "OL25563083M"
+      ],
+      "first_publish_year": 1976,
+      "isbn": [
+        "1427202915",
+        "9789759971342",
+        "9780425071793",
+        "0575104406",
+        "9782724212983"
+      ],
+      "key": "/works/OL893516W",
+      "number_of_pages_median": 504,
+      "title": "Children of Dune"
+    }
+  ]
+}

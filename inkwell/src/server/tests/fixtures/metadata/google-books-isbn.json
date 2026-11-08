@@ -1,0 +1,37 @@
+{
+  "kind": "books#volumes",
+  "totalItems": 2,
+  "items": [
+    {
+      "kind": "books#volume",
+      "id": "loosematch01",
+      "volumeInfo": {
+        "title": "Dune Messiah",
+        "authors": ["Frank Herbert"],
+        "industryIdentifiers": [{ "type": "ISBN_13", "identifier": "9780593098233" }]
+      }
+    },
+    {
+      "kind": "books#volume",
+      "id": "B1hSG45JCX4C",
+      "volumeInfo": {
+        "title": "Dune",
+        "authors": ["Frank Herbert"],
+        "publisher": "Ace",
+        "publishedDate": "2005-08-02",
+        "description": "<p>Set on the desert planet <b>Arrakis</b>, a story of politics &amp; ecology.</p><br>Second paragraph.",
+        "industryIdentifiers": [
+          { "type": "ISBN_10", "identifier": "0441013597" },
+          { "type": "ISBN_13", "identifier": "9780441013593" }
+        ],
+        "pageCount": 528,
+        "printType": "BOOK",
+        "imageLinks": {
+          "smallThumbnail": "http://books.google.com/books/content?id=B1hSG45JCX4C&printsec=frontcover&img=1&zoom=5&source=gbs_api",
+          "thumbnail": "http://books.google.com/books/content?id=B1hSG45JCX4C&printsec=frontcover&img=1&zoom=1&source=gbs_api"
+        },
+        "language": "en"
+      }
+    }
+  ]
+}

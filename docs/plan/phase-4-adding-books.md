@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: not started.** It starts once Phase 3's "Done when" list ([phase-3-mvp.md](phase-3-mvp.md#done-when)) has been checked.
+**Status: in progress.** 4a is implemented on `dev`, not committed. It was started at the user's request before Phase 3's "Done when" list ([phase-3-mvp.md](phase-3-mvp.md#done-when)) was checked.
 
 Goal: add a book without typing its details. Search by title or author, type an ISBN, or photograph the barcode, then confirm, pick formats and add. The manual form stays as the last resort.
 
@@ -84,6 +84,40 @@ A new module, `src/server/metadata/`, that turns an ISBN or a search query into 
    - Each provider's parser against saved JSON fixtures (found, not found, missing fields, `http` cover, HTML description, junk). No network in tests.
    - The service with the providers and the book model mocked: catalog hit skips the network, Open Library miss falls back to Google, a missing cover or page count is filled from Google and nothing else is, both down returns `none`, an invalid ISBN throws, and private books are never returned.
    - The rate limit: under the limit, at the limit, past it, a new window resetting the count, and two users not sharing a count. The model's SQL is checked once against the local database.
+
+### 4a outcome
+
+- **Code:**
+  - `src/server/metadata/`:
+    - `metadata.types.ts`: `BookMetadata` and the provider interface.
+    - `sanitize.ts`: pure cleaners for every field.
+    - `http.ts`: `fetchProviderJson` and `ProviderError`.
+    - `open-library.provider.ts` and `google-books.provider.ts`.
+    - `metadata.service.ts`: `lookupIsbn`, `searchBooks`, `parseIsbn` and `parseQuery`.
+  - `src/server/rate-limit/`: `rate-limit.model.ts` and `rate-limit.service.ts` (`consumeRateLimit`).
+  - `RateLimitError` in `errors.ts`, mapped to `429` with `Retry-After`.
+- **Schema:** model `RateLimit` (composite key `userId + bucket`, cascade from `User`), migration `20261108120000_add_rate_limit`. It's applied to the local database.
+- **Caching:** providers call `fetch` with `next: { revalidate: 86400 }`. That's Next's data cache, per `node_modules/next/dist/docs` for apps without Cache Components. The 5-second timeout `signal` only turns off per-render memoization, not this cache. Only `200` responses are stored, so a miss from Open Library (`{}`, a 200) is also remembered for a day.
+- **Choices the plan left open:**
+  - zod checks each response's structure, and the sanitize helpers check each value. An odd field (a string page count, an unknown cover host) is dropped and the rest of the book kept.
+  - Every field is marked optional in the schemas, because in zod 4 a missing key fails even when its schema is `z.unknown()`.
+  - Open Library's ISBN response has no description, so only Google's results carry one.
+  - Errors never include the request URL, since Google's carries the API key.
+  - The rate-limit bucket is a text column, not an enum, so a new bucket needs no migration. The service only accepts the names in `RATE_LIMITS`.
+  - Retry-After is kept between 1 and 60 seconds, in case the app and database clocks disagree.
+  - `findBookByIsbn13` doesn't exclude private books at the model level. `lookupIsbn` treats a private match as not in the catalog.
+- **Moved to later sub-phases:**
+  - Marking search results that are "In your library" needs the signed-in user, so it moves to 4c.
+  - Calling `consumeRateLimit` belongs to the controllers in 4b and 4c, which don't exist yet.
+  - Deleting `api/books/route.js` stays with 4c.
+- **Found for 4c:** a search result's ISBN is the first valid one in the work's list, which can be another language's edition. For example, *Dune Messiah* came back with a Spanish ISBN. Adding the result looks that edition up, so 4c should show the edition before adding, or prefer the reader's language when a work offers several.
+- **Verified:**
+  - 102 new tests, using real Open Library responses and a real Google quota error as fixtures. The Google success fixtures are hand-written, because the keyless API's quota was zero.
+  - The rate-limit SQL against the local database with throwaway users, since removed: counting, separate buckets and users, 20 parallel requests getting 20 distinct counts, the window resetting, and the cascade delete.
+  - One run of the real service against the live APIs: an ISBN-10 found *Dune* with cover and pages, search returned 10 results, and Google's `429` was handled as a miss.
+- **You need to do:**
+  - Add `METADATA_USER_AGENT` and `GOOGLE_BOOKS_API_KEY` to `.env.local` and to Vercel (see "Env vars").
+  - Run `npx prisma migrate deploy` against any other database (Neon).
 
 ## 4b — Add by ISBN
 
