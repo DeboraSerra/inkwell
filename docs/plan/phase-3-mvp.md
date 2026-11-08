@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: in progress.** 3a to 3c are done, and 3d is implemented on `dev`, not committed. This is the current focus. Everything after it waits until it's done.
+**Status: in progress.** 3a to 3d are done and committed. The phase closes once the ["Done when"](#done-when) list below has been checked. Phase 4 was started before that, at the user's request.
 
 Goal: add books manually or through the Chrome extension, move them between lists, and browse them with filters.
 

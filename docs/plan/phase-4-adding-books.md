@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: in progress.** 4a is done. 4b is implemented on `dev`, not committed. It was started at the user's request before Phase 3's "Done when" list ([phase-3-mvp.md](phase-3-mvp.md#done-when)) was checked.
+**Status: in progress.** 4a and 4b are done and committed. Next is 4c. It was started at the user's request before Phase 3's "Done when" list ([phase-3-mvp.md](phase-3-mvp.md#done-when)) was checked.
 
 Goal: add a book without typing its details. Search by title or author, type an ISBN, or photograph the barcode, then confirm, pick formats and add. The manual form stays as the last resort.
 
@@ -154,6 +154,15 @@ A new module, `src/server/metadata/`, that turns an ISBN or a search query into 
   - **Both actions count toward the `ISBN_LOOKUP` limit,** because both look the ISBN up. A preview and an add cost two, so the limit allows about 30 books a minute.
   - **Filling a blank ISBN runs after the add's transaction, as a best-effort extra, rather than inside it.** A unique-key clash would abort a Postgres transaction, so `fillBookIsbn` catches that clash (`P2002`) and skips the fill. The plan had it inside the transaction.
   - **Each fact on the preview card stays on one line,** so an ISBN never breaks across lines on a phone.
+- **Fixed after the outcome above, in the same commit:**
+  - **`TextField` passes its props on.** It now forwards `onChange`, `id`, `ref` and `autoComplete` to its input. Before, the ISBN tab's formatting never ran once that tab used `TextField`. The ISBN tab's input has its own id, `lookup-isbn`, since both tabs stay mounted and the Manual form's ISBN field is `isbn`.
+  - **Covers, in a shared `components/BookCover.tsx`,** used by the preview card and the shelf cards:
+    - **Open Library and Google Books covers go through Next's image optimizer.** The app's server fetches them, so the reader's browser never does. Older Open Library covers redirect twice to the Internet Archive, which failed in the user's browser; the optimizer follows up to 3 redirects.
+    - **The allowlist** is `images.remotePatterns` in `next.config.ts`: Open Library's `/b/**` with no query string, and Google's `/books/content`, whose links need one. Other hosts, query strings and paths get a `400`.
+    - **Other covers stay a plain `<img>`** with no referrer. That's all of today's library: 233 Amazon covers and one from Goodreads.
+    - **Missing or failed covers** show `public/assets/cover-placeholder.jpg`. A failure that happens before React is ready is caught by checking the image when it mounts.
+    - Image optimization on Vercel has a monthly limit on the free plan, and only the two optimized hosts count toward it.
+  - **ISBN fields accept only what an ISBN can contain:** digits, and an X only as the last character of an ISBN-10 (`formatIsbn` in `books/isbn.ts`). Before, an X typed anywhere was kept and could push a real digit off the end.
 - **Not written:** the plan's test for "a book that disappeared between lookup and add". Catalog books are never deleted (deleting a book only removes the `UserBook`), so it can't happen.
 - **Verified:**
   - 33 new tests.

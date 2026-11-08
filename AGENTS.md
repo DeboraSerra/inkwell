@@ -55,7 +55,7 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 3c: extension import through `POST /api/imports/amazon` (`src/server/imports/`), not yet run on the real Amazon page
 - ✅ Phase 3d: browse, filter and move books at `/books/shelves`
 - ✅ Phase 4a: metadata providers (Open Library, Google Books) and the per-user rate limit
-- ✅ Phase 4b: add by ISBN on `/books/new` (ISBN and Manual tabs)
+- ✅ Phase 4b: add by ISBN on `/books/new` (ISBN and Manual tabs); covers through `components/BookCover.tsx`, with Open Library and Google covers served by Next's image optimizer (`images.remotePatterns` in `next.config.ts`)
 - ⏭️ Next: Phase 4c (search); Phase 3's "Done when" list (`docs/plan/phase-3-mvp.md`) is still unchecked
 
 ## Workflow rules
