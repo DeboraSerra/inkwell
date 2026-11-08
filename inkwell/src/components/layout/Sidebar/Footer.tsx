@@ -1,16 +1,15 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SidebarFooter, SidebarMenuButton } from "@/components/ui/sidebar";
 import { requireUser } from "@/server/auth/auth.guard";
+import { AccountMenuContent } from "./AccountMenuContent";
 import { SignOutItem } from "./SignOutItem";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { SidebarLink } from "./SidebarLink";
 
 export const Footer = async () => {
   const user = await requireUser();
@@ -42,13 +41,14 @@ export const Footer = async () => {
             </SidebarMenuButton>
           }
         />
-        <DropdownMenuContent className='w-40' align='end' side='right'>
+        <AccountMenuContent>
           <DropdownMenuGroup>
-            <DropdownMenuItem>Profile</DropdownMenuItem>
-            <DropdownMenuItem render={<Button as={Link} href="/settings">Settings</Button>} />
+            <DropdownMenuItem render={<SidebarLink href="/settings" />}>
+              Settings
+            </DropdownMenuItem>
             <SignOutItem />
           </DropdownMenuGroup>
-        </DropdownMenuContent>
+        </AccountMenuContent>
       </DropdownMenu>
     </SidebarFooter>
   );

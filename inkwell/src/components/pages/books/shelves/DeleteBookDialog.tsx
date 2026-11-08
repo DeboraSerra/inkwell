@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "../ui/button";
+import { Button } from "../../../ui/button";
 import {
   Dialog,
   DialogClose,
@@ -9,7 +9,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../ui/dialog";
+} from "../../../ui/dialog";
 
 export function DeleteBookDialog({
   heading,

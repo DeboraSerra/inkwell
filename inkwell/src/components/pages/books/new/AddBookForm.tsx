@@ -23,10 +23,10 @@ import {
   useEffect,
   useState,
 } from "react";
-import { StatusField } from "./StatusField";
-import { TextField } from "./TextField";
-import { toast } from "./ui/toast";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import { StatusField } from "../../../StatusField";
+import { TextField } from "../../../TextField";
+import { toast } from "../../../ui/toast";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../../ui/tooltip";
 
 const FORMATS = [
   { value: BookFormat.EBOOK, label: "Ebook" },
@@ -161,18 +161,16 @@ export default function AddBookForm() {
           defaultValue={values?.authors}
         />
 
-        <div className="grid grid-cols-2 gap-5">
-          <FieldSet className="flex flex-col">
-            <FieldLegend variant='label' className="flex gap-1 items-center">
+        <div className='grid grid-cols-2 gap-5'>
+          <FieldSet className='flex flex-col'>
+            <FieldLegend variant='label' className='flex gap-1 items-center'>
               <span>Formats you own</span>
               <Tooltip>
                 <TooltipTrigger aria-label={`About formats`}>
                   <Info size={16} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>
-                    Leave these empty if you don’t own the book.
-                  </p>
+                  <p>Leave these empty if you don’t own the book.</p>
                 </TooltipContent>
               </Tooltip>
             </FieldLegend>
@@ -199,7 +197,6 @@ export default function AddBookForm() {
           <StatusField values={values} />
         </div>
 
-        
         <TextField name='isbn' label='ISBN' defaultValue={values?.isbn} />
         <TextField
           name='pageCount'

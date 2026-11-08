@@ -16,9 +16,9 @@ import type { ShelfBook } from "@/server/library/library.service";
 import { SHELVES } from "@/server/library/shelf-filters";
 import { canTransition } from "@/server/library/status.rules";
 import { cn } from "cn";
-import { useState } from "react";
 import { Edit, EllipsisVertical, Trash } from "lucide-react";
-import { FieldLabel } from "../ui/field";
+import { useState } from "react";
+import { FieldLabel } from "../../../ui/field";
 import { DeleteBookDialog } from "./DeleteBookDialog";
 import { EditBookDialog } from "./EditBookDialog";
 import { FORMAT_LABELS } from "./formats";
@@ -50,7 +50,10 @@ export function BookCard({
   onSelect: (checked: boolean) => void;
   onMove: (status: ReadingStatus) => void;
   onFormats: (formats: BookFormat[]) => void;
-  onMoveWithDates: (status: ReadingStatus, formData: FormData) => Promise<boolean>;
+  onMoveWithDates: (
+    status: ReadingStatus,
+    formData: FormData,
+  ) => Promise<boolean>;
   onEdit: (formData: FormData) => Promise<boolean>;
   onDelete: () => void;
 }>) {
@@ -59,7 +62,8 @@ export function BookCard({
   const [movingTo, setMovingTo] = useState<ReadingStatus | null>(null);
 
   const chooseTarget = (status: ReadingStatus) => {
-    if (status === ReadingStatus.READING || status === ReadingStatus.FINISHED) setMovingTo(status);
+    if (status === ReadingStatus.READING || status === ReadingStatus.FINISHED)
+      setMovingTo(status);
     else onMove(status);
   };
   const targets = SHELVES.filter(
@@ -80,7 +84,10 @@ export function BookCard({
         selected && "border-primary bg-primary/5",
       )}
     >
-      <FieldLabel htmlFor={book.id} className='min-w-0 flex-1 items-start gap-3 has-data-checked:border-transparent has-data-checked:bg-transparent dark:has-data-checked:bg-transparent'>
+      <FieldLabel
+        htmlFor={book.id}
+        className='min-w-0 flex-1 items-start gap-3 has-data-checked:border-transparent has-data-checked:bg-transparent dark:has-data-checked:bg-transparent'
+      >
         <Checkbox
           aria-label={`Select ${book.title}`}
           checked={selected}
@@ -137,7 +144,10 @@ export function BookCard({
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className='w-40'>
               {targets.map(({ status, label }) => (
-                <DropdownMenuItem key={status} onClick={() => chooseTarget(status)}>
+                <DropdownMenuItem
+                  key={status}
+                  onClick={() => chooseTarget(status)}
+                >
                   {label}
                 </DropdownMenuItem>
               ))}

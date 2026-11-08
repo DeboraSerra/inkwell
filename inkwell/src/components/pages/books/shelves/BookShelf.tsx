@@ -18,16 +18,17 @@ import {
   SHELVES,
 } from "@/server/library/shelf-filters";
 import { LIST_NAMES } from "@/server/library/status.rules";
+import { Trash } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type MouseEvent, useState, useTransition } from "react";
-import { Button } from "../ui/button";
+import { Button } from "../../../ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
+} from "../../../ui/dropdown-menu";
 import {
   Pagination,
   PaginationContent,
@@ -36,18 +37,18 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "../ui/pagination";
-import { toast } from "../ui/toast";
+} from "../../../ui/pagination";
+import { toast } from "../../../ui/toast";
 import { BookCard } from "./BookCard";
 import { DeleteBookDialog } from "./DeleteBookDialog";
-import { Trash } from "lucide-react";
 
 const showError = (description: string) =>
   toast.add({ description, type: "error" });
 
 const MAX_SELECTED = 30;
 
-const bookCount = (count: number) => (count === 1 ? "1 book" : `${count} books`);
+const bookCount = (count: number) =>
+  count === 1 ? "1 book" : `${count} books`;
 
 export const BooksShelf = ({
   filters,
@@ -126,7 +127,11 @@ export const BooksShelf = ({
       });
     });
 
-  const saveMove = async (id: string, status: ReadingStatus, formData: FormData) => {
+  const saveMove = async (
+    id: string,
+    status: ReadingStatus,
+    formData: FormData,
+  ) => {
     const { error, book } = await moveBookWithDates(id, status, formData);
     if (error) showError(error);
     if (book) applyChange(book);
@@ -137,7 +142,8 @@ export const BooksShelf = ({
     const { error, book } = await editBook(id, formData);
     if (error) showError(error);
     if (!book) return false;
-    if (book.status === filters.status) toast.add({ description: "Changes saved." });
+    if (book.status === filters.status)
+      toast.add({ description: "Changes saved." });
     else applyChange(book);
     return true;
   };
@@ -161,7 +167,9 @@ export const BooksShelf = ({
         return;
       }
       setSelected([]);
-      toast.add({ description: `Removed ${bookCount(removed)} from your library.` });
+      toast.add({
+        description: `Removed ${bookCount(removed)} from your library.`,
+      });
     });
 
   const toggleSelected = (id: string, checked: boolean) =>
@@ -195,54 +203,56 @@ export const BooksShelf = ({
     <div className='flex flex-col gap-5'>
       {selected.length > 0 && (
         <div className='sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-background p-2'>
-          <div className="flex items-center flex-wrap gap-2"><DropdownMenu>
-            <DropdownMenuTrigger
-              disabled={isPending}
-              render={<Button size='sm'>Move selected to</Button>}
-            />
-            <DropdownMenuContent className='w-40'>
-              {SHELVES.filter(({ status }) => status !== filters.status).map(
-                ({ status, label }) => (
-                  <DropdownMenuItem
-                    key={status}
-                    onClick={() => moveSelected(status)}
-                  >
-                    {label}
-                  </DropdownMenuItem>
-                ),
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button
-            size="sm"
-            variant="destructive"
-            aria-label='Delete selected books'
-            disabled={isPending}
-            onClick={() => setDeletingSelected(true)}
-          >
-            <Trash />
-          </Button>
-          <DeleteBookDialog
-            heading={`Delete ${bookCount(selected.length)}?`}
-            description='The selected books will be removed from your library, along with your formats and read dates. This can’t be undone.'
-            open={deletingSelected}
-            onOpenChange={setDeletingSelected}
-            onConfirm={deleteSelected}
-          />
-          {selected.length < books.length && (
+          <div className='flex items-center flex-wrap gap-2'>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                disabled={isPending}
+                render={<Button size='sm'>Move selected to</Button>}
+              />
+              <DropdownMenuContent className='w-40'>
+                {SHELVES.filter(({ status }) => status !== filters.status).map(
+                  ({ status, label }) => (
+                    <DropdownMenuItem
+                      key={status}
+                      onClick={() => moveSelected(status)}
+                    >
+                      {label}
+                    </DropdownMenuItem>
+                  ),
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               size='sm'
-              variant='ghost'
-              onClick={() =>
-                setSelected(books.slice(0, MAX_SELECTED).map(({ id }) => id))
-              }
+              variant='destructive'
+              aria-label='Delete selected books'
+              disabled={isPending}
+              onClick={() => setDeletingSelected(true)}
             >
-              Select all {Math.min(books.length, MAX_SELECTED)}
+              <Trash />
             </Button>
-          )}
-          <Button size='sm' variant='ghost' onClick={() => setSelected([])}>
-            Clear
-          </Button></div>
+            <DeleteBookDialog
+              heading={`Delete ${bookCount(selected.length)}?`}
+              description='The selected books will be removed from your library, along with your formats and read dates. This can’t be undone.'
+              open={deletingSelected}
+              onOpenChange={setDeletingSelected}
+              onConfirm={deleteSelected}
+            />
+            {selected.length < books.length && (
+              <Button
+                size='sm'
+                variant='ghost'
+                onClick={() =>
+                  setSelected(books.slice(0, MAX_SELECTED).map(({ id }) => id))
+                }
+              >
+                Select all {Math.min(books.length, MAX_SELECTED)}
+              </Button>
+            )}
+            <Button size='sm' variant='ghost' onClick={() => setSelected([])}>
+              Clear
+            </Button>
+          </div>
           <small className='text-sm' role='status'>
             {selected.length} selected
           </small>
@@ -260,18 +270,20 @@ export const BooksShelf = ({
             onSelect={(checked) => toggleSelected(book.id, checked)}
             onMove={(status) => moveOne(book.id, status)}
             onFormats={(formats) => changeFormats(book.id, formats)}
-            onMoveWithDates={(status, formData) => saveMove(book.id, status, formData)}
+            onMoveWithDates={(status, formData) =>
+              saveMove(book.id, status, formData)
+            }
             onEdit={(formData) => saveEdit(book.id, formData)}
             onDelete={() => deleteOne(book.id, book.title)}
           />
         ))}
       </ul>
-      <div className="flex justify-between items-center">
+      <div className='flex justify-between items-center'>
         <small>
           {firstIndex} - {firstIndex + books.length - 1} of {total}
         </small>
         {pageCount > 1 && (
-          <Pagination className="mx-0 w-fit">
+          <Pagination className='mx-0 w-fit'>
             <PaginationContent>
               {page > 1 && (
                 <PaginationItem>

@@ -20,7 +20,7 @@
 ## Phases
 
 0. [Phase 0 — Fix the security issues](phase-0-security.md) ✅ done
-1. [Phase 1 — Foundation and auth](phase-1-foundation-auth.md) ✅ implemented
+1. [Phase 1 — Foundation and auth](phase-1-foundation-auth.md) ✅ implemented (plus email and password sign-in)
 2. [Phase 2 — Data model](phase-2-data-model.md) ✅ implemented (2c's shelves are removed by 3a)
    - [2a — Catalog](phase-2-data-model.md#phase-2a--catalog)
    - [2b — Library](phase-2-data-model.md#phase-2b--library)
@@ -30,7 +30,11 @@
    - 3b — Add books manually ✅ implemented
    - 3c — Add books through the extension ✅ implemented, not yet run on Amazon
    - 3d — Browse, filter and move books ✅ implemented, at `/books/shelves`
-4. [Phase 4 — Search and ISBN](phase-4-adding-books.md)
+4. [Phase 4 — Search and ISBN](phase-4-adding-books.md) ⏭️ in progress
+   - 4a — Metadata providers (Open Library, Google Books) ✅ implemented, plus the per-user rate limit
+   - 4b — Add by ISBN
+   - 4c — Search by title or author
+   - 4d — Scan the barcode
 5. [Phase 5 — AI enrichment (Claude API)](phase-5-ai-enrichment.md)
 6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals
 7. [Phase 7 — Quality and deploy](phase-7-quality-deploy.md)

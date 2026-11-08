@@ -22,6 +22,7 @@ model User {
   apiTokens ApiToken[]
   ownedBooks Book[]
   userBooks UserBook[]
+  rateLimits RateLimit[]
 }
 
 // Personal access tokens, used by the Chrome extension. Only the SHA-256 hash
@@ -38,6 +39,18 @@ model ApiToken {
   createdAt  DateTime  @default(now())
 
   @@index([userId])
+}
+
+// A fixed one-minute window per user and kind of request (see
+// src/server/rate-limit/). One row per user per bucket, reused every window.
+model RateLimit {
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  bucket      String
+  windowStart DateTime @default(now())
+  count       Int      @default(0)
+
+  @@id([userId, bucket])
 }
 
 // ---------------------------------------------------------------------------
