@@ -51,6 +51,7 @@
     "protobufjs": "^7.6.6",
     "postcss": "^8.5.29",
     "deepmerge-ts": "^8.0.2",
-    "mysql2": "^3.24.5"
+    "mysql2": "^3.24.5",
+    "jwks-rsa": "^3.2.2"
   }
 }
