@@ -20,7 +20,7 @@
 ## Phases
 
 0. [Phase 0 — Fix the security issues](phase-0-security.md) ✅ done
-1. [Phase 1 — Foundation and auth](phase-1-foundation-auth.md) ✅ implemented
+1. [Phase 1 — Foundation and auth](phase-1-foundation-auth.md) ✅ implemented (plus email and password sign-in)
 2. [Phase 2 — Data model](phase-2-data-model.md) ✅ implemented (2c's shelves are removed by 3a)
    - [2a — Catalog](phase-2-data-model.md#phase-2a--catalog)
    - [2b — Library](phase-2-data-model.md#phase-2b--library)

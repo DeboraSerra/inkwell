@@ -20,3 +20,13 @@
 - **API tokens:** new `ApiToken` model (its migration is now part of the single `init`). Tokens look like `ink_…` and only their SHA-256 hash is stored. Create and revoke them on `/settings`. `getRequestUser(request)` accepts a Bearer token or the session cookie.
 - **`GET /api/me`:** lets the extension check that its token works.
 - **Env and deploy:** `.env.example` documents every variable. `DIRECT_URL` is used for migrations (Neon) and `DATABASE_URL` (pooled) at runtime. The Prisma CLI and seed load `.env.local` and then `.env`. `build` and `postinstall` run `prisma generate`. The Prisma client is a singleton in development.
+
+### Addition: email and password sign-in
+
+Added at the user's request; the original plan had Google only.
+
+- **`/login`** now shows an email and password form above "Continue with Google". It toggles between **Sign in** and **Create an account** (password at least 8 characters).
+- **`src/config/firebase-session.ts`:** `signInWithFirebase()` holds the shared flow (in-memory persistence → Firebase sign-in → ID token → sign out of Firebase → `signIn` server action). `GoogleSignInButton` and the new `EmailSignInForm` both use it, so the server side is unchanged.
+- Error messages don't reveal whether an account exists (Firebase answers a wrong email and a wrong password the same way).
+- **Verified:** tsc, lint, 367 tests, build; on `/login`, a wrong email/password shows "Wrong email or password." and the toggle switches modes. A real account was not created or signed in with.
+- **Not included:** password reset and email verification. Anyone can create an account, as with Google sign-in.
