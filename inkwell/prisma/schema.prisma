@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -13,80 +7,223 @@ datasource db {
   provider = "postgresql"
 }
 
-model Trope {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  books       Book[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+// ---------------------------------------------------------------------------
+// Users and auth
+// ---------------------------------------------------------------------------
+
+model User {
+  id        String     @id @unique
+  email     String     @unique
+  name      String?
+  photoUrl  String?
+  age       Int?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  apiTokens ApiToken[]
+  ownedBooks Book[]
+  userBooks UserBook[]
 }
 
-model Genre {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  books       Book[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+// Personal access tokens, used by the Chrome extension. Only the SHA-256 hash
+// of the token is stored; the plain token is shown once when it's created.
+model ApiToken {
+  id         String    @id @default(uuid())
+  name       String
+  tokenHash  String    @unique
+  prefix     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }
 
-model Status {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  books       Book[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+// ---------------------------------------------------------------------------
+// Shared book catalog. A book is stored once and reused by every user; each
+// user's status, shelves and notes about it live in per-user tables.
+// ---------------------------------------------------------------------------
+
+enum LengthCategory {
+  SHORT
+  MEDIUM
+  LONG
 }
 
-model Review {
-  id        String   @id @default(uuid())
-  content   String?
-  rating    Int
-  book      Book     @relation("BookReviews", fields: [bookId], references: [id])
-  bookId    String
-  user      User     @relation("UserReviews", fields: [userId], references: [id])
-  userId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum MetadataSource {
+  AMAZON
+  OPEN_LIBRARY
+  GOOGLE_BOOKS
+  MANUAL
+}
+
+// Who attached a genre or trope to a book, so AI suggestions can be told apart
+// from (and never overwrite) the user's own edits.
+enum TagSource {
+  AI
+  USER
 }
 
 model Book {
-  id        String      @id @default(uuid())
-  title     String      @unique
-  author    String
-  image     String
-  tags      String[]
-  trope     Trope?      @relation(fields: [tropeId], references: [id])
-  tropeId   String?
-  genre     Genre?      @relation(fields: [genreId], references: [id])
-  genreId   String?
-  review    Review[]    @relation("BookReviews")
-  status    Status?     @relation(fields: [statusId], references: [id])
-  statusId  String?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  userBooks UserBooks[]
+  id             String          @id @default(uuid())
+  // Set for a private book, such as a personal document from Amazon, which only
+  // this user can ever get. Null means the shared catalog.
+  owner          User?           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId        String?
+  title          String
+  subtitle       String?
+  authors        String[]
+  // Normalized title + sorted surnames; see src/server/books/dedupe.ts. Not
+  // unique, because different editions of the same book share it.
+  dedupeKey      String
+  // Every author's normalized name, for search; see authorSearchText.
+  authorSearch   String          @default("")
+  isbn10         String?
+  isbn13         String?         @unique
+  asin           String?         @unique
+  openLibraryId  String?
+  googleBooksId  String?
+  coverUrl       String?
+  pageCount      Int?
+  lengthCategory LengthCategory?
+  publishedYear  Int?
+  description    String?
+  tags           String[]
+  aiEnrichedAt   DateTime?
+  metadataSource MetadataSource
+  genres         BookGenre[]
+  tropes         BookTrope[]
+  userBooks      UserBook[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([dedupeKey])
+  @@index([ownerId])
+  @@index([isbn10])
 }
 
-model User {
-  id        String      @id @unique
-  email     String      @unique
-  name      String?
-  age       Int?
-  reviews   Review[]    @relation("UserReviews")
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  userBooks UserBooks[]
+model Genre {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  description String?
+  books       BookGenre[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
-model UserBooks {
-  userId String
-  bookId String
+model Trope {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  description String?
+  books       BookTrope[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
 
-  user User @relation(fields: [userId], references: [id])
-  book Book @relation(fields: [bookId], references: [id])
+model BookGenre {
+  book      Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  bookId    String
+  genre     Genre     @relation(fields: [genreId], references: [id], onDelete: Cascade)
+  genreId   String
+  source    TagSource
+  createdAt DateTime  @default(now())
 
-  @@id([userId, bookId])
+  @@id([bookId, genreId])
+  @@index([genreId])
+}
+
+model BookTrope {
+  book      Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  bookId    String
+  trope     Trope     @relation(fields: [tropeId], references: [id], onDelete: Cascade)
+  tropeId   String
+  source    TagSource
+  createdAt DateTime  @default(now())
+
+  @@id([bookId, tropeId])
+  @@index([tropeId])
+}
+
+// ---------------------------------------------------------------------------
+// Per-user library: each user's relationship with a catalog book.
+// ---------------------------------------------------------------------------
+
+// The formats a user owns a book in. No formats means they don't own it.
+enum BookFormat {
+  EBOOK
+  PHYSICAL
+  AUDIO
+}
+
+// The status is also the list a book appears on. WISHLIST and TO_READ depend
+// on whether the user owns the book; see src/server/library/status.rules.ts.
+enum ReadingStatus {
+  WISHLIST
+  TO_READ
+  READING
+  FINISHED
+  DNF
+}
+
+enum UserBookSource {
+  AMAZON_IMPORT
+  SEARCH
+  ISBN
+  MANUAL
+}
+
+enum ReadOutcome {
+  FINISHED
+  DNF
+}
+
+model UserBook {
+  id           String         @id @default(uuid())
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  // Catalog books can't be deleted while anyone has them in their library.
+  book         Book           @relation(fields: [bookId], references: [id], onDelete: Restrict)
+  bookId       String
+  formats      BookFormat[]
+  status       ReadingStatus
+  // This reader's own details, when they differ from the catalog's. Empty or
+  // null means the catalog's value is used.
+  pageCount    Int?
+  authors      String[]
+  coverUrl     String?
+  // Search text for `authors`; see authorSearchText.
+  authorSearch String         @default("")
+  source       UserBookSource
+  addedAt      DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  readThroughs ReadThrough[]
+
+  @@unique([userId, bookId])
+  @@index([userId, status])
+}
+
+// How much of a read date is known. The date itself holds the first day of that
+// month or year, in UTC.
+enum DatePrecision {
+  DAY
+  MONTH
+  YEAR
+}
+
+// One read of a book. A row with no outcome is the current read. Dates are
+// optional because a bulk move doesn't know when a book was read.
+model ReadThrough {
+  id                 String        @id @default(uuid())
+  userBook           UserBook      @relation(fields: [userBookId], references: [id], onDelete: Cascade)
+  userBookId         String
+  startedAt          DateTime?
+  startedAtPrecision DatePrecision @default(DAY)
+  endedAt            DateTime?
+  endedAtPrecision   DatePrecision @default(DAY)
+  outcome            ReadOutcome?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([userBookId])
 }
