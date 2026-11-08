@@ -2,6 +2,7 @@
 
 import {
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
 } from "firebase/auth";
 import { useState, useTransition } from "react";
@@ -13,7 +14,34 @@ import { signInWithFirebase } from "@/config/firebase-session";
 
 const MIN_PASSWORD_LENGTH = 8;
 
-type Mode = "signIn" | "signUp";
+type Mode = "signIn" | "signUp" | "reset";
+
+const RESET_SENT_MESSAGE =
+  "If there's an account for that email, we've sent a link to reset your password.";
+
+const DEFAULT_ERRORS: Record<Mode, string> = {
+  signIn: "Couldn't sign you in. Please try again.",
+  signUp: "Couldn't create your account. Please try again.",
+  reset: "Couldn't send the reset email. Please try again.",
+};
+
+const PENDING_LABELS: Record<Mode, string> = {
+  signIn: "Signing in…",
+  signUp: "Creating account…",
+  reset: "Sending…",
+};
+
+const SUBMIT_LABELS: Record<Mode, string> = {
+  signIn: "Sign in",
+  signUp: "Create account",
+  reset: "Send reset link",
+};
+
+const FOOTER_PROMPTS: Record<Mode, string> = {
+  signIn: "New to Inkwell? ",
+  signUp: "Already have an account? ",
+  reset: "Remembered it? ",
+};
 
 // Firebase reports a wrong email and a wrong password the same way
 // (auth/invalid-credential), so these messages never reveal which accounts exist.
@@ -34,17 +62,33 @@ function errorMessage(code: string | undefined, mode: Mode) {
     case "auth/operation-not-allowed":
       return "Email sign-in isn't enabled yet.";
     default:
-      return mode === "signUp"
-        ? "Couldn't create your account. Please try again."
-        : "Couldn't sign you in. Please try again.";
+      return DEFAULT_ERRORS[mode];
+  }
+}
+
+async function sendResetLink(email: string) {
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (e) {
+    // Without Firebase's email enumeration protection an unknown email throws;
+    // report success anyway so the form doesn't reveal which accounts exist.
+    if ((e as { code?: string }).code !== "auth/user-not-found") throw e;
   }
 }
 
 export default function EmailSignInForm({ next }: Readonly<{ next?: string }>) {
   const [mode, setMode] = useState<Mode>("signIn");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const isSignUp = mode === "signUp";
+  const isReset = mode === "reset";
+
+  const switchMode = (to: Mode) => {
+    setError(null);
+    setNotice(null);
+    setMode(to);
+  };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -52,12 +96,18 @@ export default function EmailSignInForm({ next }: Readonly<{ next?: string }>) {
     const email = String(form.get("email") ?? "").trim();
     const password = String(form.get("password") ?? "");
     setError(null);
+    setNotice(null);
     if (isSignUp && password.length < MIN_PASSWORD_LENGTH) {
       setError(errorMessage("auth/weak-password", mode));
       return;
     }
     startTransition(async () => {
       try {
+        if (isReset) {
+          await sendResetLink(email);
+          setNotice(RESET_SENT_MESSAGE);
+          return;
+        }
         const result = await signInWithFirebase(
           () =>
             isSignUp
@@ -72,11 +122,13 @@ export default function EmailSignInForm({ next }: Readonly<{ next?: string }>) {
     });
   };
 
-  const pendingLabel = isSignUp ? "Creating account…" : "Signing in…";
-  const submitLabel = isSignUp ? "Create account" : "Sign in";
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-left">
+      {isReset && (
+        <p className="text-sm text-muted-foreground">
+          Enter your email and we'll send you a link to choose a new password.
+        </p>
+      )}
       <FieldGroup>
         <Field>
           <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -89,35 +141,51 @@ export default function EmailSignInForm({ next }: Readonly<{ next?: string }>) {
             required
           />
         </Field>
-        <Field>
-          <FieldLabel htmlFor="password">Password</FieldLabel>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete={isSignUp ? "new-password" : "current-password"}
-            minLength={isSignUp ? MIN_PASSWORD_LENGTH : undefined}
-            maxLength={128}
-            required
-          />
-        </Field>
+        {!isReset && (
+          <Field>
+            <div className="flex items-center justify-between">
+              <FieldLabel htmlFor="password">Password</FieldLabel>
+              {mode === "signIn" && (
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0 text-sm"
+                  onClick={() => switchMode("reset")}
+                >
+                  Forgot password?
+                </Button>
+              )}
+            </div>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete={isSignUp ? "new-password" : "current-password"}
+              minLength={isSignUp ? MIN_PASSWORD_LENGTH : undefined}
+              maxLength={128}
+              required
+            />
+          </Field>
+        )}
       </FieldGroup>
       <FieldError>{error}</FieldError>
+      {notice && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {notice}
+        </p>
+      )}
       <Button type="submit" size="lg" disabled={isPending} className="w-full">
-        {isPending ? pendingLabel : submitLabel}
+        {isPending ? PENDING_LABELS[mode] : SUBMIT_LABELS[mode]}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
-        {isSignUp ? "Already have an account? " : "New to Inkwell? "}
+        {FOOTER_PROMPTS[mode]}
         <Button
           type="button"
           variant="link"
           className="h-auto p-0"
-          onClick={() => {
-            setError(null);
-            setMode(isSignUp ? "signIn" : "signUp");
-          }}
+          onClick={() => switchMode(mode === "signIn" ? "signUp" : "signIn")}
         >
-          {isSignUp ? "Sign in" : "Create an account"}
+          {mode === "signIn" ? "Create an account" : "Sign in"}
         </Button>
       </p>
     </form>

@@ -29,4 +29,6 @@ Added at the user's request; the original plan had Google only.
 - **`src/config/firebase-session.ts`:** `signInWithFirebase()` holds the shared flow (in-memory persistence → Firebase sign-in → ID token → sign out of Firebase → `signIn` server action). `GoogleSignInButton` and the new `EmailSignInForm` both use it, so the server side is unchanged.
 - Error messages don't reveal whether an account exists (Firebase answers a wrong email and a wrong password the same way).
 - **Verified:** tsc, lint, 367 tests, build; on `/login`, a wrong email/password shows "Wrong email or password." and the toggle switches modes. A real account was not created or signed in with.
-- **Not included:** password reset and email verification. Anyone can create an account, as with Google sign-in.
+- **Password reset:** a "Forgot password?" link switches the form to an email-only mode that calls Firebase's `sendPasswordResetEmail`. It always shows the same "If there's an account…" message, so it doesn't reveal which emails have accounts. Firebase hosts the page where the new password is chosen.
+- **Verified (reset):** tsc, lint, 367 tests, build; on `/login`, the link opens the reset mode and submitting a test email shows the message. A real reset email was not received and followed.
+- **Not included:** email verification. Anyone can create an account, as with Google sign-in.
