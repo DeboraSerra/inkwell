@@ -7,7 +7,7 @@ import {
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
 import { BookPlus, ShelvingUnit } from "lucide-react";
-import Link from "next/link";
+import { SidebarLink } from "./SidebarLink";
 
 const bookShelfList = [
   {
@@ -32,7 +32,7 @@ export const Content = () => {
         <SidebarGroupContent>
           <SidebarMenu>
             {bookShelfList.map(({ link, text, id, Icon }) => (
-              <SidebarMenuButton render={<Link href={link} />} key={id}>
+              <SidebarMenuButton render={<SidebarLink href={link} />} key={id}>
                 {Icon && <Icon />}
                 <span>{text}</span>
               </SidebarMenuButton>
