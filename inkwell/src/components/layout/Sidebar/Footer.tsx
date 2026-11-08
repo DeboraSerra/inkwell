@@ -44,8 +44,7 @@ export const Footer = async () => {
         />
         <DropdownMenuContent className='w-40' align='end' side='right'>
           <DropdownMenuGroup>
-            <DropdownMenuItem>Profile</DropdownMenuItem>
-            <DropdownMenuItem render={<Button as={Link} href="/settings">Settings</Button>} />
+            <DropdownMenuItem><Link href="/settings">Settings</Link></DropdownMenuItem>
             <SignOutItem />
           </DropdownMenuGroup>
         </DropdownMenuContent>

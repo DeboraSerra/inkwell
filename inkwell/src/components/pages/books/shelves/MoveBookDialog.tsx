@@ -5,8 +5,8 @@ import type { ShelfBook } from "@/server/library/library.service";
 import { moveDateValues } from "@/server/library/shelf-filters";
 import { LIST_NAMES } from "@/server/library/status.rules";
 import { type SubmitEvent, useTransition } from "react";
-import { PartialDateField } from "../PartialDateField";
-import { Button } from "../ui/button";
+import { PartialDateField } from "../../../PartialDateField";
+import { Button } from "../../../ui/button";
 import {
   Dialog,
   DialogClose,
@@ -15,8 +15,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../ui/dialog";
-import { FieldDescription, FieldGroup } from "../ui/field";
+} from "../../../ui/dialog";
+import { FieldDescription, FieldGroup } from "../../../ui/field";
 
 const localToday = () => {
   const now = new Date();
@@ -57,9 +57,17 @@ export function MoveBookDialog({
         <form onSubmit={handleSubmit} noValidate>
           <FieldGroup>
             <div className='flex flex-wrap gap-x-10 gap-y-4'>
-              <PartialDateField name='started' legend='Started' values={values} />
+              <PartialDateField
+                name='started'
+                legend='Started'
+                values={values}
+              />
               {status === ReadingStatus.FINISHED && (
-                <PartialDateField name='ended' legend='Finished' values={values} />
+                <PartialDateField
+                  name='ended'
+                  legend='Finished'
+                  values={values}
+                />
               )}
             </div>
             <FieldDescription>
