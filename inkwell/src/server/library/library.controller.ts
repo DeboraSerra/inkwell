@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import type { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { requireUser } from "@/server/auth/auth.guard";
 import { DomainError } from "@/server/errors";
+import { consumeRateLimit } from "@/server/rate-limit/rate-limit.service";
+import { isbnField, parseIsbnBook } from "./isbn-book.schema";
 import * as libraryService from "./library.service";
 import { type ManualBookValues, manualBookValues, parseManualBook } from "./manual-book.schema";
 import {
@@ -48,6 +50,56 @@ export async function addManualBook(
       status,
       dates,
     );
+    revalidatePath(SHELVES_PATH);
+    const list = LIST_NAMES[userBook.status];
+    return {
+      message: created
+        ? `Added “${book.title}” to ${list}.`
+        : `“${book.title}” is already in your library, on ${list}. Any new formats were added.`,
+    };
+  } catch (error) {
+    if (error instanceof DomainError) return { error: error.message, values };
+    throw error;
+  }
+}
+
+export type IsbnLookupResult = {
+  preview?: libraryService.IsbnPreview;
+  // The cleaned ISBN-13, so the manual form can start from it.
+  notFound?: { isbn13: string };
+  error?: string;
+};
+
+export async function lookUpIsbn(isbn: unknown): Promise<IsbnLookupResult> {
+  const user = await requireUser();
+  const parsed = isbnField.safeParse(isbn);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  try {
+    await consumeRateLimit(user.id, "ISBN_LOOKUP");
+    const result = await libraryService.previewIsbn(user.id, parsed.data);
+    return result.found ? { preview: result.preview } : { notFound: { isbn13: result.isbn13 } };
+  } catch (error) {
+    if (error instanceof DomainError) return { error: error.message };
+    throw error;
+  }
+}
+
+export type AddIsbnBookState = AddManualBookState;
+
+export async function addBookByIsbn(
+  _prev: AddIsbnBookState,
+  formData: FormData,
+): Promise<AddIsbnBookState> {
+  const user = await requireUser();
+  const values = manualBookValues(formData);
+
+  const parsed = parseIsbnBook(formData);
+  if (!parsed.success) return { error: parsed.error.issues[0].message, values };
+
+  const { isbn, ...choices } = parsed.data;
+  try {
+    await consumeRateLimit(user.id, "ISBN_LOOKUP");
+    const { book, userBook, created } = await libraryService.addBookByIsbn(user.id, isbn, choices);
     revalidatePath(SHELVES_PATH);
     const list = LIST_NAMES[userBook.status];
     return {

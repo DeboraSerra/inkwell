@@ -1,14 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BookFormat, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
-import { findOrCreateManualBook } from "@/server/books/book.service";
+import {
+  fillMissingIsbn,
+  findExistingBook,
+  findOrCreateManualBook,
+  findOrCreateMetadataBook,
+} from "@/server/books/book.service";
 import { NotFoundError, ValidationError } from "@/server/errors";
 import * as libraryModel from "@/server/library/library.model";
 import * as readThroughModel from "@/server/library/read-through.model";
 import { InvalidTransitionError } from "@/server/library/status.rules";
+import { lookupIsbn } from "@/server/metadata/metadata.service";
+import type { BookMetadata } from "@/server/metadata/metadata.types";
 
 vi.mock("@/server/books/book.service");
 vi.mock("@/server/library/library.model");
 vi.mock("@/server/library/read-through.model");
+vi.mock("@/server/metadata/metadata.service");
 // Run "transactions" inline; the fake tx is passed through to the mocked models.
 vi.mock("@/server/db", () => ({ transaction: (fn: (tx: unknown) => unknown) => fn("tx") }));
 
@@ -573,5 +581,152 @@ describe("removeUserBooks", () => {
     const ids = Array.from({ length: 31 }, (_, index) => `ub-${index}`);
     expect(() => service.removeUserBooks(USER, ids)).toThrow(ValidationError);
     expect(model.deleteUserBooks).not.toHaveBeenCalled();
+  });
+});
+
+describe("add by ISBN", () => {
+  const ISBN = "9780441013593";
+  const metadata: BookMetadata = {
+    source: "OPEN_LIBRARY",
+    sourceId: "OL1M",
+    title: "Dune",
+    authors: ["Frank Herbert"],
+    isbn13: ISBN,
+    coverUrl: "https://covers.openlibrary.org/b/id/1-M.jpg",
+    pageCount: 896,
+    publishedYear: 2005,
+  };
+  const catalogBook = (overrides: Record<string, unknown> = {}) =>
+    ({
+      id: "book-1",
+      ownerId: null,
+      title: "Dune",
+      subtitle: null,
+      authors: ["Frank Herbert"],
+      isbn13: ISBN,
+      isbn10: null,
+      coverUrl: "https://example.com/catalog.jpg",
+      pageCount: 600,
+      publishedYear: 1965,
+      ...overrides,
+    }) as never;
+  const lookup = vi.mocked(lookupIsbn);
+
+  beforeEach(() => {
+    model.createUserBook.mockImplementation(async (data) => ({ ...book(data.status, data.formats), id: "ub-new" }));
+  });
+
+  describe("previewIsbn", () => {
+    it("shows a provider's book that isn't in the catalog", async () => {
+      lookup.mockResolvedValue({ found: "provider", metadata });
+      vi.mocked(findExistingBook).mockResolvedValue(null);
+      const result = await service.previewIsbn(USER, ISBN);
+      expect(result).toEqual({
+        found: true,
+        preview: {
+          isbn13: ISBN,
+          title: "Dune",
+          subtitle: undefined,
+          authors: ["Frank Herbert"],
+          coverUrl: metadata.coverUrl,
+          pageCount: 896,
+          publishedYear: 2005,
+          from: "OPEN_LIBRARY",
+          inLibrary: undefined,
+        },
+      });
+      expect(model.findUserBookByBookId).not.toHaveBeenCalled();
+    });
+
+    it("shows the catalog's details when the provider's book matches one by title and author", async () => {
+      lookup.mockResolvedValue({ found: "provider", metadata });
+      vi.mocked(findExistingBook).mockResolvedValue(catalogBook({ isbn13: null }));
+      const result = await service.previewIsbn(USER, ISBN);
+      expect(result).toMatchObject({ found: true, preview: { from: "CATALOG", pageCount: 600, isbn13: ISBN } });
+    });
+
+    it("ignores another user's private book as a match", async () => {
+      lookup.mockResolvedValue({ found: "provider", metadata });
+      vi.mocked(findExistingBook).mockResolvedValue(catalogBook({ ownerId: "someone-else" }));
+      const result = await service.previewIsbn(USER, ISBN);
+      expect(result).toMatchObject({ preview: { from: "OPEN_LIBRARY", inLibrary: undefined } });
+      expect(model.findUserBookByBookId).not.toHaveBeenCalled();
+    });
+
+    it("shows the reader's own cover, authors and pages for a book in their library", async () => {
+      lookup.mockResolvedValue({ found: "catalog", book: catalogBook() });
+      model.findUserBookByBookId.mockResolvedValue({
+        ...book(TO_READ, [PHYSICAL]),
+        coverUrl: "https://example.com/mine.jpg",
+        authors: ["F. Herbert"],
+        pageCount: 412,
+      });
+      const result = await service.previewIsbn(USER, ISBN);
+      expect(model.findUserBookByBookId).toHaveBeenCalledWith(USER, "book-1");
+      expect(result).toMatchObject({
+        preview: {
+          coverUrl: "https://example.com/mine.jpg",
+          authors: ["F. Herbert"],
+          pageCount: 412,
+          inLibrary: { status: TO_READ, formats: [PHYSICAL] },
+        },
+      });
+    });
+
+    it("reports a miss with the cleaned ISBN", async () => {
+      lookup.mockResolvedValue({ found: "none", isbn13: ISBN });
+      await expect(service.previewIsbn(USER, "0441013597")).resolves.toEqual({ found: false, isbn13: ISBN });
+    });
+  });
+
+  describe("addBookByIsbn", () => {
+    it("creates the catalog book from the server's own lookup and adds it", async () => {
+      lookup.mockResolvedValue({ found: "provider", metadata });
+      vi.mocked(findOrCreateMetadataBook).mockResolvedValue(catalogBook());
+      const result = await service.addBookByIsbn(USER, ISBN, { formats: [PHYSICAL] });
+
+      expect(lookup).toHaveBeenCalledWith(ISBN);
+      expect(findOrCreateMetadataBook).toHaveBeenCalledWith(metadata, "tx");
+      expect(model.createUserBook).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: USER, bookId: "book-1", source: UserBookSource.ISBN, status: TO_READ }),
+        "tx",
+      );
+      expect(result.created).toBe(true);
+      expect(fillMissingIsbn).toHaveBeenCalledWith(catalogBook(), metadata);
+    });
+
+    it("puts a book with no format on the Wishlist and records the search source", async () => {
+      lookup.mockResolvedValue({ found: "provider", metadata });
+      vi.mocked(findOrCreateMetadataBook).mockResolvedValue(catalogBook());
+      await service.addBookByIsbn(USER, ISBN, { formats: [], source: UserBookSource.SEARCH });
+      expect(model.createUserBook).toHaveBeenCalledWith(
+        expect.objectContaining({ status: WISHLIST, source: UserBookSource.SEARCH }),
+        "tx",
+      );
+    });
+
+    it("reuses a catalog book without asking any provider or filling anything", async () => {
+      lookup.mockResolvedValue({ found: "catalog", book: catalogBook() });
+      await service.addBookByIsbn(USER, ISBN, { formats: [EBOOK] });
+      expect(findOrCreateMetadataBook).not.toHaveBeenCalled();
+      expect(fillMissingIsbn).not.toHaveBeenCalled();
+    });
+
+    it("only adds formats to a book already in the library", async () => {
+      lookup.mockResolvedValue({ found: "catalog", book: catalogBook() });
+      model.findUserBookByBookId.mockResolvedValue(book(WISHLIST, []));
+      model.updateUserBookState.mockResolvedValue(book(TO_READ, [EBOOK]));
+      const result = await service.addBookByIsbn(USER, ISBN, { formats: [EBOOK], status: FINISHED });
+
+      expect(result.created).toBe(false);
+      expect(model.createUserBook).not.toHaveBeenCalled();
+      expect(model.updateUserBookState).toHaveBeenCalledWith(USER, "ub-1", { status: TO_READ, formats: [EBOOK] }, "tx");
+    });
+
+    it("refuses an ISBN nobody knows, before touching the library", async () => {
+      lookup.mockResolvedValue({ found: "none", isbn13: ISBN });
+      await expect(service.addBookByIsbn(USER, ISBN, { formats: [] })).rejects.toThrow(NotFoundError);
+      expect(model.findUserBookByBookId).not.toHaveBeenCalled();
+    });
   });
 });

@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: in progress.** 4a is implemented on `dev`, not committed. It was started at the user's request before Phase 3's "Done when" list ([phase-3-mvp.md](phase-3-mvp.md#done-when)) was checked.
+**Status: in progress.** 4a is done. 4b is implemented on `dev`, not committed. It was started at the user's request before Phase 3's "Done when" list ([phase-3-mvp.md](phase-3-mvp.md#done-when)) was checked.
 
 Goal: add a book without typing its details. Search by title or author, type an ISBN, or photograph the barcode, then confirm, pick formats and add. The manual form stays as the last resort.
 
@@ -136,6 +136,35 @@ A new module, `src/server/metadata/`, that turns an ISBN or a search query into 
    - **Not found:** "We couldn't find this ISBN", with "Fill in by hand" opening the Manual tab with the ISBN already filled in.
    - After an add, the form clears and confirms which list the book went to, like the manual form, so you can add several in a row.
 4. **Tests:** the add flow with the metadata service mocked (new book, existing book gaining a format, a book matched by title and author gaining its blank ISBN, a book that already has an ISBN left alone, a book that disappeared between lookup and add), and the controller's validation and rate limit.
+
+### 4b outcome
+
+- **Code:**
+  - `previewIsbn` and `addBookByIsbn` in `library.service.ts`.
+  - `findOrCreateMetadataBook` and `fillMissingIsbn` in `book.service.ts`, and `fillBookIsbn` in `book.model.ts`.
+  - The `lookUpIsbn` and `addBookByIsbn` actions in `library.controller.ts`, validated by `library/isbn-book.schema.ts`.
+  - UI in `components/pages/books/new/`: `AddBookTabs.tsx`, `IsbnLookup.tsx`, and `FormatsField.tsx` and `isbn-input.ts`, both split out of `AddBookForm.tsx` so the two tabs share them.
+- **Page:** `/books/new` has two tabs, **ISBN** (the default) and **Manual**.
+  - The Search tab comes with 4c and the "Scan barcode" button with 4d.
+  - Both tabs stay mounted, so switching doesn't lose what's typed.
+  - "Fill in by hand" on a miss opens Manual with the ISBN filled in.
+- **Choices the plan left open:**
+  - **The preview shows what adding would store.** A provider's book that matches a catalog book by title and author shows the catalog's details, since that book is reused unchanged. A book already in the library shows the reader's own cover, authors and pages first, per the domain rules.
+  - **A book already in the library** hides the status and dates, since a re-add ignores them, and the button reads "Add formats".
+  - **Both actions count toward the `ISBN_LOOKUP` limit,** because both look the ISBN up. A preview and an add cost two, so the limit allows about 30 books a minute.
+  - **Filling a blank ISBN runs after the add's transaction, as a best-effort extra, rather than inside it.** A unique-key clash would abort a Postgres transaction, so `fillBookIsbn` catches that clash (`P2002`) and skips the fill. The plan had it inside the transaction.
+  - **Each fact on the preview card stays on one line,** so an ISBN never breaks across lines on a phone.
+- **Not written:** the plan's test for "a book that disappeared between lookup and add". Catalog books are never deleted (deleting a book only removes the `UserBook`), so it can't happen.
+- **Verified:**
+  - 33 new tests.
+  - The service against the local database and the live APIs, with a throwaway user, since removed:
+    1. An ISBN-10 preview found *Dune* on Open Library.
+    2. Adding it with no format put it on the Wishlist, with source `ISBN`, a new catalog book with its Open Library id, and 896 pages.
+    3. Previewing again came from the catalog and showed it in the library.
+    4. Re-adding with Physical and Finished moved it to TBR, ignored the status, and added no read.
+    5. Google Books answered a lookup Open Library missed, so the API key works.
+  - The tabs, preview cards and ISBN formatting in the browser through a temporary render, since removed, on desktop and at phone width.
+- **Not verified:** a signed-in click-through of `/books/new`. Auto mode refused a temporary auth bypass for the browser test, so the actions were exercised through the service and unit tests only. Try it once while signed in.
 
 ## 4c — Search by title or author
 

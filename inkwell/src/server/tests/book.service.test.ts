@@ -126,3 +126,67 @@ describe("findOrCreateAmazonDoc", () => {
     );
   });
 });
+
+describe("books from a metadata provider", () => {
+  const metadata = {
+    source: "GOOGLE_BOOKS" as const,
+    sourceId: "g1",
+    title: "Dune",
+    authors: ["Frank Herbert"],
+    isbn13: "9780441013593",
+    isbn10: "0441013597",
+    pageCount: 528,
+    description: "Desert planet.",
+  };
+
+  it("creates the book with its provider id and source", async () => {
+    model.createBook.mockResolvedValue(existing);
+    await service.findOrCreateMetadataBook(metadata, TX);
+    expect(model.createBook).toHaveBeenCalledWith(
+      {
+        title: "Dune",
+        authors: ["Frank Herbert"],
+        isbn13: "9780441013593",
+        isbn10: "0441013597",
+        pageCount: 528,
+        description: "Desert planet.",
+        openLibraryId: undefined,
+        googleBooksId: "g1",
+        dedupeKey: "dune|herbert",
+        authorSearch: expect.any(String),
+        metadataSource: "GOOGLE_BOOKS",
+      },
+      TX,
+    );
+  });
+
+  it("reuses a book with the same ISBN unchanged", async () => {
+    model.findBookByIsbn13.mockResolvedValue(existing);
+    await expect(service.findOrCreateMetadataBook(metadata, TX)).resolves.toBe(existing);
+    expect(model.createBook).not.toHaveBeenCalled();
+  });
+
+  describe("fillMissingIsbn", () => {
+    const shared = { id: "b1", ownerId: null, isbn13: null, isbn10: null };
+
+    it("fills both blanks on a shared book", async () => {
+      model.fillBookIsbn.mockResolvedValue(true);
+      await expect(service.fillMissingIsbn(shared, metadata)).resolves.toBe(true);
+      expect(model.fillBookIsbn).toHaveBeenCalledWith("b1", { isbn13: "9780441013593", isbn10: "0441013597" });
+    });
+
+    it("keeps an ISBN-10 the book already has", async () => {
+      await service.fillMissingIsbn({ ...shared, isbn10: "0000000000" }, metadata);
+      expect(model.fillBookIsbn).toHaveBeenCalledWith("b1", { isbn13: "9780441013593" });
+    });
+
+    it.each([
+      ["already has an ISBN-13", { ...shared, isbn13: "9780000000002" }, metadata],
+      ["is private", { ...shared, ownerId: "user-1" }, metadata],
+      ["would get no ISBN", shared, { ...metadata, isbn13: undefined }],
+    ])("does nothing when the book %s", async (_label, book, data) => {
+      await expect(service.fillMissingIsbn(book, data)).resolves.toBe(false);
+      expect(model.fillBookIsbn).not.toHaveBeenCalled();
+    });
+  });
+});

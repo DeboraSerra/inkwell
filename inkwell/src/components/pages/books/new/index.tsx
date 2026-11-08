@@ -1,10 +1,10 @@
-import AddBookForm from "./AddBookForm";
+import { AddBookTabs } from "./AddBookTabs";
 
 export const BooksNew = () => {
   return (
-      <div className='max-w-xl mx-auto flex flex-col gap-4'>
-        <h1 className='text-2xl font-semibold'>Add a book</h1>
-        <AddBookForm />
-      </div>
-    );
-}
+    <div className='flex flex-col gap-4'>
+      <h1 className='text-2xl font-semibold'>Add a book</h1>
+      <AddBookTabs />
+    </div>
+  );
+};

@@ -1,21 +1,12 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Field,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from "@/components/ui/field";
-import { BookFormat } from "@/generated/prisma/enums";
-import { formatIsbn } from "@/server/books/isbn";
+import { Field, FieldGroup } from "@/components/ui/field";
 import {
   type AddManualBookState,
   addManualBook,
 } from "@/server/library/library.controller";
-import { Info, Loader } from "lucide-react";
+import { Loader } from "lucide-react";
 import {
   type ChangeEvent,
   type SubmitEvent,
@@ -26,13 +17,8 @@ import {
 import { StatusField } from "../../../StatusField";
 import { TextField } from "../../../TextField";
 import { toast } from "../../../ui/toast";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../../../ui/tooltip";
-
-const FORMATS = [
-  { value: BookFormat.EBOOK, label: "Ebook" },
-  { value: BookFormat.PHYSICAL, label: "Physical" },
-  { value: BookFormat.AUDIO, label: "Audiobook" },
-];
+import { FormatsField } from "./FormatsField";
+import { applyIsbnFormat } from "./isbn-input";
 
 const REQUIRED_FIELDS = [
   { name: "title", label: "Title" },
@@ -41,27 +27,8 @@ const REQUIRED_FIELDS = [
 
 type FormState = AddManualBookState & { submission: number };
 
-// Rewriting the value sends the caret to the end, so put it back after the same
-// character, or editing the middle of the ISBN would jump.
-const applyIsbnFormat = (input: HTMLInputElement) => {
-  const caret = input.selectionStart ?? input.value.length;
-  const charsBeforeCaret = formatIsbn(input.value.slice(0, caret)).replaceAll(
-    "-",
-    "",
-  ).length;
-  const formatted = formatIsbn(input.value);
-
-  let position = 0;
-  let seen = 0;
-  while (seen < charsBeforeCaret && position < formatted.length) {
-    if (formatted[position] !== "-") seen++;
-    position++;
-  }
-  input.value = formatted;
-  input.setSelectionRange(position, position);
-};
-
-export default function AddBookForm() {
+// `defaultIsbn` fills the ISBN when the ISBN tab couldn't find the book.
+export default function AddBookForm({ defaultIsbn }: Readonly<{ defaultIsbn?: string }>) {
   // Remounting after each submit applies the defaults: empty after a success,
   // or what was typed after an error. The checkboxes keep their own state, so
   // React's automatic form reset wouldn't clear them. The count lives in the
@@ -98,7 +65,6 @@ export default function AddBookForm() {
   const handleChange = (event: ChangeEvent<HTMLFormElement>) => {
     const name = event.target.getAttribute("name");
     setMissing((current) => current.filter((field) => field !== name));
-    // The server strips the hyphens again before saving (cleanIsbn).
     if (name === "isbn" && event.target instanceof HTMLInputElement) {
       applyIsbnFormat(event.target);
     }
@@ -162,42 +128,12 @@ export default function AddBookForm() {
         />
 
         <div className='grid grid-cols-2 gap-5'>
-          <FieldSet className='flex flex-col'>
-            <FieldLegend variant='label' className='flex gap-1 items-center'>
-              <span>Formats you own</span>
-              <Tooltip>
-                <TooltipTrigger aria-label={`About formats`}>
-                  <Info size={16} />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Leave these empty if you don’t own the book.</p>
-                </TooltipContent>
-              </Tooltip>
-            </FieldLegend>
-            <div className='flex flex-col gap-x-5 gap-y-2'>
-              {FORMATS.map(({ value, label }) => (
-                <Field key={value} orientation='horizontal' className='w-auto'>
-                  <Checkbox
-                    id={`format-${value}`}
-                    name='formats'
-                    value={value}
-                    defaultChecked={values?.formats?.includes(value)}
-                  />
-                  <FieldLabel
-                    htmlFor={`format-${value}`}
-                    className='font-normal'
-                  >
-                    {label}
-                  </FieldLabel>
-                </Field>
-              ))}
-            </div>
-          </FieldSet>
+          <FormatsField defaultValues={values?.formats} />
 
           <StatusField values={values} />
         </div>
 
-        <TextField name='isbn' label='ISBN' defaultValue={values?.isbn} />
+        <TextField name='isbn' label='ISBN' defaultValue={values?.isbn ?? defaultIsbn} />
         <TextField
           name='pageCount'
           label='Pages'

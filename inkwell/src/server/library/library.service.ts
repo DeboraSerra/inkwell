@@ -1,9 +1,16 @@
 import "server-only";
 import { type BookFormat, type DatePrecision, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
-import { findOrCreateManualBook, type ManualBookDetails } from "@/server/books/book.service";
+import {
+  fillMissingIsbn,
+  findExistingBook,
+  findOrCreateManualBook,
+  findOrCreateMetadataBook,
+  type ManualBookDetails,
+} from "@/server/books/book.service";
 import { authorSearchText, normalizeAuthor, normalizeAuthorName, normalizeTitle } from "@/server/books/dedupe";
 import { transaction, type Tx } from "@/server/db";
 import { NotFoundError, ValidationError } from "@/server/errors";
+import { lookupIsbn } from "@/server/metadata/metadata.service";
 import * as libraryModel from "./library.model";
 import * as readModel from "./read-through.model";
 import {
@@ -147,6 +154,95 @@ export function addManualBook(
     );
     return { ...added, book };
   });
+}
+
+export type IsbnPreview = {
+  isbn13: string;
+  title: string;
+  subtitle?: string;
+  authors: string[];
+  coverUrl?: string;
+  pageCount?: number;
+  publishedYear?: number;
+  // Where the details shown come from.
+  from: "CATALOG" | "OPEN_LIBRARY" | "GOOGLE_BOOKS";
+  // The reader's copy, when the book is already in their library.
+  inLibrary?: { status: ReadingStatus; formats: BookFormat[] };
+};
+
+export type IsbnPreviewResult = { found: true; preview: IsbnPreview } | { found: false; isbn13: string };
+
+// What adding this ISBN would add. A provider's book that matches a catalog
+// book by title and author shows the catalog's details, since adding reuses
+// that book unchanged; and a book already in the library shows the reader's
+// own cover, authors and pages first.
+export async function previewIsbn(userId: string, isbn: string): Promise<IsbnPreviewResult> {
+  const lookup = await lookupIsbn(isbn);
+  if (lookup.found === "none") return { found: false, isbn13: lookup.isbn13 };
+
+  const metadata = lookup.found === "provider" ? lookup.metadata : null;
+  const match = lookup.found === "catalog" ? lookup.book : await findExistingBook(lookup.metadata);
+  const catalog = match && !match.ownerId ? match : null;
+  const userBook = catalog ? await libraryModel.findUserBookByBookId(userId, catalog.id) : null;
+
+  const details = catalog
+    ? {
+        title: catalog.title,
+        subtitle: catalog.subtitle ?? undefined,
+        authors: catalog.authors,
+        coverUrl: catalog.coverUrl ?? undefined,
+        pageCount: catalog.pageCount ?? undefined,
+        publishedYear: catalog.publishedYear ?? undefined,
+      }
+    : metadata;
+  if (!details) return { found: false, isbn13: parseIsbnFrom(lookup) };
+
+  return {
+    found: true,
+    preview: {
+      isbn13: parseIsbnFrom(lookup),
+      title: details.title,
+      subtitle: details.subtitle,
+      authors: userBook?.authors.length ? userBook.authors : details.authors,
+      coverUrl: userBook?.coverUrl ?? details.coverUrl,
+      pageCount: userBook?.pageCount ?? details.pageCount,
+      publishedYear: details.publishedYear,
+      from: catalog ? "CATALOG" : (metadata?.source ?? "CATALOG"),
+      inLibrary: userBook ? { status: userBook.status, formats: userBook.formats } : undefined,
+    },
+  };
+}
+
+const parseIsbnFrom = (lookup: Exclude<Awaited<ReturnType<typeof lookupIsbn>>, { found: "none" }>) =>
+  (lookup.found === "catalog" ? lookup.book.isbn13 : lookup.metadata.isbn13) ?? "";
+
+export type LookupChoices = {
+  formats: BookFormat[];
+  status?: ReadingStatus;
+  dates?: ReadDates;
+  source?: typeof UserBookSource.ISBN | typeof UserBookSource.SEARCH;
+};
+
+// Adds a book by ISBN. The book's details always come from the server's own
+// lookup, never from the request, so the shared catalog only holds what a
+// provider said. The lookup runs before the transaction, so no network call
+// holds it open.
+export async function addBookByIsbn(userId: string, isbn: string, choices: LookupChoices) {
+  const { formats, status, dates, source = UserBookSource.ISBN } = choices;
+  const lookup = await lookupIsbn(isbn);
+  if (lookup.found === "none") throw new NotFoundError("We couldn't find a book with that ISBN.");
+
+  const added = await transaction(async (tx) => {
+    const book = lookup.found === "catalog" ? lookup.book : await findOrCreateMetadataBook(lookup.metadata, tx);
+    const result = await addBookToLibrary(
+      userId,
+      { bookId: book.id, formats, source, status, at: null, dates },
+      tx,
+    );
+    return { ...result, book };
+  });
+  if (lookup.found === "provider") await fillMissingIsbn(added.book, lookup.metadata);
+  return added;
 }
 
 export function getUserBook(userId: string, userBookId: string) {

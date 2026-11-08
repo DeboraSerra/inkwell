@@ -54,8 +54,9 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 3b: manual add at `/books/new`, validated with zod (`library/manual-book.schema.ts`)
 - ✅ Phase 3c: extension import through `POST /api/imports/amazon` (`src/server/imports/`), not yet run on the real Amazon page
 - ✅ Phase 3d: browse, filter and move books at `/books/shelves`
-- ✅ Phase 4a: metadata providers (Open Library, Google Books) and the per-user rate limit, not yet wired to any page
-- ⏭️ Next: Phase 4b (add by ISBN); Phase 3's "Done when" list (`docs/plan/phase-3-mvp.md`) is still unchecked
+- ✅ Phase 4a: metadata providers (Open Library, Google Books) and the per-user rate limit
+- ✅ Phase 4b: add by ISBN on `/books/new` (ISBN and Manual tabs)
+- ⏭️ Next: Phase 4c (search); Phase 3's "Done when" list (`docs/plan/phase-3-mvp.md`) is still unchecked
 
 ## Workflow rules
 

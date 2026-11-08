@@ -32,7 +32,7 @@
    - 3d — Browse, filter and move books ✅ implemented, at `/books/shelves`
 4. [Phase 4 — Search and ISBN](phase-4-adding-books.md) ⏭️ in progress
    - 4a — Metadata providers (Open Library, Google Books) ✅ implemented, plus the per-user rate limit
-   - 4b — Add by ISBN
+   - 4b — Add by ISBN ✅ implemented, at `/books/new`
    - 4c — Search by title or author
    - 4d — Scan the barcode
 5. [Phase 5 — AI enrichment (Claude API)](phase-5-ai-enrichment.md)

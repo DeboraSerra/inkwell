@@ -4,6 +4,7 @@ import type { Tx } from "@/server/db";
 import { NotFoundError } from "@/server/errors";
 import * as bookModel from "./book.model";
 import { authorSearchText, dedupeKey } from "./dedupe";
+import type { BookMetadata } from "@/server/metadata/metadata.types";
 import { cleanIsbn, toIsbn13 } from "./isbn";
 
 export type BookIdentity = {
@@ -129,4 +130,41 @@ export function findOrCreateAmazonBook(details: AmazonBookDetails, tx?: Tx) {
     },
     tx,
   );
+}
+
+const METADATA_SOURCE = {
+  OPEN_LIBRARY: MetadataSource.OPEN_LIBRARY,
+  GOOGLE_BOOKS: MetadataSource.GOOGLE_BOOKS,
+} as const;
+
+// A book found on Open Library or Google Books. Like every other path into
+// the catalog, an existing match is reused as it is.
+export function findOrCreateMetadataBook(metadata: BookMetadata, tx?: Tx) {
+  const { source, sourceId, ...details } = metadata;
+  return findOrCreateBook(
+    { isbn13: details.isbn13, isbn10: details.isbn10, title: details.title, authors: details.authors },
+    {
+      ...details,
+      openLibraryId: source === "OPEN_LIBRARY" ? sourceId : undefined,
+      googleBooksId: source === "GOOGLE_BOOKS" ? sourceId : undefined,
+      dedupeKey: dedupeKey(details.title, details.authors),
+      authorSearch: authorSearchText(details.authors),
+      metadataSource: METADATA_SOURCE[source],
+    },
+    tx,
+  );
+}
+
+type CatalogBook = { id: string; ownerId: string | null; isbn13: string | null; isbn10: string | null };
+
+// A book matched by title and author may have no ISBN yet. Filling that blank
+// (never overwriting) lets later lookups and imports match it by ISBN. It's a
+// best-effort extra, so it runs outside the add's transaction and a clash
+// with another book's ISBN just skips it.
+export async function fillMissingIsbn(book: CatalogBook, metadata: BookMetadata) {
+  if (book.ownerId || book.isbn13 || !metadata.isbn13) return false;
+  return bookModel.fillBookIsbn(book.id, {
+    isbn13: metadata.isbn13,
+    ...(book.isbn10 || !metadata.isbn10 ? {} : { isbn10: metadata.isbn10 }),
+  });
 }
