@@ -36,6 +36,18 @@ describe("formatIsbn", () => {
     expect(formatIsbn("97802611022179999")).toBe("978-0-2611-0221-7");
   });
 
+  it.each([
+    ["x", ""],
+    ["978x", "978"],
+    ["abc978xyz0441!?013593", "978-0-4410-1359-3"],
+    ["12345678x", "1-2345-678"],
+    ["123456789x", "1-2345-6789-X"],
+    ["123456789x0", "1-2345-6789-X"],
+    ["1234567890x", "1-2345-6789-0"],
+  ])("only keeps an X as an ISBN-10's last character: %s → %s", (input, expected) => {
+    expect(formatIsbn(input)).toBe(expected);
+  });
+
   it("stays a valid ISBN once cleaned", () => {
     expect(toIsbn13(formatIsbn("9780261102217"))).toBe("9780261102217");
   });

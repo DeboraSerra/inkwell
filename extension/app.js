@@ -3,7 +3,9 @@
   const PAGE_LOAD_MS = 3000;
   const BATCH_SIZE = 100;
   const EXPECTED_URL = "/hz/mycd/digital-console/contentlist";
-  const DOCS_URL = `${EXPECTED_URL}/pdocs`;
+  // Only a first guess for the dialog: on the real page the Docs tab's address
+  // didn't match the expected "/pdocs", so the reader confirms the tab.
+  const DOCS_PATH = /\/(pdocs|docs)(\/|$)/i;
   const ROW_CLASS = "ListItem-module_row";
   // Kindle ASINs start with B; found in the row's element ids or links.
   const ASIN = /(?<![0-9A-Z])B[0-9A-Z]{9}(?![0-9A-Z])/;
@@ -59,26 +61,56 @@
     chrome.runtime.sendMessage({ type: "import-finished", badge, color });
   };
 
-  // Resolves with the number of pages, null for all of them, or undefined if cancelled.
-  const askForPages = () =>
+  const makeChoice = (name, value, text, checked) => {
+    const label = document.createElement("label");
+    label.style.cssText = "display:flex;align-items:center;gap:4px;";
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = name;
+    radio.value = value;
+    radio.checked = checked;
+    label.append(radio, text);
+    return label;
+  };
+
+  // Asks which tab this is and how many pages to read. Resolves with
+  // { kind, pages }, where pages is null for all of them, or with undefined if
+  // cancelled. Docs become private books in Inkwell, so the tab is confirmed by
+  // the reader rather than guessed from the address alone.
+  const askForOptions = (guessedKind) =>
     new Promise((resolve) => {
       const form = document.createElement("form");
-      form.style.cssText = "display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0;";
+      form.style.cssText = "display:flex;flex-direction:column;gap:8px;margin:0;";
 
+      const tabs = document.createElement("fieldset");
+      tabs.style.cssText = "display:flex;flex-wrap:wrap;gap:12px;margin:0;padding:0;border:0;";
+      const legend = document.createElement("legend");
+      legend.textContent = "This page lists:";
+      legend.style.cssText = "padding:0;margin-bottom:4px;";
+      tabs.append(
+        legend,
+        makeChoice("inkwell-kind", "books", "Books", guessedKind === "books"),
+        makeChoice("inkwell-kind", "docs", "Docs (kept private)", guessedKind === "docs"),
+      );
+
+      const pagesRow = document.createElement("div");
+      pagesRow.style.cssText = "display:flex;flex-wrap:wrap;align-items:center;gap:8px;";
       const label = document.createElement("label");
+      label.htmlFor = "inkwell-pages";
       label.textContent = "Pages to import, from this one (empty for all):";
-
       const input = document.createElement("input");
+      input.id = "inkwell-pages";
       input.type = "number";
       input.min = "1";
       input.step = "1";
-      input.setAttribute("aria-label", "Pages to import");
       input.style.cssText = "width:72px;padding:4px;color:#111;background:#fff;";
+      pagesRow.append(label, input);
 
+      const buttons = document.createElement("div");
+      buttons.style.cssText = "display:flex;gap:8px;";
       const start = document.createElement("button");
       start.type = "submit";
       start.textContent = "Import";
-
       const cancel = document.createElement("button");
       cancel.type = "button";
       cancel.textContent = "Cancel";
@@ -86,19 +118,21 @@
         getBanner().remove();
         resolve(undefined);
       });
+      buttons.append(start, cancel);
 
       form.addEventListener("submit", (event) => {
         event.preventDefault();
+        const kind = form.querySelector('input[name="inkwell-kind"]:checked')?.value ?? "books";
         if (input.value === "") {
-          resolve(null);
+          resolve({ kind, pages: null });
           return;
         }
         const pages = Number(input.value);
-        if (Number.isInteger(pages) && pages >= 1) resolve(pages);
+        if (Number.isInteger(pages) && pages >= 1) resolve({ kind, pages });
         else input.reportValidity();
       });
 
-      form.append(label, input, start, cancel);
+      form.append(tabs, pagesRow, buttons);
       getBanner().replaceChildren(form);
       input.focus();
     });
@@ -173,11 +207,12 @@
     }
     running = true;
     try {
-      const maxPages = await askForPages();
-      if (maxPages === undefined) return;
-      // Read before scraping, while the page is still where the user started.
-      const kind = globalThis.location.pathname.includes(DOCS_URL) ? "docs" : "books";
-      const books = await scrapePages(maxPages);
+      // Guessed before scraping, while the page is still where the user started.
+      const guessedKind = DOCS_PATH.test(globalThis.location.pathname) ? "docs" : "books";
+      const options = await askForOptions(guessedKind);
+      if (options === undefined) return;
+      const { kind, pages } = options;
+      const books = await scrapePages(pages);
       if (books.length === 0) {
         showResult("error", "No books found on this page. Amazon may have changed its layout.");
         return;

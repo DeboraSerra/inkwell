@@ -19,14 +19,15 @@ The project started as a "book categorizer". The repo folder name still reflects
 |---|---|
 | `inkwell/` | The app: Next.js 16 (App Router), React 19, Tailwind 4, Prisma 7 + Postgres, Firebase Auth |
 | `extension/` | Chrome extension (MV3) that scrapes the Amazon Kindle content list. **The misspelling is intentional for now; don't rename it without asking.** |
-| `extension/firebase-project/` | Legacy Firebase Hosting project, not used by the app |
+| `extension/build.mjs` | Builds the Chrome Web Store package for a deployed origin (`node extension/build.mjs https://<domain>`) into `extension/dist/` (gitignored). The source folder stays set up for localhost. Steps are in `docs/plan/phase-7-quality-deploy.md`. |
 | `docs/plan/` | **The plan, and the source of truth for scope and status.** `README.md` holds the decisions and the phase index; there is one file per phase. |
 
 Key files in `inkwell/`:
 
 | Path | Purpose |
 |---|---|
-| `src/proxy.ts` | Optimistic auth redirect (checks only that the cookie exists). Next 16 calls this `proxy`, not `middleware`. |
+| `src/proxy.ts` | Optimistic auth redirect (checks only that the cookie exists). Next 16 calls this `proxy`, not `middleware`. `/login` and `/privacy` are its only public pages. |
+| `src/app/privacy/page.tsx` | Public privacy policy, linked from the extension's store listing. **Keep it true:** update it when what the app or extension collects, or where data goes, changes. |
 | `src/server/` | **The backend**, split into model / service / controller layers by feature module. See "Backend architecture" below. |
 | `src/server/auth/` | `auth.guard.ts` (`getCurrentUser`, `requireUser`, `getRequestUser`), `auth.controller.ts` (sign-in/out and API-token server actions), `auth.service.ts`, `user.model.ts`, `api-token.model.ts` |
 | `src/config/firebase.ts`, `src/config/firebase-admin.ts` | Firebase client SDK and Admin SDK |
@@ -52,10 +53,12 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 2c: `Shelf`/`ShelfItem`, system shelves per user kept in sync with status and ownership, sparse ordering (`src/server/shelves/`)
 - ✅ Phase 3a: `UserBook.formats`, status as the list, `ReadThrough` read history; the shelves from 2c are removed
 - ✅ Phase 3b: manual add at `/books/new`, validated with zod (`library/manual-book.schema.ts`)
-- ✅ Phase 3c: extension import through `POST /api/imports/amazon` (`src/server/imports/`), not yet run on the real Amazon page
+- ✅ Phase 3c: extension import through `POST /api/imports/amazon` (`src/server/imports/`), run on the real Amazon page; the import dialog asks Books or Docs, since the Docs tab's address can't be relied on
 - ✅ Phase 3d: browse, filter and move books at `/books/shelves`
-- ✅ Phase 4a: metadata providers (Open Library, Google Books) and the per-user rate limit, not yet wired to any page
-- ⏭️ Next: Phase 4b (add by ISBN); Phase 3's "Done when" list (`docs/plan/phase-3-mvp.md`) is still unchecked
+- ✅ Phase 4a: metadata providers (Open Library, Google Books) and the per-user rate limit
+- ✅ Phase 4b: add by ISBN on `/books/new` (ISBN and Manual tabs); covers through `components/BookCover.tsx`, with Open Library and Google covers served by Next's image optimizer (`images.remotePatterns` in `next.config.ts`)
+- ✅ Phase 3's "Done when" list checked on 2026-11-08
+- ⏭️ Next: Phase 4c (search). Publishing the extension is in `docs/plan/phase-7-quality-deploy.md`
 
 ## Workflow rules
 
@@ -143,7 +146,7 @@ inkwell/src/
 
 ## Database and Prisma 7 rules
 
-- The connection URL belongs in `prisma.config.ts`, not in `schema.prisma`. At runtime, `DATABASE_URL` (pooled on Neon) is used; migrations use `DIRECT_URL` when it's set.
+- The connection URL belongs in `prisma.config.ts`, not in `schema.prisma`. At runtime, `DATABASE_URL` (Supabase's pooled connection) is used; migrations use `DIRECT_URL` when it's set.
 - `PrismaClient` requires the driver adapter. The singleton lives in `@/server/db` and only models may use it; never call `new PrismaClient()` anywhere else.
 - **Migrations are additive from now on.** Change `schema.prisma`, then create a new migration (`npx prisma migrate dev --name <change>`). If there's no interactive terminal, write `migration.sql` with `prisma migrate diff`. Never edit a migration that has already been applied.
 - After a schema change, run `npx prisma generate`. The generated client lives in `src/generated/prisma` and is gitignored.

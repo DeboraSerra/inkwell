@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ReadingStatus } from "@/generated/prisma/enums";
 import { requireUser } from "@/server/auth/auth.guard";
-import { NotFoundError, ValidationError } from "@/server/errors";
+import { NotFoundError, RateLimitError, ValidationError } from "@/server/errors";
 import * as libraryService from "@/server/library/library.service";
+import { consumeRateLimit } from "@/server/rate-limit/rate-limit.service";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/server/auth/auth.guard");
 vi.mock("@/server/library/library.service");
+vi.mock("@/server/rate-limit/rate-limit.service");
 
-const { addManualBook, changeBookFormats, changeBookStatus, editBook, moveBooks, moveBookWithDates, removeBook, removeBooks } = await import(
+const { addBookByIsbn, addManualBook, changeBookFormats, lookUpIsbn, changeBookStatus, editBook, moveBooks, moveBookWithDates, removeBook, removeBooks } = await import(
   "@/server/library/library.controller"
 );
 const service = vi.mocked(libraryService);
@@ -265,5 +267,84 @@ describe("removeBooks", () => {
       throw new ValidationError("You can delete up to 30 books at once.");
     });
     await expect(removeBooks(["ub-1"])).resolves.toEqual({ error: "You can delete up to 30 books at once." });
+  });
+});
+
+describe("add by ISBN", () => {
+  const preview = { isbn13: "9780441013593", title: "Dune", authors: ["Frank Herbert"], from: "OPEN_LIBRARY" as const };
+
+  describe("lookUpIsbn", () => {
+    it("previews for the signed-in user and counts toward the limit", async () => {
+      service.previewIsbn.mockResolvedValue({ found: true, preview });
+      await expect(lookUpIsbn(" 978-0-441-01359-3 ")).resolves.toEqual({ preview });
+      expect(consumeRateLimit).toHaveBeenCalledWith("user-1", "ISBN_LOOKUP");
+      expect(service.previewIsbn).toHaveBeenCalledWith("user-1", "978-0-441-01359-3");
+    });
+
+    it("returns the cleaned ISBN when nothing is found", async () => {
+      service.previewIsbn.mockResolvedValue({ found: false, isbn13: "9780441013593" });
+      await expect(lookUpIsbn("0441013597")).resolves.toEqual({ notFound: { isbn13: "9780441013593" } });
+    });
+
+    it.each([[""], ["   "], [42], [null], ["9".repeat(31)]])("rejects %j without a lookup", async (isbn) => {
+      const result = await lookUpIsbn(isbn);
+      expect(result.error).toBeTruthy();
+      expect(consumeRateLimit).not.toHaveBeenCalled();
+      expect(service.previewIsbn).not.toHaveBeenCalled();
+    });
+
+    it("shows domain errors, such as an invalid ISBN or the rate limit", async () => {
+      service.previewIsbn.mockRejectedValue(new ValidationError("Enter a valid ISBN-10 or ISBN-13."));
+      await expect(lookUpIsbn("123")).resolves.toEqual({ error: "Enter a valid ISBN-10 or ISBN-13." });
+
+      vi.mocked(consumeRateLimit).mockRejectedValue(new RateLimitError(20));
+      await expect(lookUpIsbn("123")).resolves.toEqual({ error: "Too many lookups. Try again in a minute." });
+    });
+
+    it("rethrows anything else", async () => {
+      service.previewIsbn.mockRejectedValue(new Error("bug"));
+      await expect(lookUpIsbn("0441013597")).rejects.toThrow("bug");
+    });
+  });
+
+  describe("addBookByIsbn", () => {
+    it("adds by ISBN with the reader's choices, and never takes book details from the form", async () => {
+      service.addBookByIsbn.mockResolvedValue(added(ReadingStatus.FINISHED, true));
+      const state = await addBookByIsbn(
+        {},
+        form({ isbn: "0441013597", formats: "EBOOK", status: "FINISHED", endedYear: "2024", title: "Fake title" }),
+      );
+      expect(state.message).toContain("to Finished");
+      expect(consumeRateLimit).toHaveBeenCalledWith("user-1", "ISBN_LOOKUP");
+      expect(service.addBookByIsbn).toHaveBeenCalledWith("user-1", "0441013597", {
+        formats: ["EBOOK"],
+        status: "FINISHED",
+        dates: { started: undefined, ended: expect.objectContaining({ precision: "YEAR" }) },
+      });
+    });
+
+    it("says when the book was already in the library", async () => {
+      service.addBookByIsbn.mockResolvedValue(added(ReadingStatus.TO_READ, false));
+      const state = await addBookByIsbn({}, form({ isbn: "0441013597", formats: "EBOOK" }));
+      expect(state.message).toContain("already in your library, on TBR");
+    });
+
+    it.each([
+      ["no ISBN", { formats: "EBOOK" }],
+      ["a bad format", { isbn: "0441013597", formats: "SCROLL" }],
+      ["a bad status", { isbn: "0441013597", status: "WISHLIST" }],
+      ["a future date", { isbn: "0441013597", status: "FINISHED", endedYear: "2999" }],
+    ])("rejects %s and keeps the choices", async (_label, fields) => {
+      const state = await addBookByIsbn({}, form(fields));
+      expect(state.error).toBeTruthy();
+      expect(state.values).toBeDefined();
+      expect(service.addBookByIsbn).not.toHaveBeenCalled();
+    });
+
+    it("shows a miss as an error", async () => {
+      service.addBookByIsbn.mockRejectedValue(new NotFoundError("We couldn't find a book with that ISBN."));
+      const state = await addBookByIsbn({}, form({ isbn: "0441013597" }));
+      expect(state.error).toBe("We couldn't find a book with that ISBN.");
+    });
   });
 });

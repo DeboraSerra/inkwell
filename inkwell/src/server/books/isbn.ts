@@ -2,11 +2,24 @@
 
 export const cleanIsbn = (isbn: string) => isbn.replaceAll(/[\s-]/g, "").toUpperCase();
 
+// Keeps only what an ISBN can contain: digits, and an X only as the tenth and
+// last character, where it's an ISBN-10 check digit worth 10. Anything after
+// that X is dropped, and so is everything past thirteen digits.
+function isbnChars(isbn: string) {
+  let chars = "";
+  for (const char of cleanIsbn(isbn)) {
+    if (chars.length === 13) break;
+    if (char >= "0" && char <= "9") chars += char;
+    else if (char === "X" && chars.length === 9) return `${chars}X`;
+  }
+  return chars;
+}
+
 // Groups the characters for easier reading while typing. The official hyphen
 // positions vary by publisher and need range tables, so these are approximate
 // and are never stored.
 export function formatIsbn(isbn: string) {
-  const chars = cleanIsbn(isbn).replaceAll(/[^\dX]/g, "").slice(0, 13);
+  const chars = isbnChars(isbn);
   const groups = /^97([89]|$)/.test(chars) || chars.length > 10 ? [3, 1, 4, 4, 1] : [1, 4, 4, 1];
   const parts: string[] = [];
   let start = 0;

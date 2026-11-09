@@ -1,1 +1,4 @@
 .DS_Store
+
+# Extension store builds (extension/build.mjs)
+extension/dist/

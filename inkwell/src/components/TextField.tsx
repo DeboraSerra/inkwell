@@ -1,4 +1,5 @@
 import { Info } from "lucide-react";
+import type { ChangeEventHandler, Ref } from "react";
 import { Field, FieldDescription, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
@@ -12,6 +13,10 @@ export function TextField({
   invalid = false,
   inputMode,
   info = null,
+  id = name,
+  ref,
+  onChange,
+  autoComplete,
 }: Readonly<{
   name: string;
   label: string;
@@ -21,11 +26,17 @@ export function TextField({
   invalid?: boolean;
   inputMode?: "numeric";
   info?: React.ReactNode;
+  // Defaults to the name. Pass one when two fields on a page share a name,
+  // so each label points at its own input.
+  id?: string;
+  ref?: Ref<HTMLInputElement>;
+  onChange?: ChangeEventHandler<HTMLInputElement>;
+  autoComplete?: string;
 }>) {
-  const hintId = `${name}-hint`;
+  const hintId = `${id}-hint`;
   return (
     <Field>
-      <FieldLabel htmlFor={name}>
+      <FieldLabel htmlFor={id}>
         {label}
         {required ? (
           <span className='font-normal text-muted-foreground'>*</span>
@@ -40,13 +51,16 @@ export function TextField({
         )}
       </FieldLabel>
       <Input
-        id={name}
+        id={id}
+        ref={ref}
         name={name}
         required={required}
         aria-invalid={invalid || undefined}
         className='dark:aria-invalid:border-destructive'
         defaultValue={defaultValue}
         inputMode={inputMode}
+        autoComplete={autoComplete}
+        onChange={onChange}
         aria-describedby={hint ? hintId : undefined}
       />
       {hint && <FieldDescription id={hintId}>{hint}</FieldDescription>}

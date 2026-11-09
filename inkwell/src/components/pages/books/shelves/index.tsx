@@ -47,7 +47,6 @@ export const BooksShelves = ({
             </TabsTrigger>
           ))}
         </TabsList>
-        <div className='w-full bg-abbey-400/30 h-px -mt-4.75' />
         <ShelfFilterBar filters={filters} />
         <TabsContent value={filters.shelf}>
           {/* A new key clears the selection when the shelf or page changes. */}

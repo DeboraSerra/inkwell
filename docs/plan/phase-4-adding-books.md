@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: in progress.** 4a is implemented on `dev`, not committed. It was started at the user's request before Phase 3's "Done when" list ([phase-3-mvp.md](phase-3-mvp.md#done-when)) was checked.
+**Status: in progress.** 4a and 4b are done and committed. Next is 4c. It was started at the user's request before Phase 3's "Done when" list ([phase-3-mvp.md](phase-3-mvp.md#done-when)) was checked.
 
 Goal: add a book without typing its details. Search by title or author, type an ISBN, or photograph the barcode, then confirm, pick formats and add. The manual form stays as the last resort.
 
@@ -117,7 +117,7 @@ A new module, `src/server/metadata/`, that turns an ISBN or a search query into 
   - One run of the real service against the live APIs: an ISBN-10 found *Dune* with cover and pages, search returned 10 results, and Google's `429` was handled as a miss.
 - **You need to do:**
   - Add `METADATA_USER_AGENT` and `GOOGLE_BOOKS_API_KEY` to `.env.local` and to Vercel (see "Env vars").
-  - Run `npx prisma migrate deploy` against any other database (Neon).
+  - Run `npx prisma migrate deploy` against any other database (Supabase).
 
 ## 4b — Add by ISBN
 
@@ -136,6 +136,44 @@ A new module, `src/server/metadata/`, that turns an ISBN or a search query into 
    - **Not found:** "We couldn't find this ISBN", with "Fill in by hand" opening the Manual tab with the ISBN already filled in.
    - After an add, the form clears and confirms which list the book went to, like the manual form, so you can add several in a row.
 4. **Tests:** the add flow with the metadata service mocked (new book, existing book gaining a format, a book matched by title and author gaining its blank ISBN, a book that already has an ISBN left alone, a book that disappeared between lookup and add), and the controller's validation and rate limit.
+
+### 4b outcome
+
+- **Code:**
+  - `previewIsbn` and `addBookByIsbn` in `library.service.ts`.
+  - `findOrCreateMetadataBook` and `fillMissingIsbn` in `book.service.ts`, and `fillBookIsbn` in `book.model.ts`.
+  - The `lookUpIsbn` and `addBookByIsbn` actions in `library.controller.ts`, validated by `library/isbn-book.schema.ts`.
+  - UI in `components/pages/books/new/`: `AddBookTabs.tsx`, `IsbnLookup.tsx`, and `FormatsField.tsx` and `isbn-input.ts`, both split out of `AddBookForm.tsx` so the two tabs share them.
+- **Page:** `/books/new` has two tabs, **ISBN** (the default) and **Manual**.
+  - The Search tab comes with 4c and the "Scan barcode" button with 4d.
+  - Both tabs stay mounted, so switching doesn't lose what's typed.
+  - "Fill in by hand" on a miss opens Manual with the ISBN filled in.
+- **Choices the plan left open:**
+  - **The preview shows what adding would store.** A provider's book that matches a catalog book by title and author shows the catalog's details, since that book is reused unchanged. A book already in the library shows the reader's own cover, authors and pages first, per the domain rules.
+  - **A book already in the library** hides the status and dates, since a re-add ignores them, and the button reads "Add formats".
+  - **Both actions count toward the `ISBN_LOOKUP` limit,** because both look the ISBN up. A preview and an add cost two, so the limit allows about 30 books a minute.
+  - **Filling a blank ISBN runs after the add's transaction, as a best-effort extra, rather than inside it.** A unique-key clash would abort a Postgres transaction, so `fillBookIsbn` catches that clash (`P2002`) and skips the fill. The plan had it inside the transaction.
+  - **Each fact on the preview card stays on one line,** so an ISBN never breaks across lines on a phone.
+- **Fixed after the outcome above, in the same commit:**
+  - **`TextField` passes its props on.** It now forwards `onChange`, `id`, `ref` and `autoComplete` to its input. Before, the ISBN tab's formatting never ran once that tab used `TextField`. The ISBN tab's input has its own id, `lookup-isbn`, since both tabs stay mounted and the Manual form's ISBN field is `isbn`.
+  - **Covers, in a shared `components/BookCover.tsx`,** used by the preview card and the shelf cards:
+    - **Open Library and Google Books covers go through Next's image optimizer.** The app's server fetches them, so the reader's browser never does. Older Open Library covers redirect twice to the Internet Archive, which failed in the user's browser; the optimizer follows up to 3 redirects.
+    - **The allowlist** is `images.remotePatterns` in `next.config.ts`: Open Library's `/b/**` with no query string, and Google's `/books/content`, whose links need one. Other hosts, query strings and paths get a `400`.
+    - **Other covers stay a plain `<img>`** with no referrer. That's all of today's library: 233 Amazon covers and one from Goodreads.
+    - **Missing or failed covers** show `public/assets/cover-placeholder.jpg`. A failure that happens before React is ready is caught by checking the image when it mounts.
+    - Image optimization on Vercel has a monthly limit on the free plan, and only the two optimized hosts count toward it.
+  - **ISBN fields accept only what an ISBN can contain:** digits, and an X only as the last character of an ISBN-10 (`formatIsbn` in `books/isbn.ts`). Before, an X typed anywhere was kept and could push a real digit off the end.
+- **Not written:** the plan's test for "a book that disappeared between lookup and add". Catalog books are never deleted (deleting a book only removes the `UserBook`), so it can't happen.
+- **Verified:**
+  - 33 new tests.
+  - The service against the local database and the live APIs, with a throwaway user, since removed:
+    1. An ISBN-10 preview found *Dune* on Open Library.
+    2. Adding it with no format put it on the Wishlist, with source `ISBN`, a new catalog book with its Open Library id, and 896 pages.
+    3. Previewing again came from the catalog and showed it in the library.
+    4. Re-adding with Physical and Finished moved it to TBR, ignored the status, and added no read.
+    5. Google Books answered a lookup Open Library missed, so the API key works.
+  - The tabs, preview cards and ISBN formatting in the browser through a temporary render, since removed, on desktop and at phone width.
+- **Not verified:** a signed-in click-through of `/books/new`. Auto mode refused a temporary auth bypass for the browser test, so the actions were exercised through the service and unit tests only. Try it once while signed in.
 
 ## 4c — Search by title or author
 

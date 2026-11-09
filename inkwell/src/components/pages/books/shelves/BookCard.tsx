@@ -1,5 +1,6 @@
 "use client";
 
+import { BookCover } from "@/components/BookCover";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -96,17 +97,7 @@ export function BookCard({
           className='mt-1'
           id={book.id}
         />
-        {book.coverUrl ? (
-          <img
-            src={book.coverUrl}
-            alt=''
-            loading='lazy'
-            referrerPolicy='no-referrer'
-            className='h-24 w-16 shrink-0 rounded-sm object-cover'
-          />
-        ) : (
-          <span className='h-24 w-16 shrink-0 rounded-sm bg-muted' />
-        )}
+        <BookCover src={book.coverUrl} lazy className='h-24 w-16' width={64} height={96} />
         <span className='flex min-w-0 flex-1 flex-col gap-2'>
           <span>
             <span className='block font-medium wrap-break-word'>
