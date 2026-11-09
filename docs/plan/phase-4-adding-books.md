@@ -117,7 +117,7 @@ A new module, `src/server/metadata/`, that turns an ISBN or a search query into 
   - One run of the real service against the live APIs: an ISBN-10 found *Dune* with cover and pages, search returned 10 results, and Google's `429` was handled as a miss.
 - **You need to do:**
   - Add `METADATA_USER_AGENT` and `GOOGLE_BOOKS_API_KEY` to `.env.local` and to Vercel (see "Env vars").
-  - Run `npx prisma migrate deploy` against any other database (Neon).
+  - Run `npx prisma migrate deploy` against any other database (Supabase).
 
 ## 4b — Add by ISBN
 

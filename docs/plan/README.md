@@ -5,7 +5,7 @@
 | Topic | Decision |
 |---|---|
 | Users | Built for you alone, but every piece of data belongs to a user, so more people can sign up later. No social features. Login with Firebase Auth. |
-| Hosting | Vercel (Next.js) and Neon Postgres (Supabase also works), using Prisma |
+| Hosting | Vercel (Next.js) and Supabase Postgres, using Prisma |
 | Extension import | The extension POSTs the scraped list directly to an authenticated API endpoint |
 | Re-import | Sync: add new books, match existing ones (ASIN, then ISBN, then normalized title + author), and only ever add a format. Never overwrite your status, dates or list order |
 | Lists | Five: **Wishlist, TBR, Reading, Finished, DNF**. The list is `UserBook.status`; lists are only views in the UI. A wishlist book moves to TBR as soon as it has a format |

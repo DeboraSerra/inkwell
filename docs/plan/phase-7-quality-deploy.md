@@ -5,7 +5,7 @@
 - zod validation on any input the MVP didn't cover. Every query is scoped by `userId` (write a test for this). Rate-limit the import and AI endpoints.
 - Playwright for one happy path (Vitest and the domain-logic tests already exist).
 - GitHub Actions: lint, typecheck, test, `npm audit --audit-level=high`. Dependabot for npm.
-- Vercel deploy with a Neon branch per preview deployment.
+- Vercel deploy. Preview deployments use their own Supabase database, never production's.
 
 ## Publishing the extension
 
@@ -13,29 +13,47 @@ The extension (`extension/`) talks to whichever Inkwell address is saved in its 
 
 ### To use it with the deployed site (no store needed)
 
-1. **Deploy the app first,** with `npx prisma migrate deploy` run against Neon and every variable from `.env.example` set on Vercel.
+1. **Deploy the app first,** with `npx prisma migrate deploy` run against the Supabase database and every variable from `.env.example` set on Vercel.
 2. **Create an API token on the deployed site,** at `https://<your-domain>/settings`. Tokens live in each database, so a local one won't work in production.
 3. **In the extension's options,** set the App URL to `https://<your-domain>` and paste the token. Chrome asks once for permission to reach that address; "Save and test" should then say "Connected as …".
 
-The extension can stay loaded unpacked (`chrome://extensions` → Developer mode → Load unpacked). Point Chrome at a folder with only the extension's files, not `firebase-project/` (see below).
+The extension can stay loaded unpacked (`chrome://extensions` → Developer mode → Load unpacked), from `extension/` for local use or from `extension/dist/package/` for the deployed site (see below).
 
 ### To publish on the Chrome Web Store
 
-Changes to make first:
+**Built (2026-11-08):**
 
-- **Permissions:**
-  - Replace `optional_host_permissions: ["https://*/*"]` with the deployed origin in `host_permissions`, for example `"https://<your-domain>/*"`. The store asks for a justification for broad host access and reviews it more slowly. A fixed origin also removes the permission prompt in the options page.
-  - Remove `http://localhost/*` and `http://127.0.0.1/*` from the store build. They only matter for development.
-- **Options:**
-  - Default the App URL to the deployed origin in `options.html` (the placeholder) and `options.js`. Then a new install only needs the token.
-  - With a fixed origin, drop `chrome.permissions.request` from `options.js`, or keep it only for other addresses.
-- **Icons:** add an `icons` entry with 16, 48 and 128 px PNGs. Today there's only a 512 px `icon.png` used as the toolbar icon. The store also needs a 128 px icon for the listing.
-- **Package:** zip only `manifest.json`, `app.js`, `background.js`, `options.html`, `options.js` and the icons. **Leave out `firebase-project/`:** it's a legacy, unused project of 158 MB, with `node_modules`, inside the extension folder. Moving it out of `extension/` would make this automatic.
-- **Version:** bump `version` in `manifest.json` for every upload.
+- **Icons:** `extension/icons/icon.svg` is the app's logo (`inkwell/public/assets/logo-dark.svg`) on the app's navy, rendered to 16, 48 and 128 px PNGs that the manifest uses. The old `extension/icon.png` is no longer referenced.
+- **Default address:** `extension/config.js` holds it. It's localhost in the source folder, and the build writes the deployed address in. The options page starts from it and only asks Chrome for permission for an address the manifest doesn't already allow.
+- **`extension/build.mjs`:** builds the store package from the source folder, which stays set up for development. In the package:
+  - `host_permissions` is just the deployed origin, with no localhost and no `optional_host_permissions`.
+  - It contains only the extension's own files, about 16 KB zipped.
+  - The output is in `extension/dist/`, which git ignores.
+- **Privacy policy:** a public page at `/privacy` (`inkwell/src/app/privacy/page.tsx`), linked from the login page. It covers sign-in, the library, book lookups, what the extension reads and sends, where data is kept (Vercel, Supabase, Firebase Authentication), and deletion. **Update it whenever any of that changes,** for example with Phase 5's AI.
+- **Version:** 2.1.0. Bump it in `extension/manifest.json` before every upload.
+- **Tested:**
+  - The build refuses a missing, `http`, or path-bearing address, and with a stand-in domain it wrote the right manifest, config and zip contents.
+  - The real options page, in both builds, with a stand-in for Chrome's API:
+    - **Development build:** connects to localhost with no prompt, asks before using another `https` address, and refuses plain `http`.
+    - **Store build:** starts on the deployed address and connects with no prompt. It refuses any other address and saves nothing.
+- **Not tested:** loading either build in real Chrome, and a run against the deployed site.
 
-Store requirements outside the code:
+**To build and upload:**
 
-- A developer account: a one-time fee, then registration.
-- **A privacy policy URL.** The extension reads the Amazon content list and sends titles, authors, covers and ASINs to Inkwell, and stores an API token. The listing's data-use form must declare both. A short page on the Inkwell site is enough.
-- A single-purpose description, a justification for each permission (`activeTab`, `scripting`, `storage`, the host permission), and at least one 1280×800 screenshot.
-- **Visibility:** "Unlisted" keeps it out of search but installable from its link, which suits a personal app. "Private" limits it to testers you name.
+```bash
+node extension/build.mjs https://<your-domain>
+```
+
+1. Load `extension/dist/package/` unpacked in `chrome://extensions` and run an import once against the deployed site.
+2. Upload `extension/dist/inkwell-kindle-import-<version>.zip` in the Chrome Web Store developer dashboard.
+
+**Listing text, ready to paste:**
+
+- **Single purpose:** "Imports the books and personal documents listed on Amazon's Manage Your Content and Devices page into the user's own Inkwell reading journal."
+- **Permission justifications:**
+  - `activeTab` and `scripting`: "Reads the Amazon content list only in the tab where the user clicks the extension, by injecting the import script into that tab at that moment."
+  - `storage`: "Keeps the user's Inkwell address and API token on their computer."
+  - **Host permission** (`https://<your-domain>/*`): "Sends the imported list to the user's Inkwell site, and nowhere else."
+- **Data use form:** declare "Website content" (titles, authors, cover addresses and ASINs read from the Amazon page) and "Authentication information" (the Inkwell API token, stored locally). Then confirm that data isn't sold, isn't used for unrelated purposes, and isn't used for creditworthiness.
+- **Privacy policy URL:** `https://<your-domain>/privacy`.
+- **Also needed:** a developer account (a one-time fee), at least one 1280×800 screenshot, a 128 px store icon (`extension/icons/icon-128.png`), and the visibility setting. "Unlisted" suits a personal app.

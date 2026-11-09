@@ -17,10 +17,26 @@ const parseOrigin = (value) => {
   }
 };
 
+const DEFAULT_APP_URL = globalThis.INKWELL_DEFAULT_APP_URL;
+appUrlInput.placeholder = DEFAULT_APP_URL;
+
 chrome.storage.local.get(["appUrl", "token"]).then(({ appUrl, token }) => {
-  appUrlInput.value = appUrl ?? "";
+  appUrlInput.value = appUrl ?? DEFAULT_APP_URL;
   tokenInput.value = token ?? "";
 });
+
+// The manifest already allows the default address (and localhost in
+// development), so Chrome only needs asking for another one. The store build
+// allows no other address, and asking for one throws.
+const allowAddress = async (appUrl) => {
+  const origins = [`${appUrl}/*`];
+  if (await chrome.permissions.contains({ origins })) return true;
+  try {
+    return await chrome.permissions.request({ origins });
+  } catch {
+    return false;
+  }
+};
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -31,10 +47,10 @@ form.addEventListener("submit", async (event) => {
     return;
   }
 
-  // Must come before any other await: Chrome only asks during the click itself.
-  // Local addresses are already allowed by the manifest.
-  if (appUrl.startsWith("https:") && !(await chrome.permissions.request({ origins: [`${appUrl}/*`] }))) {
-    result.textContent = "Chrome needs permission to reach that address.";
+  // Chrome only shows its prompt while the click is still being handled, and
+  // `contains` is fast enough to keep it so.
+  if (!(await allowAddress(appUrl))) {
+    result.textContent = `Chrome can't reach that address from this extension. Use ${DEFAULT_APP_URL}.`;
     return;
   }
 
