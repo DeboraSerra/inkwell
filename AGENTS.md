@@ -58,7 +58,7 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 4a: metadata providers (Open Library, Google Books) and the per-user rate limit
 - ✅ Phase 4b: add by ISBN on `/books/new` (ISBN and Manual tabs); covers through `components/BookCover.tsx`, with Open Library and Google covers served by Next's image optimizer (`images.remotePatterns` in `next.config.ts`)
 - ✅ Phase 3's "Done when" list checked on 2026-11-08
-- ⏭️ Next: Phase 4c (search). Publishing the extension is in `docs/plan/phase-7-quality-deploy.md`
+- ⏭️ Next: two fixes before 3e (`docs/plan/phase-3-mvp.md`). Moving to DNF: only Reading → DNF is allowed today. And `&amp;` in imported titles: Amazon's text arrives HTML-encoded, so decode it on the server and clean up the existing rows. Then Phase 3e, polish (`docs/plan/phase-3-mvp.md`): show the account an import goes to, give the options page a favicon, redesign the options page, add a copy button for new API tokens, add a books-per-page select (default 10 on phones, 30 on desktop), show the full title on hover, move to the next date part automatically, show read dates on shelf cards, add an audiobook length. Then Phase 3f, purchase dates (`UserBook.acquiredAt`, kept separate from `addedAt`). Then Phase 4c (search). Publishing the extension is in `docs/plan/phase-7-quality-deploy.md`
 
 ## Workflow rules
 
@@ -132,6 +132,7 @@ inkwell/src/
 - **Every page, server action and route handler verifies the user itself.** Use `requireUser()` (pages and actions) or `getRequestUser(request)` (route handlers, which accept a Bearer API token or the session cookie), both from `src/server/auth/auth.guard.ts`. Never rely on the proxy for security.
 - **Every query on per-user data filters by `userId`,** and service and model functions take `userId` as their first argument. Use `updateMany`/`deleteMany` with `{ id, userId }` so one user can't touch another's rows.
 - **Shared catalog vs. per-user data:** `Book`, `Genre` and `Trope` are shared. Status, formats, sessions, reviews and goals belong in per-user tables (Phase 2b onward). Never put per-user state on `Book`.
+- **Scraped text can arrive HTML-encoded** (Amazon sends `&amp;`). Decode it once on the server, before the dedupe key and author search are computed.
 - **Validate every input from the client or the extension** (types, lengths, ranges). Treat titles, authors and every other scraped field as untrusted.
 - **Redirect targets** must be relative paths (see `safeRedirectPath` in `src/server/auth/auth.controller.ts`).
 - **API tokens** are stored only as SHA-256 hashes and shown once. Never log or return them afterwards.
@@ -186,6 +187,7 @@ inkwell/src/
 - **Dedupe order:** ASIN → ISBN-13 (convert ISBN-10 with `toIsbn13`) → `dedupeKey`, which is the normalized title plus every author's surname, sorted so author order doesn't matter. Re-importing a book only ever adds a format; it never overwrites a user's status, dates or list order.
 - **Genres and tropes** come only from the curated lists in `assets/lists/`. The AI picks from these lists; `source: AI | USER` records who attached each one, and AI updates must never overwrite `USER` rows.
 - **Goal progress** is always computed, never stored.
+- **Two different dates:** `UserBook.addedAt` is when a book was added to Inkwell, and it orders the shelves. `UserBook.acquiredAt` (Phase 3f) is when the reader got it. Never put one in the other.
 - **A reader's own details override the catalog's:** `UserBook.pageCount`, `authors` and `coverUrl` hold what a reader edited, and empty means the catalog's value is used. Show the reader's value first; dedupe only ever uses `Book`.
 - **Private books:** a `Book` with `ownerId` set (a personal document from Amazon's Docs tab) belongs to that user alone. Any lookup that matches books for a library must exclude other users' private books, and they must not be sent to the AI enrichment in Phase 5 without asking the user.
 - **There are five lists, and the list is the status:** Wishlist, TBR, Reading, Finished and DNF are views of `UserBook.status`. Don't store lists separately.

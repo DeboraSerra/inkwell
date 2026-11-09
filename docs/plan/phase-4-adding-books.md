@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: in progress.** 4a and 4b are done and committed. Next is 4c. It was started at the user's request before Phase 3's "Done when" list ([phase-3-mvp.md](phase-3-mvp.md#done-when)) was checked.
+**Status: in progress.** 4a and 4b are done and committed. Next is 4c, after Phase 3e (polish) and 3f (purchase dates), both in [phase-3-mvp.md](phase-3-mvp.md#3e--polish-before-phase-4c-after-the-fixes). It was started at the user's request before Phase 3's "Done when" list ([phase-3-mvp.md](phase-3-mvp.md#done-when)) was checked.
 
 Goal: add a book without typing its details. Search by title or author, type an ISBN, or photograph the barcode, then confirm, pick formats and add. The manual form stays as the last resort.
 

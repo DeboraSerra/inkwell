@@ -25,18 +25,22 @@
    - [2a — Catalog](phase-2-data-model.md#phase-2a--catalog)
    - [2b — Library](phase-2-data-model.md#phase-2b--library)
    - [2c — Shelves](phase-2-data-model.md#phase-2c--shelves)
-3. [Phase 3 — MVP: add books and browse them](phase-3-mvp.md) ✅ done (Docs-tab fix not yet run on the real page)
+3. **[Phase 3 — MVP: add books and browse them](phase-3-mvp.md) ✅ 3a–3d done; ⏭️ next: DNF and `&amp;` fixes, 3e, 3f** (Docs-tab fix not yet run on the real page)
    - 3a — Rework the model (formats, status as the list, read history) ✅ implemented
    - 3b — Add books manually ✅ implemented
    - 3c — Add books through the extension ✅ done, run on Amazon
    - 3d — Browse, filter and move books ✅ done, at `/books/shelves`
-4. **[Phase 4 — Search and ISBN](phase-4-adding-books.md) ⏭️ in progress; next is 4c**
+   - **Fix: moving to DNF ⏭️ first:** TBR, Wishlist and Finished books can't be moved to DNF; add the missing moves
+   - **Fix: `&amp;` in imported titles ⏭️ first:** decode HTML entities from Amazon on the server, and clean up the 5 affected titles (needs your go-ahead)
+   - **3e — Polish, before 4c:** show the account an import goes to, give the options page a favicon, redesign the options page, add a copy button for new API tokens, add a books-per-page select (default 10 on phones, 30 on desktop), show the full title on hover, move to the next date part automatically, show read dates on shelf cards, add an audiobook length
+   - **3f — Purchase dates, after 3e:** save Amazon's acquired date as `UserBook.acquiredAt`, editable for hand-added books, filterable and sortable on the shelves
+4. [Phase 4 — Search and ISBN](phase-4-adding-books.md) in progress; 4c follows 3e and 3f
    - 4a — Metadata providers (Open Library, Google Books) ✅ done, plus the per-user rate limit
    - 4b — Add by ISBN ✅ done, at `/books/new`
    - 4c — Search by title or author
    - 4d — Scan the barcode
 5. [Phase 5 — AI enrichment (Claude API)](phase-5-ai-enrichment.md)
-6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals
+6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)
 7. [Phase 7 — Quality and deploy](phase-7-quality-deploy.md)
 8. [Later / nice to have](later.md)
 
