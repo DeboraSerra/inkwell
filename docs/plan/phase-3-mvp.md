@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: in progress.** 3a to 3d are done and committed. The phase closes once the ["Done when"](#done-when) list below has been checked. Phase 4 was started before that, at the user's request.
+**Status: ✅ done.** 3a to 3d are committed, and the ["Done when"](#done-when) list was checked on 2026-11-08 (see "Checked" under it). The Docs-tab issue found during that check is fixed in the extension, but the fix hasn't been run on the real page yet.
 
 Goal: add books manually or through the Chrome extension, move them between lists, and browse them with filters.
 
@@ -165,3 +165,28 @@ Phase 2c built shelves to hold the lists, and one `ownership` value per book. St
 - Moving many books at once to Finished works, and records no invented dates.
 - Filtering by format and searching work on all five lists.
 - Type check, lint, tests and build pass, and one user can't see another's books.
+
+### Checked (2026-11-08)
+
+The user ran six steps by hand, signed in. The local database was then read, without changing anything, for evidence of each, and the services were run against it with two throwaway users, since removed.
+
+| Done when | Result |
+|---|---|
+| Manual add with no format goes to the Wishlist, and ticking a format moves it to TBR | ✅ The user confirmed it in the UI. *A Little Princess* was added by hand with no format and is on the Wishlist. |
+| The extension adds ebooks to TBR, and running it again adds nothing new | ✅ 139 books were imported on Nov 1. A service re-run reported 0 new, and the user confirmed the extension's own count. |
+| Physical, then imported, shows both formats once on TBR | ✅ By the service: one book with Physical and Ebook, on TBR. The user confirmed it on the real page. |
+| A status change moves the book and earlier reads stay | ✅ *Business Not As Usual* has 3 reads and *Classic Works from Women Writers* has 2, all kept. A service reread kept the first read. |
+| A bulk move to Finished records no invented dates | ✅ *Did You Miss Me?* and *The Commoner* got Finished reads in the same instant, with no dates. The service run matched. |
+| Format filters and search work on all five lists | ✅ Confirmed by the user in the UI, including paging through a filtered TBR list. |
+| Checks pass, and one user can't see another's books | ✅ Typecheck, lint, 509 tests and build pass. Against the database, user B got nothing for user A's book: no `get` result, a shelf total of 0, and "not found" for status, formats, edit and delete. Bulk moves and deletes skipped it, and A's book was unchanged. The same private document imported by two users became two private copies. |
+
+**Docs tab, found during the check and since fixed:** the extension sent a run from Amazon's Docs tab as ordinary books, not as private documents. `app.js` treats a page as the Docs tab only when its path contains `/hz/mycd/digital-console/contentlist/pdocs`, which wasn't true on the real page. The 24 documents in that run, with titles like `the_shining` and `1_-_Twilight_-_Stephenie_Meyer`, matched catalog entries created on Nov 1, before private documents existed. So they were re-added as shared books. No other user has them. - **Fix, in `extension/app.js`:** the import dialog now asks whether the page lists Books or Docs ("kept private"). It pre-selects a guess from the address: `/pdocs/` or `/docs/` as a path segment means Docs. The real address is no longer trusted on its own, because it didn't match on the real page and Amazon can change it. Tested with the real `app.js` on a fake content page and a stand-in for Chrome's API:
+  - A Books address pre-selects Books and sends `books`, with the ASIN found.
+  - `/pdocs/` pre-selects Docs and sends `docs`.
+  - An unknown address defaults to Books, and picking Docs by hand sends `docs`.
+  - Cancel sends nothing.
+- **Still to do:** run it once on the real Docs tab, choosing Docs, and check that the documents arrive as private books.
+- **Still to decide:** whether to turn the Nov 1 documents into private books. That changes data, so it needs the user's go-ahead.
+- Also fixed: a malformed closing tag in `extension/options.html` (`<output/>` instead of `</output>`).
+
+**Also found:** 80 of the 230 Amazon catalog books have no ASIN, so a re-import can only match them by title and author. They're probably from before ASIN capture.

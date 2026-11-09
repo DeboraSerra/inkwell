@@ -52,11 +52,12 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 2c: `Shelf`/`ShelfItem`, system shelves per user kept in sync with status and ownership, sparse ordering (`src/server/shelves/`)
 - ✅ Phase 3a: `UserBook.formats`, status as the list, `ReadThrough` read history; the shelves from 2c are removed
 - ✅ Phase 3b: manual add at `/books/new`, validated with zod (`library/manual-book.schema.ts`)
-- ✅ Phase 3c: extension import through `POST /api/imports/amazon` (`src/server/imports/`), not yet run on the real Amazon page
+- ✅ Phase 3c: extension import through `POST /api/imports/amazon` (`src/server/imports/`), run on the real Amazon page; the import dialog asks Books or Docs, since the Docs tab's address can't be relied on
 - ✅ Phase 3d: browse, filter and move books at `/books/shelves`
 - ✅ Phase 4a: metadata providers (Open Library, Google Books) and the per-user rate limit
 - ✅ Phase 4b: add by ISBN on `/books/new` (ISBN and Manual tabs); covers through `components/BookCover.tsx`, with Open Library and Google covers served by Next's image optimizer (`images.remotePatterns` in `next.config.ts`)
-- ⏭️ Next: Phase 4c (search); Phase 3's "Done when" list (`docs/plan/phase-3-mvp.md`) is still unchecked
+- ✅ Phase 3's "Done when" list checked on 2026-11-08
+- ⏭️ Next: Phase 4c (search). Publishing the extension is in `docs/plan/phase-7-quality-deploy.md`
 
 ## Workflow rules
 
