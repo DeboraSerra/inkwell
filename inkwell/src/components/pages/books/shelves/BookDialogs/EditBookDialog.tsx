@@ -84,7 +84,7 @@ export function EditBookDialog({
                         htmlFor={`format-${format}`}
                         className='font-normal'
                       >
-                        {FORMAT_LABELS[format]}
+                        {FORMAT_LABELS[format].title}
                       </FieldLabel>
                     </Field>
                   ))}

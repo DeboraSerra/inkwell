@@ -100,7 +100,7 @@ export function ShelfFilterBar({ filters }: Readonly<{ filters: ShelfFilters }>)
               onCheckedChange={(checked) => toggleFormat(format, checked)}
             />
             <FieldLabel htmlFor={`filter-${format as string}`} className='font-normal'>
-              {FORMAT_LABELS[format]}
+              {FORMAT_LABELS[format].title}
             </FieldLabel>
           </Field>
         ))}

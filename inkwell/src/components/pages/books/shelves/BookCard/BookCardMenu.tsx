@@ -75,7 +75,7 @@ export const BookCardMenu = ({ book }: { book: ShelfBook }) => {
                   checked={book.formats.includes(format)}
                   onCheckedChange={(checked) => toggleFormat(format, checked)}
                 >
-                  {FORMAT_LABELS[format]}
+                  {FORMAT_LABELS[format].title}
                 </DropdownMenuCheckboxItem>
               ))}
             </DropdownMenuSubContent>

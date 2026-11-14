@@ -49,9 +49,9 @@ export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
               {book.formats.map((format) => (
                 <span
                   key={format}
-                  className='rounded-full border px-2 py-0.5 text-xs font-normal'
+                  title={FORMAT_LABELS[format].title}
                 >
-                  {FORMAT_LABELS[format]}
+                  {FORMAT_LABELS[format].label}
                 </span>
               ))}
             </span>
