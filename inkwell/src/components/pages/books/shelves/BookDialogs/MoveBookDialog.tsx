@@ -4,18 +4,9 @@ import { ReadingStatus } from "@/generated/prisma/enums";
 import type { ShelfBook } from "@/server/library/library.service";
 import { moveDateValues } from "@/server/library/shelf-filters";
 import { LIST_NAMES } from "@/server/library/status.rules";
-import { type SubmitEvent, useTransition } from "react";
+import { type SubmitEvent, useId, useTransition } from "react";
+import { BookDialog } from ".";
 import { PartialDateField } from "../../../../PartialDateField";
-import { Button } from "../../../../ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../../../../ui/dialog";
 import { FieldDescription, FieldGroup } from "../../../../ui/field";
 
 const localToday = () => {
@@ -35,6 +26,7 @@ export function MoveBookDialog({
   onSave: (formData: FormData) => Promise<boolean>;
 }>) {
   const [isPending, startTransition] = useTransition();
+  const formId = useId();
   const values = moveDateValues(book, status, localToday());
 
   // Not a form action: React resets those, which would lose what was typed when
@@ -48,41 +40,33 @@ export function MoveBookDialog({
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className='sm:max-w-lg'>
-        <DialogHeader>
-          <DialogTitle>Move to {LIST_NAMES[status]}</DialogTitle>
-          <DialogDescription>{book.title}</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} noValidate>
-          <FieldGroup>
-            <div className='flex flex-wrap gap-x-10 gap-y-4'>
+    <BookDialog
+      open
+      onOpenChange={(open) => !open && onClose()}
+      description={<>Move to {LIST_NAMES[status]}</>}
+      heading={book.title}
+      btnDisabled={isPending}
+      confirmText={isPending ? "Moving..." : "Move"}
+      formId={formId}
+    >
+      <form id={formId} onSubmit={handleSubmit} noValidate>
+        <FieldGroup>
+          <div className='flex flex-wrap gap-x-10 gap-y-4'>
+            <PartialDateField name='started' legend='Started' values={values} />
+            {status === ReadingStatus.FINISHED && (
               <PartialDateField
-                name='started'
-                legend='Started'
+                name='ended'
+                legend='Finished'
                 values={values}
               />
-              {status === ReadingStatus.FINISHED && (
-                <PartialDateField
-                  name='ended'
-                  legend='Finished'
-                  values={values}
-                />
-              )}
-            </div>
-            <FieldDescription>
-              Optional. Fill in as much as you remember: just the year, the
-              month and year, or the full date.
-            </FieldDescription>
-            <DialogFooter>
-              <DialogClose render={<Button variant='outline'>Cancel</Button>} />
-              <Button type='submit' disabled={isPending}>
-                {isPending ? "Moving..." : "Move"}
-              </Button>
-            </DialogFooter>
-          </FieldGroup>
-        </form>
-      </DialogContent>
-    </Dialog>
+            )}
+          </div>
+          <FieldDescription>
+            Optional. Fill in as much as you remember: just the year, the month
+            and year, or the full date.
+          </FieldDescription>
+        </FieldGroup>
+      </form>
+    </BookDialog>
   );
 }

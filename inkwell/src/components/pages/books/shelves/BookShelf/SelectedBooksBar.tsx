@@ -13,7 +13,7 @@ import { LIST_NAMES } from "@/server/library/status.rules";
 import { Trash } from "lucide-react";
 import { useState, useTransition } from "react";
 import { useBooksContext, useLoadedShelf } from "../../../context";
-import { DeleteBookDialog } from "../BookDialogs/DeleteBookDialog";
+import { BookDialog } from "../BookDialogs";
 import { MAX_SELECTED, useShelfSelection } from "./ShelfSelection";
 
 const showError = (description: string) =>
@@ -96,12 +96,14 @@ export const SelectedBooksBar = () => {
         >
           <Trash />
         </Button>
-        <DeleteBookDialog
+        <BookDialog
           heading={`Delete ${bookCount(selected.length)}?`}
           description='The selected books will be removed from your library, along with your formats and read dates. This can’t be undone.'
           open={deletingSelected}
           onOpenChange={setDeletingSelected}
           onConfirm={deleteSelected}
+          btnVariant='destructive'
+          confirmText='Delete'
         />
         {selected.length < books.length && (
           <Button

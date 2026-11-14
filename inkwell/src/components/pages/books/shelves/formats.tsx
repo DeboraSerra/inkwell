@@ -1,6 +1,6 @@
 import { BookFormat } from "@/generated/prisma/enums";
 import { Smartphone, Book, Headphones } from "lucide-react";
-import React from "react";
+import type React from "react";
 
 export const FORMAT_LABELS: Record<BookFormat, {title: string, label: React.ReactNode}> = {
   [BookFormat.EBOOK]: {title:"Ebook", label: <Smartphone size={14}/>},
