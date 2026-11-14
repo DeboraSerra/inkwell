@@ -22,6 +22,7 @@ import {
   readChangeFor,
 } from "./status.rules";
 import { type ReadDates, toDateValues, toEditedReadFields, toReadFields } from "./partial-date.rules";
+import type { ShelfRead } from "./read-label.rules";
 import { type PageSize, parsePageSize } from "./shelf-filters";
 
 // Every function takes the signed-in user's id first.
@@ -303,6 +304,22 @@ const latestReadValues = (read?: {
       }
     : {};
 
+type StoredRead = {
+  startedAt: Date | null;
+  startedAtPrecision: DatePrecision;
+  endedAt: Date | null;
+  endedAtPrecision: DatePrecision;
+};
+
+// Only the dates that are known, each with how much of it is known.
+const toShelfRead = (read?: StoredRead): ShelfRead | null =>
+  read
+    ? {
+        ...(read.startedAt && { started: { date: read.startedAt, precision: read.startedAtPrecision } }),
+        ...(read.endedAt && { ended: { date: read.endedAt, precision: read.endedAtPrecision } }),
+      }
+    : null;
+
 // Authors, cover and pages are this reader's if they set them, or else the catalog's.
 export type ShelfBook = {
   id: string;
@@ -314,6 +331,10 @@ export type ShelfBook = {
   pageCount: number | null;
   // The latest read's dates, as the edit form's text.
   readDates: Record<string, string>;
+  // The latest read's dates, for the card to show at their precision.
+  latestRead: ShelfRead | null;
+  // How many reads there are besides the latest one.
+  earlierReads: number;
 };
 
 // One page of a shelf, in the plain shape the page and client components share.
@@ -337,6 +358,8 @@ export async function listShelfPage(
     formats,
     pageCount: pageCount ?? book.pageCount,
     readDates: latestReadValues(readThroughs.at(0)),
+    latestRead: toShelfRead(readThroughs.at(0)),
+    earlierReads: Math.max(readThroughs.length - 1, 0),
     title: book.title,
     authors: authors.length ? authors : book.authors,
     coverUrl: coverUrl ?? book.coverUrl,

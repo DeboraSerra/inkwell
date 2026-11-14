@@ -432,7 +432,18 @@ describe("listShelfPage", () => {
   it("returns plain books for a page of 30", async () => {
     showing(65);
     const { books, page, pageCount } = await service.listShelfPage(USER, { status: TO_READ }, 2);
-    expect(books[0]).toEqual({ id: "b1", status: TO_READ, formats: [EBOOK], title: "Tb1", authors: ["A"], coverUrl: null, pageCount: 200, readDates: {} });
+    expect(books[0]).toEqual({
+      id: "b1",
+      status: TO_READ,
+      formats: [EBOOK],
+      title: "Tb1",
+      authors: ["A"],
+      coverUrl: null,
+      pageCount: 200,
+      readDates: {},
+      latestRead: null,
+      earlierReads: 0,
+    });
     expect([page, pageCount]).toEqual([2, 3]);
     expect(model.listUserBooks).toHaveBeenCalledWith(
       USER,
@@ -471,6 +482,28 @@ describe("listShelfPage", () => {
     showing(65);
     await expect(service.listShelfPage(USER, {}, 1, size)).resolves.toMatchObject({ pageSize: 30, pageCount: 3 });
     expect(model.listUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining({ take: 30 }));
+  });
+
+  it("gives the latest read's known dates and counts the earlier reads", async () => {
+    const started = new Date("2025-10-05T00:00:00Z");
+    const ended = new Date("2025-11-01T00:00:00Z");
+    const stored = (startedAt: Date | null, endedAt: Date | null) => ({
+      startedAt,
+      startedAtPrecision: "DAY",
+      endedAt,
+      endedAtPrecision: "MONTH",
+    });
+    model.countUserBooks.mockResolvedValue(2);
+    model.listUserBooks.mockResolvedValue([
+      { ...row("reread"), readThroughs: [stored(started, ended), stored(null, null), stored(null, ended)] },
+      { ...row("undated"), readThroughs: [stored(null, null)] },
+    ] as never);
+    const { books } = await service.listShelfPage(USER, {});
+    expect(books[0]).toMatchObject({
+      latestRead: { started: { date: started, precision: "DAY" }, ended: { date: ended, precision: "MONTH" } },
+      earlierReads: 2,
+    });
+    expect(books[1]).toMatchObject({ latestRead: {}, earlierReads: 0 });
   });
 
   it("reports which books of the total the page shows", async () => {

@@ -418,6 +418,17 @@ Added at the user's request on 2026-11-08, after the extension's store build was
    - **Partial dates show at their precision:** a year alone as "2024", a month as "Oct 2024", a full date as "5 Oct 2025". Never invent a day. A read with no dates, as after a bulk move, shows nothing rather than "Started —".
    - **Rereads:** when a book has more than one finished read, add "Read 2×" next to the dates.
    - **Data:** `ShelfBook` gets the latest read's dates as structured values (date and precision), not only the form's text. The formatting is a pure, unit-tested helper next to `partial-date.rules.ts`.
+   - **✅ Built (2026-11-14):**
+     - **Rules:** `library/read-label.rules.ts` (pure) has `formatPartialDate` and `readDatesLabel(status, read)`.
+       - **Years show their last two digits, at the user's request:** "24", "Oct 24", "5 Oct 25", and "05" for 2005. Read in UTC.
+       - **Wording, as the user changed it:** Reading and Finished show bare dates ("5 Oct 25", "5 Oct 25 – 12 Nov 25", "Nov 25"), without "Started" or "Finished". DNF keeps "Started … · Stopped …".
+       - A read with no dates, and every Wishlist or TBR book, shows nothing.
+     - **Data:** `ShelfBook` gets `latestRead` (only the known dates, each with its precision) and `earlierReads`, the number of other reads. Both come from the reads the shelf query already loads, so there's no extra query.
+     - **Rereads, changed at the user's request:** "+N" after the dates, counting the other reads of any outcome, instead of "Read 2×". So a book read twice shows "5 Oct 25 – 12 Nov 25 +1". Screen readers hear ", 1 earlier read" instead of "+1". It only appears with dates, since a read with no dates shows nothing.
+     - **Card:** one muted line under the title and authors. The format badges are unchanged.
+     - **"Latest"** is still the newest read entered, until item 10 changes the order.
+     - **Verified:** typecheck, lint, 676 tests and the build. The tests cover each status, each precision, missing dates, Wishlist and TBR, and the service's latest read and count.
+     - **Not verified:** on the real shelves signed in.
 9. **Add an audiobook length** for books owned as audiobooks.
    - **Schema:** `UserBook.audioMinutes Int?`, an additive migration (`add_user_book_audio_minutes`). It's per reader, like `UserBook.pageCount`: Open Library and Google Books don't give an audiobook's length, and editions differ.
    - **Forms:** in the add form and the edit dialog, a "Length" field with hours and minutes, shown only when "Audiobook" is ticked. It's optional, and validated as a whole number of minutes from 1 to 12,000 (200 hours). Clearing it in the edit dialog removes it, as with page count.

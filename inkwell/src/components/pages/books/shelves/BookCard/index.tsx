@@ -3,6 +3,7 @@
 import { BookCover } from "@/components/BookCover";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { ShelfBook } from "@/server/library/library.service";
+import { readDatesLabel } from "@/server/library/read-label.rules";
 import { cn } from "cn";
 import { FieldLabel } from "../../../../ui/field";
 import { useShelfSelection } from "../BookShelf/ShelfSelection";
@@ -10,11 +11,26 @@ import { FORMAT_LABELS } from "../formats";
 import { BookCardMenu } from "./BookCardMenu";
 import { BookTitle } from "./BookTitle";
 
+// Each word with where it starts in the text, a key that stays unique when a
+// word repeats, as "Oct" does in "5 Oct 25 – 12 Oct 25".
+type PositionedWord = { word: string; start: number };
+
+function wordsWithPositions(text: string): PositionedWord[] {
+  const words: PositionedWord[] = [];
+  let position = 0;
+  for (const word of text.split(" ")) {
+    words.push({ word, start: position });
+    position += word.length + 1;
+  }
+  return words;
+}
+
 // Selection comes from the shelf's selection context, and the actions from
 // useBookActions, so a card needs only its book.
 export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
   const { isSelected, atLimit, toggle } = useShelfSelection();
   const selected = isSelected(book.id);
+  const readDates = readDatesLabel(book.status, book.latestRead);
 
   return (
     <li
@@ -44,6 +60,21 @@ export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
         />
         <span className='flex min-w-0 flex-1 flex-col gap-2'>
           <BookTitle title={book.title} authors={book.authors} />
+          {readDates && (
+            <span className='text-xs font-normal text-muted-foreground flex gap-0.5 items-center border w-fit rounded-full px-1 py-0.5'>
+              {wordsWithPositions(readDates).map(({ word, start }) => (
+                <small key={start}>{word}</small>
+              ))}
+              {book.earlierReads > 0 && (
+                <span className="ml-1 flex items-center">
+                  <small aria-hidden='true'> +{book.earlierReads}</small>
+                  <small className='sr-only'>
+                    , {book.earlierReads === 1 ? "1 earlier read" : `${book.earlierReads} earlier reads`}
+                  </small>
+                </span>
+              )}
+            </span>
+          )}
           {book.formats.length > 0 && (
             <span className='flex flex-wrap gap-1'>
               {book.formats.map((format) => (
