@@ -58,7 +58,8 @@ export default function PrivacyPage() {
         <p>
           The Inkwell Kindle import extension for Chrome runs only when you click it, and only on
           the page you clicked it on. On Amazon’s “Manage Your Content and Devices” list, it reads
-          each item’s title, authors, cover image address and Amazon identifier (ASIN). It sends
+          each item’s title, authors, cover image address, Amazon identifier (ASIN) and the date
+          you acquired it. It sends
           them to your Inkwell address, using the API token you created in Inkwell’s settings, to
           add them to your library. Personal documents from the Docs tab are kept private to you.
         </p>

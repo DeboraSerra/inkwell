@@ -156,11 +156,33 @@
     return undefined;
   };
 
+  // The row's purchase date sits in its own line, also an "information_row":
+  // <div id="content-acquired-date-<ASIN>" class="information_row"><span>Acquired on</span> June 12, 2026</div>
+  const ACQUIRED_DATE = '[id^="content-acquired-date-"]';
+  const AUTHORS = `.information_row:not(${ACQUIRED_DATE})`;
+
+  // Only the date: the line's own text, without the "Acquired on" label in its
+  // span. Inkwell reads the date in the account's language.
+  const findAcquiredDate = (row) => {
+    const line = row.querySelector(ACQUIRED_DATE);
+    if (!line) return undefined;
+    const text = Array.from(line.childNodes)
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.textContent)
+      .join(" ")
+      .replaceAll(/\s+/g, " ")
+      .trim();
+    return text || undefined;
+  };
+
   const scrapeRow = (row) => ({
     asin: findAsin(row),
     title: row.querySelector(".digital_entity_title, .digital_entity_title_no_link")?.innerText,
-    authors: row.querySelector(".information_row")?.innerText,
+    // Never the date's line, which would otherwise be taken as the authors
+    // when it comes first or a document has no author line.
+    authors: row.querySelector(AUTHORS)?.innerText,
     coverUrl: row.querySelector("img")?.src,
+    acquiredText: findAcquiredDate(row),
   });
 
   const scrapePage = () => {

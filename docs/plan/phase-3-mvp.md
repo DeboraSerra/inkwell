@@ -639,7 +639,27 @@ So the purchase date gets its own column.
   - **No acquired-year filter:** a year filter (in, before or after a year) was built first and then removed at the user's request, along with its URL parameter, query and tests. So step 6's "filter" and the "filtered by acquired year" item in "Done when" no longer apply.
 - **✅ Privacy page:** the library section now says Inkwell stores when you got a book, and an audiobook's length.
 - **Verified:** typecheck, lint, 813 tests and the build. The tests cover the parser, the import schema and service, keeping the earliest date (fill, earlier, later, the same date, no date), editing and clearing, the filter and sort from URL to query, and the form fields.
-- **⏭️ Next, the extension:** the user sent the Books tab's acquired-date element (2026-11-14), and step 3 now describes the change to `app.js`: read `[id^="content-acquired-date-"]` as `acquiredText`, and keep that element out of the authors selector. Then step 9 releases the extension as 2.3.0, with the privacy page's extension section updated.
+- **✅ Extension (step 3, 2026-11-14):**
+  - `app.js` reads `[id^="content-acquired-date-"]` and sends **only the date**, as the user asked: the line's own text, without the "Acquired on" label in its `<span>`. So "June 12, 2026" is sent as `acquiredText`.
+  - The authors come from `.information_row:not([id^="content-acquired-date-"])`.
+  - The privacy page's extension section now lists the acquired date.
+  - **Tested** with the real `app.js` on a fake page built from the user's element:
+    - The date line before and after the authors gives the right date and authors.
+    - A document with only a date line sends no authors.
+    - A row without one sends no date.
+    - Both ASINs are found, one of them only in the date's id.
+    - The same batch through `parseAmazonImport` gave dates of 2026-06-12, 2021-10-05 and 2020-03-03, the undated book none, and nothing skipped.
+  - **Not tested:** the real Amazon page, including the Docs tab.
+- **✅ Step 9, release 2.3.0 built (2026-11-14):**
+  - `extension/manifest.json` is at 2.3.0.
+  - `node extension/build.mjs https://inkwell-phi-bice.vercel.app` wrote `extension/dist/inkwell-kindle-import-2.3.0.zip`. The submitted 2.2.0 zip was kept next to it, since the build clears `dist/`.
+  - **Checked:** version 2.3.0, `host_permissions` only for the Vercel address with no optional ones, every file matching the source, and the zipped `app.js` reading `content-acquired-date-`.
+  - **Screenshots:** 2.3.0 changes nothing visible, but `…pageNumber=1.png` still shows the pre-2.2.0 dialog and still needs retaking, with the name and postcode in Amazon's header cropped or blurred.
+  - **Still to do by the user, in this order:**
+    1. Deploy the app to Vercel with this phase's server changes. The migration is already on Supabase. Until then the deployed site ignores `acquiredText`, which is harmless but saves no dates.
+    2. Load `dist/package/` in Chrome and run one import, on both the Books and Docs tabs.
+    3. Upload the 2.3.0 zip, once 2.2.0's review allows, or after cancelling that pending review.
+    4. Run one import over the whole library, so books already imported get their purchase dates.
 - **Not verified:** the shelf controls and the forms signed in.
 
 **Done when:**
