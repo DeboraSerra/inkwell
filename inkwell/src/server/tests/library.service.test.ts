@@ -269,15 +269,17 @@ describe("updateStatus: the read history table", () => {
     expect(model.updateUserBookState).toHaveBeenCalledWith(USER, "ub-1", { status: DNF, formats }, "tx");
   });
 
-  it("a single move to DNF records today as the end date", async () => {
-    vi.useFakeTimers({ now: AT, toFake: ["Date"] });
-    try {
-      model.findUserBook.mockResolvedValue(book(TO_READ, [EBOOK]));
-      await service.updateStatus(USER, "ub-1", DNF);
-      expect(reads.createReads).toHaveBeenCalledWith([{ userBookId: "ub-1", endedAt: AT, outcome: "DNF" }], "tx");
-    } finally {
-      vi.useRealTimers();
-    }
+  it("a single move records no date: the move isn't when the book was finished or given up", async () => {
+    model.findUserBook.mockResolvedValue(book(TO_READ, [EBOOK]));
+    await service.updateStatus(USER, "ub-1", DNF);
+    expect(reads.createReads).toHaveBeenCalledWith([{ userBookId: "ub-1", endedAt: null, outcome: "DNF" }], "tx");
+  });
+
+  it("closes the current read with no date on a single move", async () => {
+    model.findUserBook.mockResolvedValue(book(READING, [EBOOK]));
+    reads.findChangeableReads.mockResolvedValue([read("open", null)]);
+    await service.updateStatus(USER, "ub-1", FINISHED);
+    expect(reads.closeReads).toHaveBeenCalledWith(USER, ["open"], "FINISHED", null, "tx");
   });
 
   it("Reading → TBR discards only the current read", async () => {

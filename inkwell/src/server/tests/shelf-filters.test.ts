@@ -90,21 +90,16 @@ describe("moveDateValues", () => {
     expect(moveDateValues(at(ReadingStatus.FINISHED), ReadingStatus.READING, today)).toEqual(todayAs("started"));
   });
 
-  it("keeps the start date when finishing the current read", () => {
-    expect(moveDateValues(at(ReadingStatus.READING), ReadingStatus.FINISHED, today)).toEqual({
-      ...readDates,
-      ...todayAs("ended"),
-    });
+  it("keeps the start date when finishing the current read, and leaves the finish empty", () => {
+    expect(moveDateValues(at(ReadingStatus.READING), ReadingStatus.FINISHED, today)).toEqual(readDates);
   });
 
   it("keeps the dates when a DNF read is picked up again", () => {
     expect(moveDateValues(at(ReadingStatus.DNF), ReadingStatus.READING, today)).toEqual(readDates);
   });
 
-  it("leaves the start empty when a book goes straight to Finished", () => {
-    expect(moveDateValues({ ...at(ReadingStatus.WISHLIST), readDates: {} }, ReadingStatus.FINISHED, today)).toEqual(
-      todayAs("ended"),
-    );
+  it("leaves both dates empty when a book goes straight to Finished", () => {
+    expect(moveDateValues({ ...at(ReadingStatus.WISHLIST), readDates: {} }, ReadingStatus.FINISHED, today)).toEqual({});
   });
 });
 

@@ -90,7 +90,9 @@ export function parseShelfFilters(params: ShelfParams): ShelfFilters {
 }
 
 // What the move dialog starts with: dates of the read that continues, and today
-// for the date this move marks. `today` is the reader's calendar day, in UTC.
+// as the start of a new read. The finish date starts empty: the day a book is
+// moved to Finished isn't the day it was finished, so it's saved only when the
+// reader types it. `today` is the reader's calendar day, in UTC.
 export function moveDateValues(
   book: ReadingState & { readDates: Record<string, string> },
   status: ReadingStatus,
@@ -98,9 +100,7 @@ export function moveDateValues(
 ) {
   const newRead = startsNewRead(book, status);
   const known = newRead ? {} : book.readDates;
-  if (status === ReadingStatus.FINISHED) {
-    return { ...known, ...toDateValues("ended", today, "DAY") };
-  }
+  if (status === ReadingStatus.FINISHED) return known;
   return newRead ? toDateValues("started", today, "DAY") : known;
 }
 

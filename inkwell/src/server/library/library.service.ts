@@ -367,13 +367,14 @@ export async function listShelfPage(
   return { books, page, pageCount, pageSize, total, firstIndex: skip + 1 };
 }
 
-// Throws InvalidTransitionError for a change that isn't allowed. `at` lets a
-// past date be recorded.
+// Throws InvalidTransitionError for a change that isn't allowed. Records no
+// date unless `at` is given: the moment of the move isn't when a book was
+// finished or given up, so it's never saved as if it were.
 export function updateStatus(
   userId: string,
   userBookId: string,
   status: ReadingStatus,
-  at: Date = new Date(),
+  at: Date | null = null,
 ) {
   return transaction(async (tx) => {
     const current = await libraryModel.findUserBook(userId, userBookId, tx);

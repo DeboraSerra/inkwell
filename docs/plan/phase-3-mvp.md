@@ -198,7 +198,7 @@ Reported by the user on 2026-11-08: moving a book to DNF doesn't work.
 ### DNF fix outcome (2026-11-14)
 
 - **Rules:** `TRANSITIONS` in `status.rules.ts` gains Wishlist/TBR → DNF and Finished → DNF, both `addDnf`. `initialState` no longer special-cases DNF, since the table now covers it.
-- **Dates:** no service change was needed. A single move (`updateStatus`) already passes now as the end date, and a bulk move passes none. The edit dialog records no DNF date, as it has no DNF date fields.
+- **Dates:** no service change was needed. A single move (`updateStatus`) already passes now as the end date, and a bulk move passes none. The edit dialog records no DNF date, as it has no DNF date fields. *Changed on 2026-11-14:* a single move now records no date either (see "Move dates" under 3e item 8).
 - **Error:** `InvalidTransitionError` now reads "A book on DNF can't move to Finished." When a not-started list doesn't fit the formats, it adds why ("…, because you own it").
 - **Card menu:** the target list moved to `moveTargets` in `shelf-filters.ts`, so it's unit-tested. The bulk menu and the edit dialog needed no change.
 - **Verified:** tests (rules table, service single and bulk moves, Finished → DNF keeping the finished read, the error text, the card menu's targets), typecheck, lint and build.
@@ -429,6 +429,12 @@ Added at the user's request on 2026-11-08, after the extension's store build was
      - **"Latest"** is still the newest read entered, until item 10 changes the order.
      - **Verified:** typecheck, lint, 676 tests and the build. The tests cover each status, each precision, missing dates, Wishlist and TBR, and the service's latest read and count.
      - **Not verified:** on the real shelves signed in.
+   - **Move dates, fixed (2026-11-14) after the user reported it:**
+     - **The bug:** moving a book to Finished saved the move date as the date it was finished. The move dialog pre-filled Finished with today (`moveDateValues`), and a plain move to DNF recorded now as the stop date (`updateStatus`).
+     - **The fix:** neither happens now. The finish date starts empty, while the dialog still keeps a continuing read's start date. `updateStatus` records no date unless one is passed. A finish or stop date is saved only when the reader types it, as the rule that dates are never invented asks. This reverses 3d's "dialogs start from today" for the finish date, and the DNF fix's "a single move records today".
+     - **Unchanged:** starting a new read (moving to Reading) still pre-fills today as the start date in the dialog, where it can be cleared.
+     - **Existing reads keep their dates:** a finish date saved from the old pre-fill can't be told apart from one the reader typed.
+     - **Verified:** typecheck, lint, 679 tests and the build.
 9. **Add an audiobook length** for books owned as audiobooks.
    - **Schema:** `UserBook.audioMinutes Int?`, an additive migration (`add_user_book_audio_minutes`). It's per reader, like `UserBook.pageCount`: Open Library and Google Books don't give an audiobook's length, and editions differ.
    - **Forms:** in the add form and the edit dialog, a "Length" field with hours and minutes, shown only when "Audiobook" is ticked. It's optional, and validated as a whole number of minutes from 1 to 12,000 (200 hours). Clearing it in the edit dialog removes it, as with page count.
