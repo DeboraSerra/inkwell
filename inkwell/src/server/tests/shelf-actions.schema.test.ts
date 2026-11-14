@@ -46,3 +46,17 @@ describe("parseEditBook past reads", () => {
     expect(parsed.success).toBe(false);
   });
 });
+
+describe("parseEditBook acquired date", () => {
+  it("passes the date, and leaves it out when cleared", () => {
+    const set = parseEditBook("ub-1", form({ formats: ["EBOOK"], acquiredMonth: "3", acquiredYear: "2020" }));
+    expect(set.success && set.data.acquired).toMatchObject({ precision: "MONTH" });
+    const cleared = parseEditBook("ub-1", form({ formats: ["EBOOK"], acquiredYear: "" }));
+    expect(cleared.success && cleared.data.acquired).toBeUndefined();
+  });
+
+  it("clears it when no format is left", () => {
+    const parsed = parseEditBook("ub-1", form({ acquiredYear: "2020" }));
+    expect(parsed.success && parsed.data.acquired).toBeUndefined();
+  });
+});

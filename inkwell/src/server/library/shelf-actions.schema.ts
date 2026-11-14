@@ -3,10 +3,12 @@
 import { z } from "zod";
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import {
+  acquiredFields,
   audioLengthFields,
   audioLengthFor,
   coverUrlField,
   optional,
+  parseAcquired,
   parsePastReads,
   pastReadsField,
   pastReadValues,
@@ -45,6 +47,7 @@ const editBookSchema = z
     coverUrl: coverUrlField,
     ...readDateFields,
     ...audioLengthFields,
+    ...acquiredFields,
     pastReads: pastReadsField,
   })
   .transform((data, ctx) => {
@@ -64,8 +67,15 @@ const editBookSchema = z
       ctx.addIssue({ code: "custom", message: past.error ?? "Those dates aren't valid." });
       return z.NEVER;
     }
+    // Left empty, a stored acquired date is cleared.
+    const { acquired, error: acquiredError } = parseAcquired(data.formats, data);
+    if (acquiredError) {
+      ctx.addIssue({ code: "custom", message: acquiredError });
+      return z.NEVER;
+    }
     const { userBookId, formats, status, pageCount, authors, coverUrl } = data;
     return {
+      acquired,
       userBookId,
       formats,
       status,

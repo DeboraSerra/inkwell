@@ -38,6 +38,8 @@ const book = (status: ReadingStatus, formats: BookFormat[] = [PHYSICAL], id = "u
   formats,
   pageCount: null,
   audioMinutes: null,
+  acquiredAt: null as Date | null,
+  acquiredAtPrecision: "DAY" as const,
   authors: [] as string[],
   coverUrl: null,
   authorSearch: "",
@@ -138,6 +140,55 @@ describe("addBookToLibrary", () => {
     await expect(service.addBookToLibrary(USER, { ...input, formats: [], status: TO_READ })).rejects.toThrow(
       InvalidTransitionError,
     );
+  });
+});
+
+describe("purchase dates when adding", () => {
+  const on = (iso: string) => ({ date: new Date(`${iso}T00:00:00Z`), precision: "DAY" as const });
+
+  it("stores the date on a new book", async () => {
+    model.createUserBook.mockResolvedValue(book(TO_READ, [EBOOK]));
+    await service.addBookToLibrary(USER, { ...input, acquired: on("2021-10-05") });
+    expect(model.createUserBook).toHaveBeenCalledWith(
+      expect.objectContaining({ acquiredAt: on("2021-10-05").date, acquiredAtPrecision: "DAY" }),
+      "tx",
+    );
+  });
+
+  it("fills an empty date on a book already in the library, touching only that", async () => {
+    const existing = book(TO_READ, [EBOOK]);
+    model.findUserBookByBookId.mockResolvedValue(existing);
+    model.updateAcquired.mockResolvedValue({ ...existing, acquiredAt: on("2021-10-05").date } as never);
+    await service.addBookToLibrary(USER, { ...input, acquired: on("2021-10-05") });
+    expect(model.updateAcquired).toHaveBeenCalledWith(
+      USER,
+      "ub-1",
+      { acquiredAt: on("2021-10-05").date, acquiredAtPrecision: "DAY" },
+      "tx",
+    );
+    expect(model.createUserBook).not.toHaveBeenCalled();
+  });
+
+  it("replaces a later date with an earlier one", async () => {
+    model.findUserBookByBookId.mockResolvedValue({ ...book(TO_READ, [EBOOK]), acquiredAt: on("2023-01-01").date });
+    model.updateAcquired.mockResolvedValue(book(TO_READ, [EBOOK]) as never);
+    await service.addBookToLibrary(USER, { ...input, acquired: on("2021-10-05") });
+    expect(model.updateAcquired).toHaveBeenCalledWith(USER, "ub-1", expect.objectContaining({ acquiredAt: on("2021-10-05").date }), "tx");
+  });
+
+  it.each([
+    ["a later date", "2024-06-01"],
+    ["the same date", "2023-01-01"],
+  ])("never replaces an earlier date with %s", async (_name, iso) => {
+    model.findUserBookByBookId.mockResolvedValue({ ...book(TO_READ, [EBOOK]), acquiredAt: on("2023-01-01").date });
+    await service.addBookToLibrary(USER, { ...input, acquired: on(iso) });
+    expect(model.updateAcquired).not.toHaveBeenCalled();
+  });
+
+  it("leaves the date alone when the import has none", async () => {
+    model.findUserBookByBookId.mockResolvedValue({ ...book(TO_READ, [EBOOK]), acquiredAt: null });
+    await service.addBookToLibrary(USER, input);
+    expect(model.updateAcquired).not.toHaveBeenCalled();
   });
 });
 
@@ -511,6 +562,7 @@ describe("listShelfPage", () => {
       latestRead: null,
       earlierReads: 0,
       pastReads: [],
+      acquiredValues: {},
     });
     expect([page, pageCount]).toEqual([2, 3]);
     expect(model.listUserBooks).toHaveBeenCalledWith(
@@ -596,6 +648,26 @@ describe("listShelfPage", () => {
     ]);
   });
 
+  it.each([
+    [{ mode: "in", year: 2024 }, { gte: new Date("2024-01-01T00:00:00Z"), lt: new Date("2025-01-01T00:00:00Z") }],
+    [{ mode: "before", year: 2020 }, { lt: new Date("2020-01-01T00:00:00Z") }],
+    [{ mode: "after", year: 2022 }, { gte: new Date("2023-01-01T00:00:00Z") }],
+  ] as const)("filters by %j as a date range, and passes the sort", async (acquired, range) => {
+    showing(1);
+    await service.listShelfPage(USER, { status: TO_READ, acquired, sort: "acquired" });
+    expect(model.countUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining({ acquired: range }));
+    expect(model.listUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining({ acquired: range, sort: "acquired" }));
+  });
+
+  it("gives the edit form a stored acquired date as text", async () => {
+    model.countUserBooks.mockResolvedValue(1);
+    model.listUserBooks.mockResolvedValue([
+      { ...row("bought"), acquiredAt: new Date("2019-03-01T00:00:00Z"), acquiredAtPrecision: "MONTH" },
+    ] as never);
+    const [shelfBook] = (await service.listShelfPage(USER, {})).books;
+    expect(shelfBook.acquiredValues).toEqual({ acquiredYear: "2019", acquiredMonth: "03" });
+  });
+
   it("reports which books of the total the page shows", async () => {
     showing(65);
     await expect(service.listShelfPage(USER, {}, 3)).resolves.toMatchObject({ total: 65, firstIndex: 61 });
@@ -666,8 +738,21 @@ describe("editUserBook", () => {
       authorSearch: "|ann lee|bo kim|",
       coverUrl: "https://example.test/mine.jpg",
       audioMinutes: null,
+      acquiredAt: null,
+      acquiredAtPrecision: "DAY",
     });
     expect(reads.updateBookReadDates).not.toHaveBeenCalled();
+  });
+
+  it("saves the acquired date, and clears it when left out", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(TO_READ));
+    const acquired = { date: new Date("2020-03-01T00:00:00Z"), precision: "MONTH" as const };
+    await service.editUserBook(USER, "ub-1", { formats: [EBOOK], acquired, dates: {} });
+    expect(saved()).toMatchObject({ acquiredAt: acquired.date, acquiredAtPrecision: "MONTH" });
+
+    model.updateEditedUserBook.mockClear();
+    await service.editUserBook(USER, "ub-1", { formats: [EBOOK], dates: {} });
+    expect(saved()).toMatchObject({ acquiredAt: null, acquiredAtPrecision: "DAY" });
   });
 
   it("saves an audiobook's length, and clears it when left out", async () => {

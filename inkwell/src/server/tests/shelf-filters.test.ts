@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { moveDateValues, moveTargets, pageHolding, pageLinks, parsePageSize, parseShelfFilters, resolvePageSize, searchParamsRecord, shelfHref } from "@/server/library/shelf-filters";
+import { acquiredParam, moveDateValues, moveTargets, parseAcquiredFilter, pageHolding, pageLinks, parsePageSize, parseShelfFilters, resolvePageSize, searchParamsRecord, shelfHref } from "@/server/library/shelf-filters";
 import { ReadingStatus } from "@/generated/prisma/enums";
 
 describe("parseShelfFilters", () => {
   it("defaults to TBR with no filters", () => {
-    expect(parseShelfFilters({})).toEqual({ shelf: "tbr", status: "TO_READ", formats: [], search: "", page: 1 });
+    expect(parseShelfFilters({})).toEqual({ shelf: "tbr", status: "TO_READ", formats: [], search: "", page: 1, sort: "added" });
   });
 
   it.each([
@@ -186,5 +186,41 @@ describe("page size", () => {
     [0, 10, 1],
   ])("keeps book %i in view at %i per page, on page %i", (position, size, page) => {
     expect(pageHolding(position, size)).toBe(page);
+  });
+});
+
+describe("acquired filter and sort", () => {
+  it.each([
+    ["2024", { mode: "in", year: 2024 }],
+    ["before-2020", { mode: "before", year: 2020 }],
+    ["after-2022", { mode: "after", year: 2022 }],
+  ])("reads acquired=%s", (value, filter) => {
+    expect(parseAcquiredFilter(value)).toEqual(filter);
+    expect(acquiredParam(filter as never)).toBe(value);
+  });
+
+  it.each(["", "24", "20245", "during-2024", "before-", "before-2024-05", "1800", " 2024", 2024])("ignores %j", (value) => {
+    expect(parseAcquiredFilter(value)).toBeUndefined();
+  });
+
+  it("reads the sort, defaulting to newest added", () => {
+    expect(parseShelfFilters({ sort: "acquired" }).sort).toBe("acquired");
+    expect(parseShelfFilters({ sort: "title" }).sort).toBe("added");
+  });
+
+  it("keeps both in shelf links, leaving out the default sort", () => {
+    const href = shelfHref({
+      shelf: "tbr",
+      formats: [],
+      search: "",
+      acquired: { mode: "before", year: 2020 },
+      sort: "acquired",
+    });
+    expect(href).toBe("/books/shelves?shelf=tbr&acquired=before-2020&sort=acquired");
+    expect(shelfHref({ shelf: "tbr", formats: [], search: "", sort: "added" })).toBe("/books/shelves?shelf=tbr");
+    expect(parseShelfFilters(searchParamsRecord(new URL(href, "http://x").searchParams))).toMatchObject({
+      acquired: { mode: "before", year: 2020 },
+      sort: "acquired",
+    });
   });
 });

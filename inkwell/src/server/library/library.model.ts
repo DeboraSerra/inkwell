@@ -1,6 +1,6 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
-import type { BookFormat, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
+import type { BookFormat, DatePrecision, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
 import { prisma, type Db } from "@/server/db";
 import type { ReadingState } from "./status.rules";
 
@@ -36,7 +36,14 @@ export function findUserBookWithCatalog(userId: string, userBookId: string, db: 
 // Returns null when the user already has this book. Uses ON CONFLICT rather
 // than catching a unique-key error, which would abort a surrounding transaction.
 export async function createUserBook(
-  data: { userId: string; bookId: string; source: UserBookSource; audioMinutes?: number | null } & ReadingState,
+  data: {
+    userId: string;
+    bookId: string;
+    source: UserBookSource;
+    audioMinutes?: number | null;
+    acquiredAt?: Date | null;
+    acquiredAtPrecision?: DatePrecision;
+  } & ReadingState,
   db: Db = prisma,
 ) {
   const created = await db.userBook.createManyAndReturn({
@@ -56,9 +63,13 @@ export type UserBookFilter = {
   // against any author's last word, so "JRR Tolkien" finds "J. R. R. Tolkien".
   // Authors are searched in the catalog and in the reader's own list.
   search?: { text: string; normalized: string; author: string; surname: string };
+  // When the reader got the book, as a range; books with no date never match.
+  acquired?: { gte?: Date; lt?: Date };
 };
 
 export type UserBookQuery = UserBookFilter & {
+  // Newest added first, or by purchase date with undated books last.
+  sort?: "added" | "acquired";
   take: number;
   cursor?: string;
   skip?: number;
@@ -77,6 +88,7 @@ const userBookWhere = (userId: string, query: UserBookFilter) => {
     status: query.status ? { in: query.status } : undefined,
     formats: query.formats ? { hasSome: query.formats } : undefined,
     source: query.source,
+    acquiredAt: query.acquired,
     OR: search
       ? [
           ...authorMatches,
@@ -99,7 +111,10 @@ export function listUserBooks(userId: string, query: UserBookQuery, db: Db = pri
   return db.userBook.findMany({
     where: userBookWhere(userId, query),
     include: withCatalog,
-    orderBy: [{ addedAt: "desc" }, { id: "asc" }],
+    orderBy:
+      query.sort === "acquired"
+        ? [{ acquiredAt: { sort: "desc", nulls: "last" } }, { addedAt: "desc" }, { id: "asc" }]
+        : [{ addedAt: "desc" }, { id: "asc" }],
     take: query.take,
     ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : { skip: query.skip }),
   });
@@ -107,6 +122,17 @@ export function listUserBooks(userId: string, query: UserBookQuery, db: Db = pri
 
 export function countUserBooks(userId: string, query: UserBookFilter, db: Db = prisma) {
   return db.userBook.count({ where: userBookWhere(userId, query) });
+}
+
+// When the reader got the book. Only this column changes, so the shelf order
+// (addedAt), status and reads stay as they are.
+export function updateAcquired(
+  userId: string,
+  userBookId: string,
+  acquired: { acquiredAt: Date | null; acquiredAtPrecision: DatePrecision },
+  db: Db = prisma,
+) {
+  return db.userBook.update({ where: { id: userBookId, userId }, data: acquired });
 }
 
 export function updateUserBookState(
@@ -130,6 +156,8 @@ export function updateEditedUserBook(
     authorSearch: string;
     coverUrl: string | null;
     audioMinutes: number | null;
+    acquiredAt: Date | null;
+    acquiredAtPrecision: DatePrecision;
   },
   db: Db = prisma,
 ) {

@@ -585,6 +585,39 @@ So the purchase date gets its own column.
    - the import, for a new book getting the date, an existing book's empty date filled, an earlier date replacing a later one, a later date never replacing an earlier one, and `addedAt` never changing
    - the schema, the filter and sort in the service and URL parsing, and the form fields
    - the extension on a fake page built from the user's real row HTML
+9. **Release the extension, last:** once the extension reads the acquired date, and only after every other extension change in the phase.
+   - Bump the version to 2.3.0 in `extension/manifest.json`. 2.2.0, from 3e, was already submitted to the store.
+   - Update the privacy page's extension section to say it reads each item's acquired date.
+   - Rebuild with `node extension/build.mjs https://inkwell-phi-bice.vercel.app`, and retake any screenshot that shows the changed dialog.
+   - Load the package in real Chrome, then upload it.
+   - Then run one import over the whole library, so books already imported get their purchase dates.
+   - **Lesson from 3e:** its release (item 11) was placed before 3f's extension change, which meant a second store submission and review. A release step goes at the end of a plan, after all its extension changes.
+
+### 3f progress (2026-11-14)
+
+- **✅ Schema:** migration `20261114222412_add_user_book_acquired_at` adds `UserBook.acquiredAt DateTime?` and `acquiredAtPrecision DatePrecision @default(DAY)`. It's applied locally, and to Supabase on 2026-11-14 with the user's go-ahead (`prisma migrate deploy`, which reported the schema up to date afterwards).
+- **✅ Parser:** `imports/acquired-date.rules.ts` (`parseAcquiredText`, pure).
+  - It reads English, Portuguese and Spanish month names, full or abbreviated, in either order, such as "Acquired on October 5, 2021" or "Adquirido em 5 de outubro de 2021".
+  - It needs exactly one day, month and year. It drops impossible dates and future ones, with one day's margin.
+  - It caps the text at 120 characters and only splits it into words, so no pattern can backtrack.
+- **✅ Import:** `amazon-import.schema.ts` accepts an optional `acquiredText` on Books and Docs rows and turns it into `acquired`. Text that doesn't parse is dropped, and the book is still imported.
+  - `imports.service.ts` keeps the date out of the catalog details and passes it to `addBookToLibrary`.
+  - A new book gets the date.
+  - A book already in the library gets it only when it has none, or the new one is earlier (`updateAcquired` changes only those two columns). `addedAt`, the status, the reads and the shelf order are never touched.
+- **✅ Hand-added:** an "Acquired" `PartialDateField` in the add form (Manual and ISBN tabs) and the edit dialog, so a year alone is fine.
+  - It's validated with `parseAcquired` in `manual-book.schema.ts`, which rejects future dates.
+  - A manual or ISBN re-add follows the same earliest-date rule.
+  - The edit dialog clears the date when the field is emptied.
+  - **Shown only while a format is ticked,** at the user's request, since only an owned book was acquired. `FormatsField` reports whether any format is ticked (`onOwnedChange`, on mount too, so the add form's remount after a submit starts in step). The edit dialog tracks its own checkboxes and starts over each time it opens. The server matches: `parseAcquired(formats, …)` ignores the date with no format, so an edit that unticks every format clears it. Checked in the browser on a temporary page.
+- **✅ Shelves:** `?acquired=2024`, `?acquired=before-2020` or `?acquired=after-2022`, and `?sort=acquired` (purchase date, newest first, undated last). The default sort is still newest added.
+  - They're parsed in `shelf-filters.ts` (`parseAcquiredFilter`, with an anchored pattern) and kept by `shelfHref`.
+  - The service turns them into a date range.
+  - A new `ShelfOrderControls` in the filter bar holds a "Sort by" select and an "Acquired" filter: any time, in, before or after a year.
+  - **Deviation:** the filter is by year, not by any date. That's simpler to use and to put in a URL.
+- **✅ Privacy page:** the library section now says Inkwell stores when you got a book, and an audiobook's length.
+- **Verified:** typecheck, lint, 813 tests and the build. The tests cover the parser, the import schema and service, keeping the earliest date (fill, earlier, later, the same date, no date), editing and clearing, the filter and sort from URL to query, and the form fields.
+- **⏭️ Blocked on the user:** the extension can't read the date yet, because the row's HTML isn't known (step 3). Needed: one row's outerHTML from the Books tab and one from the Docs tab, with anything private removed. Then `app.js` will send `acquiredText`, and the privacy page's extension section will say so.
+- **Not verified:** the shelf controls and the forms signed in.
 
 **Done when:**
 - Importing from Amazon saves each book's purchase date, and re-importing fills it in for books already imported, without reordering the shelves.

@@ -1,7 +1,7 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AudioLengthField } from "@/components/AudioLengthField";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
@@ -17,17 +17,29 @@ const FORMATS = [
 // The "formats you own" checkboxes, sent as `formats`. Base UI checkboxes keep
 // their own state, so the form remounts to clear them. Ticking Audiobook shows
 // its length, unless `withLength` is false (a book already in the library only
-// gains formats, so a length there would be ignored).
+// gains formats, so a length there would be ignored). `onOwnedChange` tells the
+// form whether any format is ticked, on mount too, so a remounted form starts
+// in step.
 export function FormatsField({
   defaultValues,
   audioLength,
   withLength = true,
+  onOwnedChange,
 }: Readonly<{
   defaultValues?: string[];
   audioLength?: { audioHours?: string; audioMinutes?: string };
   withLength?: boolean;
+  onOwnedChange?: (owned: boolean) => void;
 }>) {
-  const [audio, setAudio] = useState(defaultValues?.includes(BookFormat.AUDIO) ?? false);
+  const [ticked, setTicked] = useState<string[]>(() => defaultValues ?? []);
+  const audio = ticked.includes(BookFormat.AUDIO);
+
+  useEffect(() => {
+    onOwnedChange?.(ticked.length > 0);
+  }, [ticked, onOwnedChange]);
+
+  const toggle = (format: string, checked: boolean) =>
+    setTicked((current) => (checked ? [...current, format] : current.filter((item) => item !== format)));
   return (
     <FieldSet className='flex flex-col'>
       <FieldLegend variant='label' className='flex gap-1 items-center'>
@@ -49,7 +61,7 @@ export function FormatsField({
               name='formats'
               value={value}
               defaultChecked={defaultValues?.includes(value)}
-              onCheckedChange={value === BookFormat.AUDIO ? setAudio : undefined}
+              onCheckedChange={(checked) => toggle(value, checked)}
             />
             <FieldLabel htmlFor={`format-${value}`} className='font-normal'>
               {label}

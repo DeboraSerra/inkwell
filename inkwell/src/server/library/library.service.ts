@@ -1,5 +1,5 @@
 import "server-only";
-import { type BookFormat, type DatePrecision, ReadingStatus, ReadOutcome, UserBookSource } from "@/generated/prisma/enums";
+import { type BookFormat, DatePrecision, ReadingStatus, ReadOutcome, UserBookSource } from "@/generated/prisma/enums";
 import {
   fillMissingIsbn,
   findExistingBook,
@@ -21,10 +21,10 @@ import {
   type ReadChange,
   readChangeFor,
 } from "./status.rules";
-import { type ReadDates, toDateValues, toEditedReadFields, toReadFields } from "./partial-date.rules";
+import { type PartialDate, type ReadDates, toDateValues, toEditedReadFields, toReadFields } from "./partial-date.rules";
 import type { ShelfRead } from "./read-label.rules";
 import { sortReads } from "./read-order.rules";
-import { type PageSize, parsePageSize } from "./shelf-filters";
+import { type AcquiredFilter, type PageSize, parsePageSize, type ShelfSort } from "./shelf-filters";
 
 // Every function takes the signed-in user's id first.
 
@@ -126,15 +126,37 @@ export type AddBookInput = {
   audioMinutes?: number;
   // More finished reads, for a book added as already read more than once.
   pastReads?: PastRead[];
+  // When the reader got the book, if known.
+  acquired?: PartialDate;
 };
 
-// Adding a book already in the library only ever adds formats. Its status,
-// source and reads are never overwritten, except that gaining a first format
-// moves a Wishlist book to TBR.
-function addFormats(userId: string, bookId: string, formats: BookFormat[], outerTx?: Tx) {
+// The earliest known date is when the book became the reader's, so a later
+// date (another format bought since) never replaces an earlier one.
+const isEarlierAcquired = (current: Date | null, candidate?: PartialDate) =>
+  candidate !== undefined && (current === null || candidate.date.getTime() < current.getTime());
+
+const acquiredFields = (acquired?: PartialDate) => ({
+  acquiredAt: acquired?.date ?? null,
+  acquiredAtPrecision: acquired?.precision ?? DatePrecision.DAY,
+});
+
+// Adding a book already in the library only ever adds formats, and an
+// acquired date when it has none or the new one is earlier. Its status, source,
+// reads and place on the shelf (addedAt) are never overwritten, except that
+// gaining a first format moves a Wishlist book to TBR.
+function addFormats(
+  userId: string,
+  bookId: string,
+  formats: BookFormat[],
+  outerTx?: Tx,
+  acquired?: PartialDate,
+) {
   return inTransaction(outerTx, async (tx) => {
-    const current = await libraryModel.findUserBookByBookId(userId, bookId, tx);
+    let current = await libraryModel.findUserBookByBookId(userId, bookId, tx);
     if (!current) throw new NotFoundError(NOT_IN_LIBRARY);
+    if (isEarlierAcquired(current.acquiredAt, acquired)) {
+      current = await libraryModel.updateAcquired(userId, current.id, acquiredFields(acquired), tx);
+    }
     const next = changeFormats(current, [...current.formats, ...formats]);
     if (next.formats.length === current.formats.length) return current;
     return libraryModel.updateUserBookState(userId, current.id, next, tx);
@@ -145,13 +167,16 @@ function addFormats(userId: string, bookId: string, formats: BookFormat[], outer
 // A book already in the library keeps its length, as it keeps its status and
 // dates: adding again only adds formats.
 export async function addBookToLibrary(userId: string, input: AddBookInput, outerTx?: Tx) {
-  const { bookId, formats, source, status, at, dates, audioMinutes, pastReads } = input;
+  const { bookId, formats, source, status, at, dates, audioMinutes, pastReads, acquired } = input;
   const existing = await libraryModel.findUserBookByBookId(userId, bookId, outerTx);
-  if (existing) return { userBook: await addFormats(userId, bookId, formats, outerTx), created: false };
+  if (existing) return { userBook: await addFormats(userId, bookId, formats, outerTx, acquired), created: false };
 
   const { readChange, ...state } = initialState(formats, status);
   const created = await inTransaction(outerTx, async (tx) => {
-    const userBook = await libraryModel.createUserBook({ userId, bookId, source, audioMinutes, ...state }, tx);
+    const userBook = await libraryModel.createUserBook(
+      { userId, bookId, source, audioMinutes, ...(acquired && acquiredFields(acquired)), ...state },
+      tx,
+    );
     if (userBook) {
       const change = { userBookId: userBook.id, change: readChange };
       await applyReadChanges(userId, [change], at === undefined ? new Date() : at, tx, dates);
@@ -164,7 +189,7 @@ export async function addBookToLibrary(userId: string, input: AddBookInput, oute
   if (created) return { userBook: created, created: true };
 
   // Another request added the same book at the same moment.
-  return { userBook: await addFormats(userId, bookId, formats, outerTx), created: false };
+  return { userBook: await addFormats(userId, bookId, formats, outerTx, acquired), created: false };
 }
 
 // Adds a typed-in book, reusing the catalog entry if the book is already known.
@@ -177,12 +202,13 @@ export function addManualBook(
   dates?: ReadDates,
   audioMinutes?: number,
   pastReads?: PastRead[],
+  acquired?: PartialDate,
 ) {
   return transaction(async (tx) => {
     const book = await findOrCreateManualBook(details, tx);
     const added = await addBookToLibrary(
       userId,
-      { bookId: book.id, formats, source: UserBookSource.MANUAL, status, at: null, dates, audioMinutes, pastReads },
+      { bookId: book.id, formats, source: UserBookSource.MANUAL, status, at: null, dates, audioMinutes, pastReads, acquired },
       tx,
     );
     return { ...added, book };
@@ -255,6 +281,7 @@ export type LookupChoices = {
   dates?: ReadDates;
   audioMinutes?: number;
   pastReads?: PastRead[];
+  acquired?: PartialDate;
   source?: typeof UserBookSource.ISBN | typeof UserBookSource.SEARCH;
 };
 
@@ -263,7 +290,7 @@ export type LookupChoices = {
 // provider said. The lookup runs before the transaction, so no network call
 // holds it open.
 export async function addBookByIsbn(userId: string, isbn: string, choices: LookupChoices) {
-  const { formats, status, dates, audioMinutes, pastReads, source = UserBookSource.ISBN } = choices;
+  const { formats, status, dates, audioMinutes, pastReads, acquired, source = UserBookSource.ISBN } = choices;
   const lookup = await lookupIsbn(isbn);
   if (lookup.found === "none") throw new NotFoundError("We couldn't find a book with that ISBN.");
 
@@ -271,7 +298,7 @@ export async function addBookByIsbn(userId: string, isbn: string, choices: Looku
     const book = lookup.found === "catalog" ? lookup.book : await findOrCreateMetadataBook(lookup.metadata, tx);
     const result = await addBookToLibrary(
       userId,
-      { bookId: book.id, formats, source, status, at: null, dates, audioMinutes, pastReads },
+      { bookId: book.id, formats, source, status, at: null, dates, audioMinutes, pastReads, acquired },
       tx,
     );
     return { ...result, book };
@@ -291,6 +318,8 @@ export type UserBookFilters = {
   source?: UserBookSource;
   // Matches the title or any author's first or last name, ignoring case and accents.
   search?: string;
+  acquired?: AcquiredFilter;
+  sort?: ShelfSort;
   take?: number;
   // The id of the last row of the previous page.
   cursor?: string;
@@ -302,9 +331,20 @@ function toArray<T extends string>(value: T | T[] | undefined): T[] | undefined 
   return Array.isArray(value) ? value : [value];
 }
 
+// A year, or everything before or after it, as a range of dates.
+const acquiredRange = (filter?: AcquiredFilter) => {
+  if (!filter) return undefined;
+  const start = new Date(Date.UTC(filter.year, 0, 1));
+  const next = new Date(Date.UTC(filter.year + 1, 0, 1));
+  if (filter.mode === "before") return { lt: start };
+  if (filter.mode === "after") return { gte: next };
+  return { gte: start, lt: next };
+};
+
 const toUserBookFilter = (filters: UserBookFilters) => {
   const text = filters.search?.trim();
   return {
+    acquired: acquiredRange(filters.acquired),
     status: toArray(filters.status),
     formats: filters.formats?.length ? filters.formats : undefined,
     source: filters.source,
@@ -317,6 +357,7 @@ const toUserBookFilter = (filters: UserBookFilters) => {
 export function listUserBooks(userId: string, filters: UserBookFilters = {}) {
   return libraryModel.listUserBooks(userId, {
     ...toUserBookFilter(filters),
+    sort: filters.sort,
     take: Math.min(Math.max(filters.take ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE),
     cursor: filters.cursor,
     skip: filters.skip,
@@ -371,6 +412,8 @@ export type ShelfBook = {
   earlierReads: number;
   // The earlier finished reads, most recent first, as the edit form's text.
   pastReads: { id: string; values: Record<string, string> }[];
+  // When the reader got the book, as the edit form's text.
+  acquiredValues: Record<string, string>;
 };
 
 // One page of a shelf, in the plain shape the page and client components share.
@@ -378,7 +421,7 @@ export type ShelfBook = {
 // empties the page being viewed. Only the allowed page sizes are used.
 export async function listShelfPage(
   userId: string,
-  filters: Pick<UserBookFilters, "status" | "formats" | "search">,
+  filters: Pick<UserBookFilters, "status" | "formats" | "search" | "acquired" | "sort">,
   requestedPage = 1,
   requestedSize: number = DEFAULT_SHELF_PAGE_SIZE,
 ) {
@@ -388,7 +431,8 @@ export async function listShelfPage(
   const page = Math.min(Math.max(requestedPage, 1), pageCount);
   const skip = (page - 1) * pageSize;
   const rows = await listUserBooks(userId, { ...filters, take: pageSize, skip });
-  const books: ShelfBook[] = rows.map(({ id, status, formats, pageCount, audioMinutes, authors, coverUrl, readThroughs, book }) => {
+  const books: ShelfBook[] = rows.map((row) => {
+    const { id, status, formats, pageCount, audioMinutes, authors, coverUrl, readThroughs, book } = row;
     // The latest read is the most recent by date, not the most recently entered.
     const [latest, ...earlier] = sortReads(readThroughs);
     return {
@@ -403,6 +447,7 @@ export async function listShelfPage(
       pastReads: earlier
         .filter((read) => read.outcome === ReadOutcome.FINISHED)
         .map((read) => ({ id: read.id, values: latestReadValues(read) })),
+      acquiredValues: toDateValues("acquired", row.acquiredAt, row.acquiredAtPrecision),
       title: book.title,
       authors: authors.length ? authors : book.authors,
       coverUrl: coverUrl ?? book.coverUrl,
@@ -556,6 +601,8 @@ export type BookEdit = {
   dates: ReadDates;
   // Earlier finished reads: corrected dates, and reads added with the dialog.
   pastReads?: PastRead[];
+  // When the reader got the book. Left out clears it, as with read dates.
+  acquired?: PartialDate;
 };
 
 const sameList = (a: string[], b: string[]) => a.join(";") === b.join(";");
@@ -586,6 +633,7 @@ export function editUserBook(userId: string, userBookId: string, edit: BookEdit)
         authorSearch: authorSearchText(authors),
         coverUrl: edit.coverUrl === book.coverUrl ? null : (edit.coverUrl ?? null),
         audioMinutes: edit.audioMinutes ?? null,
+        ...acquiredFields(edit.acquired),
       },
       tx,
     );

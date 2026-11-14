@@ -48,6 +48,29 @@ export const resolvePageSize = ({
 export const pageHolding = (position: number, size: number) =>
   Math.floor((Math.max(position, 1) - 1) / size) + 1;
 
+// Books acquired in a year, or before or after it: ?acquired=2024,
+// ?acquired=before-2020, ?acquired=after-2022.
+export type AcquiredFilter = { mode: "in" | "before" | "after"; year: number };
+
+// Anchored and fixed-length, so it can't backtrack.
+const ACQUIRED_PARAM = /^(before-|after-)?(\d{4})$/;
+
+export function parseAcquiredFilter(value: unknown): AcquiredFilter | undefined {
+  if (typeof value !== "string") return undefined;
+  const match = ACQUIRED_PARAM.exec(value);
+  if (!match) return undefined;
+  const year = Number(match[2]);
+  if (year < 1900 || year > 9999) return undefined;
+  const mode = match[1] ? (match[1].slice(0, -1) as "before" | "after") : "in";
+  return { mode, year };
+}
+
+export const acquiredParam = ({ mode, year }: AcquiredFilter) => (mode === "in" ? String(year) : `${mode}-${year}`);
+
+// "added" is the shelf's usual order, newest added first; "acquired" is by
+// purchase date, newest first, with undated books last.
+export type ShelfSort = "added" | "acquired";
+
 export type ShelfFilters = {
   shelf: string;
   status: ReadingStatus;
@@ -56,6 +79,8 @@ export type ShelfFilters = {
   page: number;
   // Only when the URL asks for one; otherwise the cookie or device decides.
   perPage?: PageSize;
+  acquired?: AcquiredFilter;
+  sort: ShelfSort;
 };
 
 export type ShelfParams = Record<string, string | string[] | undefined>;
@@ -86,6 +111,8 @@ export function parseShelfFilters(params: ShelfParams): ShelfFilters {
     search,
     page: Number.isSafeInteger(page) && page >= 1 ? page : 1,
     perPage: parsePageSize(list(params.per)[0]),
+    acquired: parseAcquiredFilter(list(params.acquired)[0]),
+    sort: list(params.sort)[0] === "acquired" ? "acquired" : "added",
   };
 }
 
@@ -110,12 +137,17 @@ export function shelfHref({
   formats,
   search,
   perPage,
+  acquired,
+  sort,
   page = 1,
-}: Pick<ShelfFilters, "shelf" | "formats" | "search" | "perPage"> & { page?: number }) {
+}: Pick<ShelfFilters, "shelf" | "formats" | "search"> &
+  Partial<Pick<ShelfFilters, "perPage" | "acquired" | "sort">> & { page?: number }) {
   const query = new URLSearchParams({ shelf });
   for (const format of formats) query.append("format", format);
   if (search) query.set("q", search);
   if (perPage) query.set("per", String(perPage));
+  if (acquired) query.set("acquired", acquiredParam(acquired));
+  if (sort && sort !== "added") query.set("sort", sort);
   if (page > 1) query.set("page", String(page));
   return `/books/shelves?${query}`;
 }

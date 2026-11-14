@@ -211,3 +211,30 @@ describe("past reads", () => {
     });
   });
 });
+
+describe("acquired date", () => {
+  const owned = { ...valid, formats: ["PHYSICAL"] };
+
+  it("accepts a year alone, or a full date", () => {
+    const year = parseManualBook(form({ ...owned, acquiredYear: "2019" }));
+    expect(year.success && year.data.acquired).toMatchObject({ precision: "YEAR" });
+    const full = parseManualBook(form({ ...owned, acquiredDay: "5", acquiredMonth: "10", acquiredYear: "2021" }));
+    expect(full.success && full.data.acquired).toEqual({ date: new Date("2021-10-05T00:00:00Z"), precision: "DAY" });
+  });
+
+  it("is left out when empty, and rejects a future date", () => {
+    const empty = parseManualBook(form(owned));
+    expect(empty.success && empty.data.acquired).toBeUndefined();
+    expect(errorFor({ formats: ["PHYSICAL"], acquiredYear: "2999" })).toContain("Acquired date");
+  });
+
+  it("ignores the date, even an invalid one, when no format is ticked", () => {
+    const parsed = parseManualBook(form({ ...valid, acquiredYear: "2999" }));
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.acquired).toBeUndefined();
+  });
+
+  it("keeps the typed date for a rejected form", () => {
+    expect(manualBookValues(form({ ...valid, acquiredYear: "2019" }))).toMatchObject({ acquiredYear: "2019" });
+  });
+});

@@ -55,13 +55,14 @@ describe("addManualBook", () => {
       { started: undefined, ended: undefined },
       undefined,
       [],
+      undefined,
     );
   });
 
   it("passes an audiobook's length", async () => {
     service.addManualBook.mockResolvedValue(added(ReadingStatus.TO_READ, true));
     await addManualBook({}, form({ ...valid, formats: "AUDIO", audioHours: "1", audioMinutes: "5" }));
-    expect(service.addManualBook).toHaveBeenCalledWith("user-1", expect.anything(), ["AUDIO"], undefined, expect.anything(), 65, []);
+    expect(service.addManualBook).toHaveBeenCalledWith("user-1", expect.anything(), ["AUDIO"], undefined, expect.anything(), 65, [], undefined);
   });
 
   it("passes the chosen status and names its list", async () => {
@@ -76,6 +77,7 @@ describe("addManualBook", () => {
       { started: undefined, ended: undefined },
       undefined,
       [],
+      undefined,
     );
   });
 
@@ -385,7 +387,7 @@ describe("loadShelf", () => {
     expect(result).toEqual({ shelf: page });
     expect(service.listShelfPage).toHaveBeenCalledWith(
       "user-1",
-      { status: ReadingStatus.FINISHED, formats: ["EBOOK"], search: "dune" },
+      { status: ReadingStatus.FINISHED, formats: ["EBOOK"], search: "dune", acquired: undefined, sort: "added" },
       2,
       30,
     );
@@ -394,7 +396,7 @@ describe("loadShelf", () => {
   it("falls back to TBR, page 1, for unknown values", async () => {
     service.listShelfPage.mockResolvedValue(page);
     await loadShelf({ shelf: "__proto__", page: "-4" });
-    expect(service.listShelfPage).toHaveBeenCalledWith("user-1", { status: ReadingStatus.TO_READ, formats: [], search: "" }, 1, 30);
+    expect(service.listShelfPage).toHaveBeenCalledWith("user-1", { status: ReadingStatus.TO_READ, formats: [], search: "", acquired: undefined, sort: "added" }, 1, 30);
   });
 
   it.each([

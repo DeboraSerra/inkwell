@@ -81,6 +81,14 @@ describe("listUserBooks", () => {
     await model.listUserBooks(USER, { take: 10, formats: [BookFormat.EBOOK, BookFormat.AUDIO] });
     expect(calls[0].args.where).toMatchObject({ formats: { hasSome: ["EBOOK", "AUDIO"] } });
   });
+
+  it("filters by acquired date and sorts by it with undated books last", async () => {
+    const range = { gte: new Date("2024-01-01T00:00:00Z"), lt: new Date("2025-01-01T00:00:00Z") };
+    await model.listUserBooks(USER, { take: 10, acquired: range, sort: "acquired" });
+    const args = calls[0].args as unknown as { where: object; orderBy: unknown };
+    expect(args.where).toMatchObject({ userId: USER, acquiredAt: range });
+    expect(args.orderBy).toEqual([{ acquiredAt: { sort: "desc", nulls: "last" } }, { addedAt: "desc" }, { id: "asc" }]);
+  });
 });
 
 describe("listUserBooks search", () => {
@@ -126,6 +134,8 @@ describe("removing and editing a book", () => {
       formats: [],
       pageCount: 310,
       audioMinutes: 750,
+      acquiredAt: null,
+      acquiredAtPrecision: "DAY",
       authors: [],
       authorSearch: "",
       coverUrl: null,

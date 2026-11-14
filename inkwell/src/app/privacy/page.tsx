@@ -44,8 +44,8 @@ export default function PrivacyPage() {
       <Section title='Your library'>
         <p>
           Inkwell stores the books you add, and for each one the list it’s on, the formats you own,
-          your read dates, and any cover, authors or page count you edit. Only you can see your
-          library.
+          your read dates, when you got it, an audiobook’s length, and any cover, authors or page
+          count you edit. Only you can see your library.
         </p>
         <p>
           When you look up a book by ISBN or search for one, the ISBN or the words you typed are sent

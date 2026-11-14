@@ -4,9 +4,11 @@
 import { z } from "zod";
 import { BookFormat } from "@/generated/prisma/enums";
 import {
+  acquiredFields,
   audioLengthFields,
   audioLengthFor,
   manualBookValues,
+  parseAcquired,
   parsePastReads,
   parseReadDates,
   pastReadsField,
@@ -27,6 +29,7 @@ const isbnBookSchema = z
     status: readStatusField,
     ...readDateFields,
     ...audioLengthFields,
+    ...acquiredFields,
     pastReads: pastReadsField,
   })
   .transform((data, ctx) => {
@@ -39,6 +42,9 @@ const isbnBookSchema = z
       endedYear,
       audioHours,
       audioMinutes,
+      acquiredDay,
+      acquiredMonth,
+      acquiredYear,
       pastReads: pastReadText,
       ...choices
     } = data;
@@ -64,7 +70,12 @@ const isbnBookSchema = z
       ctx.addIssue({ code: "custom", message: past.error ?? "Those dates aren't valid." });
       return z.NEVER;
     }
-    return { ...choices, dates, audioMinutes: length.minutes, pastReads: past.pastReads };
+    const { acquired, error: acquiredError } = parseAcquired(choices.formats, { acquiredDay, acquiredMonth, acquiredYear });
+    if (acquiredError) {
+      ctx.addIssue({ code: "custom", message: acquiredError });
+      return z.NEVER;
+    }
+    return { ...choices, dates, audioMinutes: length.minutes, pastReads: past.pastReads, acquired };
   });
 
 export function parseIsbnBook(formData: FormData) {

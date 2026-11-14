@@ -32,3 +32,14 @@ describe("importAmazonBooks", () => {
     expect(addBookToLibrary).not.toHaveBeenCalled();
   });
 });
+
+describe("purchase dates", () => {
+  const acquired = { date: new Date("2021-10-05T00:00:00Z"), precision: "DAY" as const };
+
+  it("gives the date to the reader's copy and keeps it out of the catalog", async () => {
+    vi.mocked(addBookToLibrary).mockResolvedValue({ created: true } as never);
+    await importAmazonBooks("user-1", [{ ...book("x"), acquired }]);
+    expect(findOrCreateAmazonBook).toHaveBeenCalledWith({ title: "x", authors: ["A"] }, "tx");
+    expect(addBookToLibrary).toHaveBeenCalledWith("user-1", expect.objectContaining({ acquired }), "tx");
+  });
+});

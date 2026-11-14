@@ -208,6 +208,11 @@ model UserBook {
   // An audiobook's length in minutes, per reader: providers don't give it and
   // editions differ. Null when unknown or not owned as an audiobook.
   audioMinutes Int?
+  // When the reader got the book (Amazon's "acquired" date, or typed in): the
+  // earliest known, since a later format doesn't make it newer. Never the same
+  // as addedAt, which is when it was added to Inkwell and orders the shelves.
+  acquiredAt          DateTime?
+  acquiredAtPrecision DatePrecision @default(DAY)
   // Search text for `authors`; see authorSearchText.
   authorSearch String         @default("")
   source       UserBookSource
