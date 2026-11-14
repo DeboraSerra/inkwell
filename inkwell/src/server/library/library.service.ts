@@ -23,8 +23,8 @@ import {
 } from "./status.rules";
 import { type PartialDate, type ReadDates, toDateValues, toEditedReadFields, toReadFields } from "./partial-date.rules";
 import type { ShelfRead } from "./read-label.rules";
-import { sortReads } from "./read-order.rules";
-import { type AcquiredFilter, type PageSize, parsePageSize, type ShelfSort } from "./shelf-filters";
+import { sortByLastFinished, sortReads } from "./read-order.rules";
+import { type PageSize, parsePageSize, type ShelfSort } from "./shelf-filters";
 
 // Every function takes the signed-in user's id first.
 
@@ -318,7 +318,6 @@ export type UserBookFilters = {
   source?: UserBookSource;
   // Matches the title or any author's first or last name, ignoring case and accents.
   search?: string;
-  acquired?: AcquiredFilter;
   sort?: ShelfSort;
   take?: number;
   // The id of the last row of the previous page.
@@ -331,20 +330,22 @@ function toArray<T extends string>(value: T | T[] | undefined): T[] | undefined 
   return Array.isArray(value) ? value : [value];
 }
 
-// A year, or everything before or after it, as a range of dates.
-const acquiredRange = (filter?: AcquiredFilter) => {
-  if (!filter) return undefined;
-  const start = new Date(Date.UTC(filter.year, 0, 1));
-  const next = new Date(Date.UTC(filter.year + 1, 0, 1));
-  if (filter.mode === "before") return { lt: start };
-  if (filter.mode === "after") return { gte: next };
-  return { gte: start, lt: next };
+// "acquired-asc" → by purchase date, oldest first.
+const toSortOrder = (sort?: ShelfSort) => {
+  if (!sort) return undefined;
+  const [by, direction] = sort.split("-") as ["added" | "acquired" | "title" | "read", "asc" | "desc"];
+  return { by, direction };
+};
+
+// The orders the database runs itself; ordering by read dates is done here.
+const databaseOrder = (sort?: ShelfSort) => {
+  const order = toSortOrder(sort);
+  return order && order.by !== "read" ? { by: order.by, direction: order.direction } : undefined;
 };
 
 const toUserBookFilter = (filters: UserBookFilters) => {
   const text = filters.search?.trim();
   return {
-    acquired: acquiredRange(filters.acquired),
     status: toArray(filters.status),
     formats: filters.formats?.length ? filters.formats : undefined,
     source: filters.source,
@@ -357,7 +358,7 @@ const toUserBookFilter = (filters: UserBookFilters) => {
 export function listUserBooks(userId: string, filters: UserBookFilters = {}) {
   return libraryModel.listUserBooks(userId, {
     ...toUserBookFilter(filters),
-    sort: filters.sort,
+    sort: databaseOrder(filters.sort),
     take: Math.min(Math.max(filters.take ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE),
     cursor: filters.cursor,
     skip: filters.skip,
@@ -416,21 +417,37 @@ export type ShelfBook = {
   acquiredValues: Record<string, string>;
 };
 
+// Loads these books in full, in the order given.
+async function findInOrder(userId: string, ids: string[]) {
+  const found = await libraryModel.findUserBooksWithCatalog(userId, ids);
+  const byId = new Map(found.map((row) => [row.id, row]));
+  return ids.flatMap((id) => byId.get(id) ?? []);
+}
+
 // One page of a shelf, in the plain shape the page and client components share.
 // A page past the end shows the last one, which happens when moving books away
 // empties the page being viewed. Only the allowed page sizes are used.
 export async function listShelfPage(
   userId: string,
-  filters: Pick<UserBookFilters, "status" | "formats" | "search" | "acquired" | "sort">,
+  filters: Pick<UserBookFilters, "status" | "formats" | "search" | "sort">,
   requestedPage = 1,
   requestedSize: number = DEFAULT_SHELF_PAGE_SIZE,
 ) {
   const pageSize = parsePageSize(requestedSize) ?? DEFAULT_SHELF_PAGE_SIZE;
-  const total = await libraryModel.countUserBooks(userId, toUserBookFilter(filters));
+  const order = toSortOrder(filters.sort);
+  // By read dates, every matching book is ordered here and only the page's
+  // books are loaded in full; otherwise the database orders and pages.
+  const byRead =
+    order?.by === "read"
+      ? sortByLastFinished(await libraryModel.listUserBookReadDates(userId, toUserBookFilter(filters)), order.direction)
+      : undefined;
+  const total = byRead ? byRead.length : await libraryModel.countUserBooks(userId, toUserBookFilter(filters));
   const pageCount = Math.max(Math.ceil(total / pageSize), 1);
   const page = Math.min(Math.max(requestedPage, 1), pageCount);
   const skip = (page - 1) * pageSize;
-  const rows = await listUserBooks(userId, { ...filters, take: pageSize, skip });
+  const rows = byRead
+    ? await findInOrder(userId, byRead.slice(skip, skip + pageSize).map(({ id }) => id))
+    : await listUserBooks(userId, { ...filters, take: pageSize, skip });
   const books: ShelfBook[] = rows.map((row) => {
     const { id, status, formats, pageCount, audioMinutes, authors, coverUrl, readThroughs, book } = row;
     // The latest read is the most recent by date, not the most recently entered.

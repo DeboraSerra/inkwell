@@ -566,8 +566,26 @@ So the purchase date gets its own column.
    - It's optional: Wishlist books and books with no known date have none.
 2. **One date per book:** a book can be owned in several formats bought on different days. Keep the **earliest** known date, which is when the book first became the reader's. A later, different date never replaces an earlier one.
 3. **Extension (`app.js`):** read each row's acquired-date text, sent as `acquiredText` alongside the title and authors.
-   - **Needs a real sample first.** The row's HTML structure isn't known, and the text is in the account's language. On amazon.com.br it reads like "Adquirido em 5 de outubro de 2021". Ask the user for one row's outerHTML from the Books tab and one from the Docs tab, with anything private removed.
-   - The authors selector, which takes the first `.information_row`, must keep working once a date sits next to it.
+   - **The element, from the user's Books tab (amazon.ca, 2026-11-14):**
+
+     ```html
+     <div id="content-acquired-date-B0D87B83ZK" class="information_row"><span>Acquired on</span> June 12, 2026</div>
+     ```
+
+     The id is `content-acquired-date-` followed by the item's ASIN. The text is the whole element's, in the account's language, so it reads "Acquired on June 12, 2026", or "Adquirido em 12 de junho de 2026" on amazon.com.br. `parseAcquiredText` already reads both.
+   - **Reading it:** `row.querySelector('[id^="content-acquired-date-"]')?.innerText`, sent as `acquiredText`. It's matched by the id's prefix, not by position or class, so it doesn't depend on the order of the row's lines. When it's missing, nothing is sent and the book is still imported.
+   - **Fix the authors selector at the same time.** The date's element is also an `.information_row`, and `scrapeRow` takes the *first* `.information_row` as the authors.
+     - If the date comes first, or a row has no author line (common on the Docs tab), "Acquired on June 12, 2026" would be imported as the author. It would then reach the dedupe key and author search, and a hand-typed copy would no longer match.
+     - Use `.information_row:not([id^="content-acquired-date-"])` for the authors. A Docs row with no other line then sends no authors, which the schema already accepts.
+   - **The ASIN** also appears in this id. `findAsin` already scans every element id in the row, and the ASIN pattern matches after the hyphen, so it gains a second source and needs no change. A test should still confirm it.
+   - **Docs tab:** not sampled. The same id prefix is expected there, possibly with a document id instead of an ASIN.
+     - If a Docs row has no such element, nothing is sent and the document imports as before.
+     - When running the first import on the Docs tab, check that the documents come in with dates and without "Acquired on …" as their author.
+   - **Tests,** with the real `app.js` on a fake page built from this element and a stand-in for Chrome:
+     - A Books row with the date line before and after the authors sends the right `acquiredText` and authors.
+     - A row with only the date line sends no authors.
+     - A row without it sends no `acquiredText`.
+     - The ASIN is still found.
 4. **Server:**
    - **Parsing:** a pure parser in `imports/acquired-date.rules.ts`, unit-tested, for English and Portuguese month names at least ("October 5, 2021", "5 de outubro de 2021"). Treat the text as untrusted: cap its length, use no backtracking regex, and drop anything that doesn't parse or is in the future.
    - **Validation:** `amazon-import.schema.ts` accepts the new optional field.
@@ -609,20 +627,25 @@ So the purchase date gets its own column.
   - A manual or ISBN re-add follows the same earliest-date rule.
   - The edit dialog clears the date when the field is emptied.
   - **Shown only while a format is ticked,** at the user's request, since only an owned book was acquired. `FormatsField` reports whether any format is ticked (`onOwnedChange`, on mount too, so the add form's remount after a submit starts in step). The edit dialog tracks its own checkboxes and starts over each time it opens. The server matches: `parseAcquired(formats, …)` ignores the date with no format, so an edit that unticks every format clears it. Checked in the browser on a temporary page.
-- **✅ Shelves:** `?acquired=2024`, `?acquired=before-2020` or `?acquired=after-2022`, and `?sort=acquired` (purchase date, newest first, undated last). The default sort is still newest added.
-  - They're parsed in `shelf-filters.ts` (`parseAcquiredFilter`, with an anchored pattern) and kept by `shelfHref`.
-  - The service turns them into a date range.
-  - A new `ShelfOrderControls` in the filter bar holds a "Sort by" select and an "Acquired" filter: any time, in, before or after a year.
-  - **Deviation:** the filter is by year, not by any date. That's simpler to use and to put in a URL.
+- **✅ Shelves, as the user chose:** a sort menu kept in the URL as `?sort=`:
+  - **Defaults, chosen by the user:** Finished opens on Read newest first, and every other shelf on Purchase newest first (`defaultSortFor`). The default is left out of the URL. Shelf tabs don't carry the sort, so each shelf opens on its own default. Within a shelf, filters, search and paging keep the chosen order.
+  - Added newest first (`added-desc`) and oldest first (`added-asc`).
+  - Purchase newest first (`acquired-desc`) and oldest first (`acquired-asc`), with books with no purchase date last either way.
+  - Title A to Z (`title-asc`) and Z to A (`title-desc`), by the catalog title.
+  - **On Finished only,** Read newest first (`read-desc`) and oldest first (`read-asc`): by the finish date of each book's latest read (the same "latest by date" as the cards), with undated books last. A `read-…` sort on another shelf falls back to that shelf's default.
+    - The database can't order books by a date on their reads, so `listShelfPage` loads the shelf's books with only their read dates (`listUserBookReadDates`), orders them with `sortByLastFinished` (`read-order.rules.ts`), and loads only the page's books in full (`findUserBooksWithCatalog`). That's fine at the size of a personal Finished shelf.
+  - Parsed in `shelf-filters.ts` (`SHELF_SORTS`), kept by `shelfHref`, and turned into the query's order in `library.model.ts` (`userBookOrder`).
+  - `ShelfOrderControls` is the user's filter-icon menu. The current order is checked, and the button is labelled "Sort books" for screen readers.
+  - **No acquired-year filter:** a year filter (in, before or after a year) was built first and then removed at the user's request, along with its URL parameter, query and tests. So step 6's "filter" and the "filtered by acquired year" item in "Done when" no longer apply.
 - **✅ Privacy page:** the library section now says Inkwell stores when you got a book, and an audiobook's length.
 - **Verified:** typecheck, lint, 813 tests and the build. The tests cover the parser, the import schema and service, keeping the earliest date (fill, earlier, later, the same date, no date), editing and clearing, the filter and sort from URL to query, and the form fields.
-- **⏭️ Blocked on the user:** the extension can't read the date yet, because the row's HTML isn't known (step 3). Needed: one row's outerHTML from the Books tab and one from the Docs tab, with anything private removed. Then `app.js` will send `acquiredText`, and the privacy page's extension section will say so.
+- **⏭️ Next, the extension:** the user sent the Books tab's acquired-date element (2026-11-14), and step 3 now describes the change to `app.js`: read `[id^="content-acquired-date-"]` as `acquiredText`, and keep that element out of the authors selector. Then step 9 releases the extension as 2.3.0, with the privacy page's extension section updated.
 - **Not verified:** the shelf controls and the forms signed in.
 
 **Done when:**
 - Importing from Amazon saves each book's purchase date, and re-importing fills it in for books already imported, without reordering the shelves.
 - A book added by hand can have an acquired date, including just a year.
-- The shelves can be filtered by acquired year and sorted by purchase date.
+- The shelves can be sorted by purchase date, either way round (the year filter was dropped at the user's request).
 
 ## Done when
 

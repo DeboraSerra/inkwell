@@ -45,6 +45,8 @@ describe("every model function is scoped by userId", () => {
     ["createUserBook", () => model.createUserBook(newBook)],
     ["listUserBooks", () => model.listUserBooks(USER, { take: 10, formats: [BookFormat.EBOOK] })],
     ["countUserBooks", () => model.countUserBooks(USER, { formats: [BookFormat.EBOOK] })],
+    ["listUserBookReadDates", () => model.listUserBookReadDates(USER, { formats: [BookFormat.EBOOK] })],
+    ["findUserBooksWithCatalog", () => model.findUserBooksWithCatalog(USER, ["ub"])],
     ["updateUserBookState", () => model.updateUserBookState(USER, "ub", state)],
     ["updateUserBookStatuses", () => model.updateUserBookStatuses(USER, ["ub"], ReadingStatus.FINISHED)],
     ["findChangeableReads", () => reads.findChangeableReads(USER, ["ub"])],
@@ -82,12 +84,16 @@ describe("listUserBooks", () => {
     expect(calls[0].args.where).toMatchObject({ formats: { hasSome: ["EBOOK", "AUDIO"] } });
   });
 
-  it("filters by acquired date and sorts by it with undated books last", async () => {
-    const range = { gte: new Date("2024-01-01T00:00:00Z"), lt: new Date("2025-01-01T00:00:00Z") };
-    await model.listUserBooks(USER, { take: 10, acquired: range, sort: "acquired" });
-    const args = calls[0].args as unknown as { where: object; orderBy: unknown };
-    expect(args.where).toMatchObject({ userId: USER, acquiredAt: range });
-    expect(args.orderBy).toEqual([{ acquiredAt: { sort: "desc", nulls: "last" } }, { addedAt: "desc" }, { id: "asc" }]);
+  it.each([
+    [{ by: "acquired", direction: "desc" }, [{ acquiredAt: { sort: "desc", nulls: "last" } }, { addedAt: "desc" }, { id: "asc" }]],
+    [{ by: "acquired", direction: "asc" }, [{ acquiredAt: { sort: "asc", nulls: "last" } }, { addedAt: "desc" }, { id: "asc" }]],
+    [{ by: "added", direction: "asc" }, [{ addedAt: "asc" }, { id: "asc" }]],
+    [{ by: "title", direction: "asc" }, [{ book: { title: "asc" } }, { id: "asc" }]],
+    [{ by: "title", direction: "desc" }, [{ book: { title: "desc" } }, { id: "asc" }]],
+    [undefined, [{ addedAt: "desc" }, { id: "asc" }]],
+  ] as const)("orders by %j, with undated purchases last", async (sort, orderBy) => {
+    await model.listUserBooks(USER, { take: 10, sort });
+    expect((calls[0].args as unknown as { orderBy: unknown }).orderBy).toEqual(orderBy);
   });
 });
 

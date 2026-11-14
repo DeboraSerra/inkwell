@@ -387,7 +387,7 @@ describe("loadShelf", () => {
     expect(result).toEqual({ shelf: page });
     expect(service.listShelfPage).toHaveBeenCalledWith(
       "user-1",
-      { status: ReadingStatus.FINISHED, formats: ["EBOOK"], search: "dune", acquired: undefined, sort: "added" },
+      { status: ReadingStatus.FINISHED, formats: ["EBOOK"], search: "dune", sort: "read-desc" },
       2,
       30,
     );
@@ -396,7 +396,7 @@ describe("loadShelf", () => {
   it("falls back to TBR, page 1, for unknown values", async () => {
     service.listShelfPage.mockResolvedValue(page);
     await loadShelf({ shelf: "__proto__", page: "-4" });
-    expect(service.listShelfPage).toHaveBeenCalledWith("user-1", { status: ReadingStatus.TO_READ, formats: [], search: "", acquired: undefined, sort: "added" }, 1, 30);
+    expect(service.listShelfPage).toHaveBeenCalledWith("user-1", { status: ReadingStatus.TO_READ, formats: [], search: "", sort: "acquired-desc" }, 1, 30);
   });
 
   it.each([

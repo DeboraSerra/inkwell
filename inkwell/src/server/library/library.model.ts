@@ -63,13 +63,11 @@ export type UserBookFilter = {
   // against any author's last word, so "JRR Tolkien" finds "J. R. R. Tolkien".
   // Authors are searched in the catalog and in the reader's own list.
   search?: { text: string; normalized: string; author: string; surname: string };
-  // When the reader got the book, as a range; books with no date never match.
-  acquired?: { gte?: Date; lt?: Date };
 };
 
 export type UserBookQuery = UserBookFilter & {
-  // Newest added first, or by purchase date with undated books last.
-  sort?: "added" | "acquired";
+  // By date added (the default, newest first), purchase date or title.
+  sort?: { by: "added" | "acquired" | "title"; direction: "asc" | "desc" };
   take: number;
   cursor?: string;
   skip?: number;
@@ -88,7 +86,6 @@ const userBookWhere = (userId: string, query: UserBookFilter) => {
     status: query.status ? { in: query.status } : undefined,
     formats: query.formats ? { hasSome: query.formats } : undefined,
     source: query.source,
-    acquiredAt: query.acquired,
     OR: search
       ? [
           ...authorMatches,
@@ -107,17 +104,45 @@ const userBookWhere = (userId: string, query: UserBookFilter) => {
   } satisfies Prisma.UserBookWhereInput;
 };
 
+// Books with no purchase date go last whichever way purchase dates run; the id
+// keeps pages stable when dates tie.
+const userBookOrder = (
+  sort: UserBookQuery["sort"] = { by: "added", direction: "desc" },
+): Prisma.UserBookOrderByWithRelationInput[] => {
+  if (sort.by === "acquired") {
+    return [{ acquiredAt: { sort: sort.direction, nulls: "last" } }, { addedAt: "desc" }, { id: "asc" }];
+  }
+  // The title is the catalog's; a reader can't change it.
+  if (sort.by === "title") return [{ book: { title: sort.direction } }, { id: "asc" }];
+  return [{ addedAt: sort.direction }, { id: "asc" }];
+};
+
 export function listUserBooks(userId: string, query: UserBookQuery, db: Db = prisma) {
   return db.userBook.findMany({
     where: userBookWhere(userId, query),
     include: withCatalog,
-    orderBy:
-      query.sort === "acquired"
-        ? [{ acquiredAt: { sort: "desc", nulls: "last" } }, { addedAt: "desc" }, { id: "asc" }]
-        : [{ addedAt: "desc" }, { id: "asc" }],
+    orderBy: userBookOrder(query.sort),
     take: query.take,
     ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : { skip: query.skip }),
   });
+}
+
+// Every matching book with only what ordering by read dates needs, for the
+// orders the database can't do itself (by a date on the book's reads).
+export function listUserBookReadDates(userId: string, query: UserBookFilter, db: Db = prisma) {
+  return db.userBook.findMany({
+    where: userBookWhere(userId, query),
+    select: {
+      id: true,
+      addedAt: true,
+      readThroughs: { select: { outcome: true, startedAt: true, endedAt: true, createdAt: true } },
+    },
+  });
+}
+
+// These books with their catalog details, in no particular order.
+export function findUserBooksWithCatalog(userId: string, userBookIds: string[], db: Db = prisma) {
+  return db.userBook.findMany({ where: { id: { in: userBookIds }, userId }, include: withCatalog });
 }
 
 export function countUserBooks(userId: string, query: UserBookFilter, db: Db = prisma) {

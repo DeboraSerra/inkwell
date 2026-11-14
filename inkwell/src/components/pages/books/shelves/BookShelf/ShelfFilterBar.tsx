@@ -42,7 +42,6 @@ export function ShelfFilterBar({
         formats: next,
         search: requested.current,
         perPage: filters.perPage,
-        acquired: filters.acquired,
         sort: filters.sort,
       }),
     );
@@ -62,7 +61,6 @@ export function ShelfFilterBar({
     shelf,
     formats,
     perPage: filters.perPage,
-    acquired: filters.acquired,
     sort: filters.sort,
   });
   useEffect(() => {
@@ -70,10 +68,9 @@ export function ShelfFilterBar({
       shelf,
       formats,
       perPage: filters.perPage,
-      acquired: filters.acquired,
       sort: filters.sort,
     };
-  }, [shelf, formats, filters.perPage, filters.acquired, filters.sort]);
+  }, [shelf, formats, filters.perPage, filters.sort]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 

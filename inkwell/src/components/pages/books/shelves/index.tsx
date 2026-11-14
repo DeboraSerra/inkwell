@@ -53,8 +53,7 @@ export const BooksShelves = () => {
                     formats,
                     search,
                     perPage: filters.perPage,
-                    acquired: filters.acquired,
-                    sort: filters.sort,
+                    // No sort: each shelf opens on its own default order.
                   })}
                 />
               }

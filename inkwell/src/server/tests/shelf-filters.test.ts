@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { acquiredParam, moveDateValues, moveTargets, parseAcquiredFilter, pageHolding, pageLinks, parsePageSize, parseShelfFilters, resolvePageSize, searchParamsRecord, shelfHref } from "@/server/library/shelf-filters";
+import { moveDateValues, moveTargets, pageHolding, pageLinks, parsePageSize, parseShelfFilters, resolvePageSize, searchParamsRecord, shelfHref } from "@/server/library/shelf-filters";
 import { ReadingStatus } from "@/generated/prisma/enums";
 
 describe("parseShelfFilters", () => {
   it("defaults to TBR with no filters", () => {
-    expect(parseShelfFilters({})).toEqual({ shelf: "tbr", status: "TO_READ", formats: [], search: "", page: 1, sort: "added" });
+    expect(parseShelfFilters({})).toEqual({ shelf: "tbr", status: "TO_READ", formats: [], search: "", page: 1, sort: "acquired-desc" });
   });
 
   it.each([
@@ -189,38 +189,42 @@ describe("page size", () => {
   });
 });
 
-describe("acquired filter and sort", () => {
-  it.each([
-    ["2024", { mode: "in", year: 2024 }],
-    ["before-2020", { mode: "before", year: 2020 }],
-    ["after-2022", { mode: "after", year: 2022 }],
-  ])("reads acquired=%s", (value, filter) => {
-    expect(parseAcquiredFilter(value)).toEqual(filter);
-    expect(acquiredParam(filter as never)).toBe(value);
+describe("sort", () => {
+  it.each(["added-desc", "added-asc", "acquired-asc", "title-asc", "title-desc"])("reads sort=%s", (sort) => {
+    expect(parseShelfFilters({ sort }).sort).toBe(sort);
   });
 
-  it.each(["", "24", "20245", "during-2024", "before-", "before-2024-05", "1800", " 2024", 2024])("ignores %j", (value) => {
-    expect(parseAcquiredFilter(value)).toBeUndefined();
+  it.each(["read-desc", "read-asc"])("reads sort=%s on Finished only", (sort) => {
+    expect(parseShelfFilters({ shelf: "finished", sort }).sort).toBe(sort);
+    for (const shelf of ["tbr", "wishlist", "reading", "dnf"]) {
+      expect(parseShelfFilters({ shelf, sort }).sort).toBe("acquired-desc");
+    }
   });
 
-  it("reads the sort, defaulting to newest added", () => {
-    expect(parseShelfFilters({ sort: "acquired" }).sort).toBe("acquired");
-    expect(parseShelfFilters({ sort: "title" }).sort).toBe("added");
+  it.each(["", "added", "acquired", "title", "read", "__proto__"])("falls back to the shelf's default for %j", (sort) => {
+    expect(parseShelfFilters({ sort }).sort).toBe("acquired-desc");
+    expect(parseShelfFilters({ shelf: "finished", sort }).sort).toBe("read-desc");
   });
 
-  it("keeps both in shelf links, leaving out the default sort", () => {
-    const href = shelfHref({
-      shelf: "tbr",
-      formats: [],
-      search: "",
-      acquired: { mode: "before", year: 2020 },
-      sort: "acquired",
-    });
-    expect(href).toBe("/books/shelves?shelf=tbr&acquired=before-2020&sort=acquired");
-    expect(shelfHref({ shelf: "tbr", formats: [], search: "", sort: "added" })).toBe("/books/shelves?shelf=tbr");
-    expect(parseShelfFilters(searchParamsRecord(new URL(href, "http://x").searchParams))).toMatchObject({
-      acquired: { mode: "before", year: 2020 },
-      sort: "acquired",
-    });
+  it("defaults Finished to newest read and every other shelf to newest purchase", () => {
+    expect(parseShelfFilters({ shelf: "finished" }).sort).toBe("read-desc");
+    for (const shelf of ["tbr", "wishlist", "reading", "dnf"]) {
+      expect(parseShelfFilters({ shelf }).sort).toBe("acquired-desc");
+    }
+  });
+
+  it("keeps the sort in shelf links, leaving out the shelf's own default", () => {
+    const href = shelfHref({ shelf: "tbr", formats: [], search: "", sort: "acquired-asc" });
+    expect(href).toBe("/books/shelves?shelf=tbr&sort=acquired-asc");
+    expect(shelfHref({ shelf: "tbr", formats: [], search: "", sort: "acquired-desc" })).toBe("/books/shelves?shelf=tbr");
+    expect(shelfHref({ shelf: "finished", formats: [], search: "", sort: "read-desc" })).toBe("/books/shelves?shelf=finished");
+    expect(shelfHref({ shelf: "finished", formats: [], search: "", sort: "acquired-desc" })).toBe(
+      "/books/shelves?shelf=finished&sort=acquired-desc",
+    );
+    expect(parseShelfFilters(searchParamsRecord(new URL(href, "http://x").searchParams)).sort).toBe("acquired-asc");
+  });
+
+  it("ignores the old acquired filter in a URL", () => {
+    expect(parseShelfFilters({ acquired: "2024" })).not.toHaveProperty("acquired");
   });
 });

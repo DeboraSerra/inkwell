@@ -48,28 +48,36 @@ export const resolvePageSize = ({
 export const pageHolding = (position: number, size: number) =>
   Math.floor((Math.max(position, 1) - 1) / size) + 1;
 
-// Books acquired in a year, or before or after it: ?acquired=2024,
-// ?acquired=before-2020, ?acquired=after-2022.
-export type AcquiredFilter = { mode: "in" | "before" | "after"; year: number };
+// The shelf's order: by when a book was added to Inkwell, when it was bought,
+// its title, or (on Finished only) when it was last read, each either way
+// round. Each shelf has its own default (defaultSortFor). Books with no
+// purchase or finish date go last in those orders.
+export const SHELF_SORTS = [
+  "added-desc",
+  "added-asc",
+  "acquired-desc",
+  "acquired-asc",
+  "title-asc",
+  "title-desc",
+  "read-desc",
+  "read-asc",
+] as const;
+export type ShelfSort = (typeof SHELF_SORTS)[number];
+// Finished opens on the books read most recently; every other shelf on the
+// books bought most recently. The default stays out of the URL.
+export const defaultSortFor = (status: ReadingStatus): ShelfSort =>
+  status === ReadingStatus.FINISHED ? "read-desc" : "acquired-desc";
 
-// Anchored and fixed-length, so it can't backtrack.
-const ACQUIRED_PARAM = /^(before-|after-)?(\d{4})$/;
+// Only finished books have a finish date to sort by.
+export const sortsReadDates = (sort: ShelfSort) => sort === "read-desc" || sort === "read-asc";
 
-export function parseAcquiredFilter(value: unknown): AcquiredFilter | undefined {
-  if (typeof value !== "string") return undefined;
-  const match = ACQUIRED_PARAM.exec(value);
-  if (!match) return undefined;
-  const year = Number(match[2]);
-  if (year < 1900 || year > 9999) return undefined;
-  const mode = match[1] ? (match[1].slice(0, -1) as "before" | "after") : "in";
-  return { mode, year };
-}
+const parseShelfSort = (value: unknown, status: ReadingStatus): ShelfSort => {
+  const sort = SHELF_SORTS.find((allowed) => allowed === value);
+  if (!sort || (sortsReadDates(sort) && status !== ReadingStatus.FINISHED)) return defaultSortFor(status);
+  return sort;
+};
 
-export const acquiredParam = ({ mode, year }: AcquiredFilter) => (mode === "in" ? String(year) : `${mode}-${year}`);
-
-// "added" is the shelf's usual order, newest added first; "acquired" is by
-// purchase date, newest first, with undated books last.
-export type ShelfSort = "added" | "acquired";
+const statusOf = (slug: string) => (SHELVES.find((shelf) => shelf.slug === slug) ?? SHELVES[0]).status;
 
 export type ShelfFilters = {
   shelf: string;
@@ -79,7 +87,6 @@ export type ShelfFilters = {
   page: number;
   // Only when the URL asks for one; otherwise the cookie or device decides.
   perPage?: PageSize;
-  acquired?: AcquiredFilter;
   sort: ShelfSort;
 };
 
@@ -111,8 +118,7 @@ export function parseShelfFilters(params: ShelfParams): ShelfFilters {
     search,
     page: Number.isSafeInteger(page) && page >= 1 ? page : 1,
     perPage: parsePageSize(list(params.per)[0]),
-    acquired: parseAcquiredFilter(list(params.acquired)[0]),
-    sort: list(params.sort)[0] === "acquired" ? "acquired" : "added",
+    sort: parseShelfSort(list(params.sort)[0], shelf.status),
   };
 }
 
@@ -137,17 +143,15 @@ export function shelfHref({
   formats,
   search,
   perPage,
-  acquired,
   sort,
   page = 1,
 }: Pick<ShelfFilters, "shelf" | "formats" | "search"> &
-  Partial<Pick<ShelfFilters, "perPage" | "acquired" | "sort">> & { page?: number }) {
+  Partial<Pick<ShelfFilters, "perPage" | "sort">> & { page?: number }) {
   const query = new URLSearchParams({ shelf });
   for (const format of formats) query.append("format", format);
   if (search) query.set("q", search);
   if (perPage) query.set("per", String(perPage));
-  if (acquired) query.set("acquired", acquiredParam(acquired));
-  if (sort && sort !== "added") query.set("sort", sort);
+  if (sort && sort !== defaultSortFor(statusOf(shelf))) query.set("sort", sort);
   if (page > 1) query.set("page", String(page));
   return `/books/shelves?${query}`;
 }

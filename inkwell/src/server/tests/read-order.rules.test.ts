@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareReads, sortReads } from "@/server/library/read-order.rules";
+import { compareReads, lastFinishedAt, sortByLastFinished, sortReads } from "@/server/library/read-order.rules";
 
 const day = (iso: string) => new Date(`${iso}T00:00:00Z`);
 const read = (id: string, fields: { outcome?: string | null; started?: string; ended?: string; created: string }) => ({
@@ -59,5 +59,39 @@ describe("sortReads", () => {
     sortReads(reads);
     expect(reads.map(({ id }) => id)).toEqual(["a", "b"]);
     expect(compareReads(reads[0], reads[0])).toBe(0);
+  });
+});
+
+describe("sortByLastFinished", () => {
+  const book = (id: string, added: string, ...reads: ReturnType<typeof read>[]) => ({
+    id,
+    addedAt: day(added),
+    readThroughs: reads,
+  });
+  const ids = (books: { id: string }[]) => books.map(({ id }) => id);
+  const books = [
+    book("finished-2020", "2024-01-01", read("r1", { ended: "2020-05-01", created: "2020-05-01" })),
+    // A 2019 read entered later doesn't make this book's last finish 2019.
+    book(
+      "reread-2024",
+      "2023-01-01",
+      read("r2", { ended: "2024-03-01", created: "2024-03-01" }),
+      read("r3", { ended: "2019-01-01", created: "2026-11-14" }),
+    ),
+    book("undated-new", "2025-06-01", read("r4", { created: "2025-06-01" })),
+    book("undated-old", "2022-01-01", read("r5", { created: "2022-01-01" })),
+  ];
+
+  it("orders by the latest read's finish date, newest first", () => {
+    expect(ids(sortByLastFinished(books, "desc"))).toEqual(["reread-2024", "finished-2020", "undated-new", "undated-old"]);
+  });
+
+  it("orders oldest first, still with undated books last", () => {
+    expect(ids(sortByLastFinished(books, "asc"))).toEqual(["finished-2020", "reread-2024", "undated-new", "undated-old"]);
+  });
+
+  it("reads the finish date from the latest read by date", () => {
+    expect(lastFinishedAt(books[1].readThroughs)).toEqual(day("2024-03-01"));
+    expect(lastFinishedAt([])).toBeNull();
   });
 });

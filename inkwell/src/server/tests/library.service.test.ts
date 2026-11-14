@@ -649,14 +649,51 @@ describe("listShelfPage", () => {
   });
 
   it.each([
-    [{ mode: "in", year: 2024 }, { gte: new Date("2024-01-01T00:00:00Z"), lt: new Date("2025-01-01T00:00:00Z") }],
-    [{ mode: "before", year: 2020 }, { lt: new Date("2020-01-01T00:00:00Z") }],
-    [{ mode: "after", year: 2022 }, { gte: new Date("2023-01-01T00:00:00Z") }],
-  ] as const)("filters by %j as a date range, and passes the sort", async (acquired, range) => {
+    ["acquired-asc", { by: "acquired", direction: "asc" }],
+    ["added-asc", { by: "added", direction: "asc" }],
+    ["title-asc", { by: "title", direction: "asc" }],
+    ["title-desc", { by: "title", direction: "desc" }],
+  ] as const)("passes sort=%s to the query", async (sort, order) => {
     showing(1);
-    await service.listShelfPage(USER, { status: TO_READ, acquired, sort: "acquired" });
-    expect(model.countUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining({ acquired: range }));
-    expect(model.listUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining({ acquired: range, sort: "acquired" }));
+    await service.listShelfPage(USER, { status: TO_READ, sort });
+    expect(model.listUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining({ sort: order }));
+  });
+
+  it("orders Finished by read dates, then loads only the page's books, in that order", async () => {
+    const withReads = (id: string, ended: string | null, added = "2024-01-01") => ({
+      id,
+      addedAt: new Date(`${added}T00:00:00Z`),
+      readThroughs: [dated(`${id}-read`, "FINISHED", ended)],
+    });
+    model.listUserBookReadDates.mockResolvedValue([
+      withReads("a-2020", "2020-01-01"),
+      withReads("b-none", null),
+      withReads("c-2024", "2024-01-01"),
+      withReads("d-2022", "2022-01-01"),
+    ] as never);
+    // Returned in another order: the service puts them back in sort order.
+    model.findUserBooksWithCatalog.mockResolvedValue([row("d-2022"), row("c-2024")] as never);
+
+    const shelf = await service.listShelfPage(USER, { status: FINISHED, sort: "read-desc" }, 1, 10);
+    expect(model.findUserBooksWithCatalog).toHaveBeenCalledWith(USER, ["c-2024", "d-2022", "a-2020", "b-none"]);
+    expect(shelf.books.map(({ id }) => id)).toEqual(["c-2024", "d-2022"]);
+    expect(shelf).toMatchObject({ total: 4, pageCount: 1 });
+    expect(model.countUserBooks).not.toHaveBeenCalled();
+    expect(model.listUserBooks).not.toHaveBeenCalled();
+  });
+
+  it("pages through books ordered by read dates", async () => {
+    model.listUserBookReadDates.mockResolvedValue(
+      Array.from({ length: 12 }, (_, index) => ({
+        id: `b${index}`,
+        addedAt: new Date("2024-01-01T00:00:00Z"),
+        readThroughs: [dated(`r${index}`, "FINISHED", `20${String(10 + index)}-01-01`)],
+      })) as never,
+    );
+    model.findUserBooksWithCatalog.mockResolvedValue([] as never);
+    const shelf = await service.listShelfPage(USER, { status: FINISHED, sort: "read-asc" }, 2, 10);
+    expect(model.findUserBooksWithCatalog).toHaveBeenCalledWith(USER, ["b10", "b11"]);
+    expect(shelf).toMatchObject({ page: 2, pageCount: 2, total: 12, firstIndex: 11 });
   });
 
   it("gives the edit form a stored acquired date as text", async () => {
