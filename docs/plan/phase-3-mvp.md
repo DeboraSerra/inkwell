@@ -366,6 +366,13 @@ Added at the user's request on 2026-11-08, after the extension's store build was
      - Show it only when the text is actually clamped (`scrollHeight > clientHeight`, checked on render and resize), so short titles don't get a useless tooltip.
      - It must not get in the way of selecting: the whole card is a `<label>` that ticks the book's checkbox when clicked. The tooltip only shows text, so clicking still selects.
    - **Phones:** there's no hover on touch screens, so allow three lines there (`line-clamp-3`). The move and edit dialogs already show the full title.
+   - **✅ Done (2026-11-14):**
+     - **Code:** a new `BookCard/BookTitle.tsx` holds the title and authors. The title and the authors are clamped to one line each, at the user's request (the plan said two lines for the title, three on phones). `truncateText` is gone, so the full text is always on the page.
+     - **Tooltip:** shadcn's `Tooltip` shows the full title and authors under the text, on hover and on keyboard focus. It's enabled only while something is actually clamped, measured on mount and with a `ResizeObserver` as the card's width changes.
+     - **Inside the card's label:** the trigger is a `<span>`, not a button, so clicking the title still ticks the card's checkbox. It's focusable (`tabIndex=0`) only when clamped, so short titles add no extra Tab stop.
+     - **Checked** in the browser on a temporary page, since removed, with the real `BookTitle` inside a card-like label and checkbox: the long *The Boy Who Led Them…* title and its authors are clamped (checked at 2 lines, before the user asked for one); hover and Tab both open the full text; "Dune" has no tooltip and no Tab stop; clicking either title ticks its checkbox; at phone width, no sideways scroll.
+     - **Touch screens, after the user found the tooltip didn't open on a phone:** a tap went to the card's label and ticked the checkbox. Now a tap on a cut-off title opens the full text, and a second tap closes it. The click's default is stopped, so the book isn't selected. Tapping elsewhere on the card still selects, and so does tapping a title that isn't cut off. With a mouse, clicking the title still selects. Touch is told apart by the pointer's `pointerType`. Checked on the temporary page with touch pointer events at phone size, and with the mouse on desktop.
+     - **Not checked:** on the real shelves while signed in, or on a real phone.
 7. **Move to the next date part automatically** in `components/PartialDateField.tsx`. That's the Day / Month / Year inputs in the add form, the move dialog and the edit dialog.
    - **Today:** three plain text inputs, each allowing 4 characters, with no digit filter and no focus movement.
    - **Typing moves forward:**

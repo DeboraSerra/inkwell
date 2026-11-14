@@ -8,13 +8,7 @@ import { FieldLabel } from "../../../../ui/field";
 import { useShelfSelection } from "../BookShelf/ShelfSelection";
 import { FORMAT_LABELS } from "../formats";
 import { BookCardMenu } from "./BookCardMenu";
-
-const MAX_TITLE_LENGTH = 40;
-
-const truncateText = (text: string) => {
-  if (text.length <= MAX_TITLE_LENGTH) return text;
-  return `${text.slice(0, MAX_TITLE_LENGTH)}...`;
-};
+import { BookTitle } from "./BookTitle";
 
 // Selection comes from the shelf's selection context, and the actions from
 // useBookActions, so a card needs only its book.
@@ -49,14 +43,7 @@ export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
           height={96}
         />
         <span className='flex min-w-0 flex-1 flex-col gap-2'>
-          <span>
-            <span className='block font-medium wrap-break-word'>
-              {truncateText(book.title)}
-            </span>
-            <span className='block text-sm font-normal text-muted-foreground wrap-break-word'>
-              {truncateText(book.authors.join("; "))}
-            </span>
-          </span>
+          <BookTitle title={book.title} authors={book.authors} />
           {book.formats.length > 0 && (
             <span className='flex flex-wrap gap-1'>
               {book.formats.map((format) => (
