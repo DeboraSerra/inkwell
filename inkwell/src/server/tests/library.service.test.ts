@@ -452,6 +452,27 @@ describe("listShelfPage", () => {
     expect(model.listUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining({ skip: (page - 1) * 30 }));
   });
 
+  it.each([
+    [10, 2, 10, 10, 7],
+    [20, 2, 20, 20, 4],
+    [50, 2, 50, 50, 2],
+  ])("at %i per page, page %i skips %i, takes %i, and 65 books make %i pages", async (size, page, skip, take, pageCount) => {
+    showing(65);
+    await expect(service.listShelfPage(USER, {}, page, size)).resolves.toMatchObject({ page, pageCount, pageSize: size, firstIndex: skip + 1 });
+    expect(model.listUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining({ skip, take }));
+  });
+
+  it("shows the last page when a larger size leaves fewer pages", async () => {
+    showing(65);
+    await expect(service.listShelfPage(USER, {}, 7, 50)).resolves.toMatchObject({ page: 2, pageCount: 2, firstIndex: 51 });
+  });
+
+  it.each([15, 25, 1000, Number.NaN])("uses 30 for a size that isn't offered (%s)", async (size) => {
+    showing(65);
+    await expect(service.listShelfPage(USER, {}, 1, size)).resolves.toMatchObject({ pageSize: 30, pageCount: 3 });
+    expect(model.listUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining({ take: 30 }));
+  });
+
   it("reports which books of the total the page shows", async () => {
     showing(65);
     await expect(service.listShelfPage(USER, {}, 3)).resolves.toMatchObject({ total: 65, firstIndex: 61 });

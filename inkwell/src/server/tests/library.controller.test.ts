@@ -6,11 +6,19 @@ import * as libraryService from "@/server/library/library.service";
 import { consumeRateLimit } from "@/server/rate-limit/rate-limit.service";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+const request = vi.hoisted(() => ({ cookie: undefined as string | undefined, userAgent: "", set: vi.fn() }));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: () => (request.cookie === undefined ? undefined : { value: request.cookie }),
+    set: request.set,
+  }),
+  headers: async () => new Headers({ "user-agent": request.userAgent }),
+}));
 vi.mock("@/server/auth/auth.guard");
 vi.mock("@/server/library/library.service");
 vi.mock("@/server/rate-limit/rate-limit.service");
 
-const { addBookByIsbn, addManualBook, changeBookFormats, loadShelf, lookUpIsbn, changeBookStatus, editBook, moveBooks, moveBookWithDates, removeBook, removeBooks } = await import(
+const { addBookByIsbn, addManualBook, changeBookFormats, loadShelf, lookUpIsbn, rememberShelfPageSize, changeBookStatus, editBook, moveBooks, moveBookWithDates, removeBook, removeBooks } = await import(
   "@/server/library/library.controller"
 );
 const service = vi.mocked(libraryService);
@@ -24,8 +32,13 @@ const valid = { title: "The Hobbit", authors: "J.R.R. Tolkien", formats: "PHYSIC
 const added = (status: ReadingStatus, created: boolean) =>
   ({ book: { title: "The Hobbit" }, userBook: { status }, created }) as never;
 
+const PHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+const DESKTOP = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+
 beforeEach(() => {
   vi.resetAllMocks();
+  request.cookie = undefined;
+  request.userAgent = DESKTOP;
   vi.mocked(requireUser).mockResolvedValue({ id: "user-1" } as never);
 });
 
@@ -350,7 +363,7 @@ describe("add by ISBN", () => {
 });
 
 describe("loadShelf", () => {
-  const page = { books: [], page: 2, pageCount: 3, total: 70, firstIndex: 31 };
+  const page = { books: [], page: 2, pageCount: 3, pageSize: 30 as const, total: 70, firstIndex: 31 };
 
   it("loads the signed-in user's shelf with the parsed filters", async () => {
     service.listShelfPage.mockResolvedValue(page);
@@ -360,13 +373,14 @@ describe("loadShelf", () => {
       "user-1",
       { status: ReadingStatus.FINISHED, formats: ["EBOOK"], search: "dune" },
       2,
+      30,
     );
   });
 
   it("falls back to TBR, page 1, for unknown values", async () => {
     service.listShelfPage.mockResolvedValue(page);
     await loadShelf({ shelf: "__proto__", page: "-4" });
-    expect(service.listShelfPage).toHaveBeenCalledWith("user-1", { status: ReadingStatus.TO_READ, formats: [], search: "" }, 1);
+    expect(service.listShelfPage).toHaveBeenCalledWith("user-1", { status: ReadingStatus.TO_READ, formats: [], search: "" }, 1, 30);
   });
 
   it.each([
@@ -379,9 +393,46 @@ describe("loadShelf", () => {
     expect(service.listShelfPage).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["a phone with no choice", PHONE, undefined, {}, 10],
+    ["a desktop with no choice", DESKTOP, undefined, {}, 30],
+    ["a remembered choice over the device", PHONE, "50", {}, 50],
+    ["the URL over the remembered choice", PHONE, "50", { per: "20" }, 20],
+    ["the device when the cookie isn't a size offered", PHONE, "1000", {}, 10],
+    ["the cookie when the URL's size isn't offered", DESKTOP, "20", { per: "999" }, 20],
+  ])("uses %s", async (_name, userAgent, cookie, params, size) => {
+    request.userAgent = userAgent;
+    request.cookie = cookie;
+    service.listShelfPage.mockResolvedValue(page);
+    await loadShelf(params);
+    expect(service.listShelfPage).toHaveBeenCalledWith("user-1", expect.anything(), 1, size);
+  });
+
   it("needs a signed-in user", async () => {
     vi.mocked(requireUser).mockRejectedValue(new Error("redirect"));
     await expect(loadShelf({})).rejects.toThrow("redirect");
     expect(service.listShelfPage).not.toHaveBeenCalled();
+  });
+});
+
+describe("rememberShelfPageSize", () => {
+  it("remembers an offered size for a year", async () => {
+    await expect(rememberShelfPageSize(20)).resolves.toEqual({});
+    expect(request.set).toHaveBeenCalledWith(
+      "shelfPerPage",
+      "20",
+      expect.objectContaining({ path: "/", maxAge: 31_536_000, sameSite: "lax", httpOnly: true }),
+    );
+  });
+
+  it.each([15, 1000, "20; path=/x", null])("rejects %j without setting anything", async (size) => {
+    await expect(rememberShelfPageSize(size)).resolves.toEqual({ error: "That request isn't valid." });
+    expect(request.set).not.toHaveBeenCalled();
+  });
+
+  it("needs a signed-in user", async () => {
+    vi.mocked(requireUser).mockRejectedValue(new Error("redirect"));
+    await expect(rememberShelfPageSize(20)).rejects.toThrow("redirect");
+    expect(request.set).not.toHaveBeenCalled();
   });
 });

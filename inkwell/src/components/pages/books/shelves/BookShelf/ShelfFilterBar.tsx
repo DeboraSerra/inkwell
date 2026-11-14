@@ -25,7 +25,7 @@ export function ShelfFilterBar({ filters }: Readonly<{ filters: ShelfFilters }>)
     const next = checked ? [...formats, format] : formats.filter((item) => item !== format);
     // Includes what's typed but not searched yet.
     requested.current = text.trim();
-    router.push(shelfHref({ shelf, formats: next, search: requested.current }));
+    router.push(shelfHref({ shelf, formats: next, search: requested.current, perPage: filters.perPage }));
   };
 
   // A search changed from outside (back and forward, a link) shows in the box.
@@ -38,10 +38,10 @@ export function ShelfFilterBar({ filters }: Readonly<{ filters: ShelfFilters }>)
 
   // A pending search runs on the shelf and filters showing when it fires, not
   // the ones it was typed on.
-  const current = useRef({ shelf, formats });
+  const current = useRef({ shelf, formats, perPage: filters.perPage });
   useEffect(() => {
-    current.current = { shelf, formats };
-  }, [shelf, formats]);
+    current.current = { shelf, formats, perPage: filters.perPage };
+  }, [shelf, formats, filters.perPage]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 

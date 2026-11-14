@@ -1,9 +1,11 @@
 import type { ShelfBook } from "@/server/library/library.service";
+import type { PageSize } from "@/server/library/shelf-filters";
 
 export interface ShelfType {
   books: ShelfBook[];
   page: number;
   pageCount: number;
+  pageSize: PageSize;
   total: number;
   firstIndex: number;
 }

@@ -6,16 +6,9 @@ import { Button } from "../../../../ui/button";
 import { useLoadedShelf } from "../../../context";
 import { BookCard } from "../BookCard";
 import { BooksPagination } from "./BooksPagination";
+import { BooksPerPageSelect } from "./BooksPerPageSelect";
 import { SelectedBooksBar } from "./SelectedBooksBar";
 import { ShelfSelectionProvider, useShelfSelection } from "./ShelfSelection";
-
-const booksPerPage = [
-  { label: "5", value: 5 },
-  { label: "10", value: 10 },
-  { label: "20", value: 20 },
-  { label: "30", value: 30 },
-  { label: "50", value: 50 },
-];
 
 // The bar shows only while books are selected.
 const SelectionBar = () => {
@@ -59,10 +52,13 @@ export const BooksShelf = () => {
             <BookCard key={book.id} book={book} />
           ))}
         </ul>
-        <div className='flex justify-between items-center'>
-          <small>
-            {firstIndex} - {firstIndex + books.length - 1} of {total}
-          </small>
+        <div className='flex justify-between items-center flex-wrap-reverse gap-5 md:gap-3'>
+          <div className='flex flex-wrap gap-3 grow items-center justify-between'>
+            <small>
+              {firstIndex} - {firstIndex + books.length - 1} of {total}
+            </small>
+            <BooksPerPageSelect />
+          </div>
           {pageCount > 1 && <BooksPagination />}
         </div>
       </div>

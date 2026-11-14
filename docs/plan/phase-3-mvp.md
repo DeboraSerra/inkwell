@@ -350,6 +350,15 @@ Added at the user's request on 2026-11-08, after the extension's store build was
        - Mutations call `refresh()`, since `revalidatePath` no longer reaches client state.
        - **Trade-off, chosen by the user:** books aren't in the first server render, so the shelf shows a skeleton until the first load.
      - **Verified:** typecheck, tests (including `loadShelf` and `searchParamsRecord`) and the build pass. Not yet checked signed in.
+   - **✅ Built (2026-11-14):**
+     - **Rules (`shelf-filters.ts`):** `PAGE_SIZES` (5, 10, 20, 30, 50), `parsePageSize`, `resolvePageSize` (URL, then cookie, then 10 on phones and 30 elsewhere) and `pageHolding`, which gives the page that keeps the first book shown in view. `parseShelfFilters` reads `per`, and `shelfHref` keeps it.
+     - **Server:** `listShelfPage` takes the size, falls back to 30 for anything not offered, and returns `pageSize`. `loadShelf` decides the size, reading the `shelfPerPage` cookie and `userAgent()`, where `device.type === "mobile"` means a phone.
+     - **Deviation:** the plan imagined the server page deciding the size. Since the books now load through the context, `loadShelf` does it, which still keeps the 10-or-30 choice off the client.
+     - **UI:** `BooksPerPageSelect` sits beside the page links in `BooksPagination`, where the user placed it. So it shows only when a shelf has more than one page. Choosing a size opens the page that holds the first book shown, and adds `per` to the URL. The shelf tabs, filters and search keep it.
+     - **Cookie:** set by a server action, `rememberShelfPageSize`, rather than `document.cookie`, which Biome flags. It's validated, `httpOnly`, lasts a year, and isn't waited for: the URL already carries the choice.
+     - **Choices:** sizes are 5, 10, 20, 30 and 50; the user added 5 to the plan's list. "Select all" still stops at 30.
+     - **Verified:** typecheck, lint, 598 tests and the build. Tests cover parsing `per` and the cookie, rejecting other sizes, `shelfHref` keeping `per`, the order of URL, cookie and device (using the real `userAgent()` with iPhone and desktop strings), keep-your-place paging, skip, take and page count at each size, and the cookie action.
+     - **Not verified:** in the browser signed in. That means the phone and desktop defaults, picking 20, a reload remembering it, and the first book staying in view.
 6. **Show the full title on hover** on the shelf cards (`components/pages/books/shelves/BookCard.tsx`).
    - **Today:** `truncateText` cuts titles and authors at 40 characters and adds "...". The full text isn't on the page at all, so long series titles can't be read without opening a dialog.
    - **Cut with CSS instead:** clamp the title to two lines (`line-clamp-2`) and the authors to one (`line-clamp-1`), and remove `truncateText`. The full text then stays on the page, screen readers read all of it, and the cut follows the card's width instead of a fixed count.

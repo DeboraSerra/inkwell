@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moveDateValues, moveTargets, searchParamsRecord, pageLinks, parseShelfFilters, shelfHref } from "@/server/library/shelf-filters";
+import { moveDateValues, moveTargets, pageHolding, pageLinks, parsePageSize, parseShelfFilters, resolvePageSize, searchParamsRecord, shelfHref } from "@/server/library/shelf-filters";
 import { ReadingStatus } from "@/generated/prisma/enums";
 
 describe("parseShelfFilters", () => {
@@ -139,5 +139,57 @@ describe("searchParamsRecord", () => {
 
   it("is empty for an empty query", () => {
     expect(searchParamsRecord(new URLSearchParams(""))).toEqual({});
+  });
+});
+
+describe("page size", () => {
+  it.each([
+    ["5", 5],
+    ["10", 10],
+    ["20", 20],
+    [30, 30],
+    ["50", 50],
+  ])("accepts %j", (value, size) => {
+    expect(parsePageSize(value)).toBe(size);
+  });
+
+  it.each(["15", "25", "1000", "-10", "", "abc", "30abc", null, undefined, "30,50"])(
+    "rejects %j",
+    (value) => {
+      expect(parsePageSize(value)).toBeUndefined();
+    },
+  );
+
+  it("reads per from the URL, ignoring sizes that aren't offered", () => {
+    expect(parseShelfFilters({ per: "20" }).perPage).toBe(20);
+    expect(parseShelfFilters({ per: "1000" }).perPage).toBeUndefined();
+    expect(parseShelfFilters({ per: ["50", "10"] }).perPage).toBe(50);
+    expect(parseShelfFilters({}).perPage).toBeUndefined();
+  });
+
+  it("keeps per in shelf links, and leaves it out when the URL had none", () => {
+    expect(shelfHref({ shelf: "dnf", formats: [], search: "", perPage: 20, page: 2 })).toBe("/books/shelves?shelf=dnf&per=20&page=2");
+    expect(shelfHref({ shelf: "dnf", formats: [], search: "" })).not.toContain("per=");
+  });
+
+  it("prefers the URL, then the cookie, then the device", () => {
+    expect(resolvePageSize({ url: 20, cookie: "50", isPhone: true })).toBe(20);
+    expect(resolvePageSize({ cookie: "50", isPhone: true })).toBe(50);
+    expect(resolvePageSize({ cookie: "999", isPhone: true })).toBe(10);
+    expect(resolvePageSize({ isPhone: true })).toBe(10);
+    expect(resolvePageSize({ isPhone: false })).toBe(30);
+  });
+
+  it.each([
+    // First book shown, new size, page that holds it.
+    [61, 10, 7],
+    [61, 20, 4],
+    [61, 50, 2],
+    [31, 30, 2],
+    [30, 30, 1],
+    [1, 50, 1],
+    [0, 10, 1],
+  ])("keeps book %i in view at %i per page, on page %i", (position, size, page) => {
+    expect(pageHolding(position, size)).toBe(page);
   });
 });
