@@ -501,6 +501,20 @@ Added at the user's request on 2026-11-08, after the extension's store build was
    - Bump the version to 2.2.0 in `extension/manifest.json`.
    - Rebuild with `node extension/build.mjs https://<domain>`.
    - Retake any store screenshot that shows the options page or the import dialog.
+   - **✅ Built (2026-11-14):**
+     - `extension/manifest.json` is at 2.2.0.
+     - `node extension/build.mjs https://inkwell-phi-bice.vercel.app` wrote `extension/dist/inkwell-kindle-import-2.2.0.zip` and `dist/package/`.
+     - **Checked:**
+       - The package's version is 2.2.0, and `host_permissions` holds only the Vercel address, with no optional permissions.
+       - `config.js` defaults to that address.
+       - Every shipped file matches the source, and the zip holds only the extension's own files.
+     - **Screenshots, still to do by the user:**
+       - `screenshots/…pageNumber=1.png` shows the old import dialog, with no account line and no Books/Docs choice. It needs retaking on the real Amazon page.
+       - `…pageNumber=2.png` (the result banner) and the shelves screenshot are unchanged. No screenshot shows the options page.
+       - Both Amazon screenshots show the account holder's first name and delivery postcode in Amazon's header, and the store listing is public. Crop or blur that area when retaking.
+     - **Still to do by the user:**
+       - Load `dist/package/` unpacked in Chrome and run one import against the deployed site.
+       - Upload the zip.
 12. **Tests**, the same way as the Docs-tab fix and the store build:
    - Run the real `app.js` and `options.html` on temporary pages with a stand-in for Chrome's API. Cover: the account shown in the dialog, a 401 and an unreachable site stopping before scraping, batch errors keeping their wording, and the options page in both builds.
    - A visual check of the options page in light and dark.
