@@ -50,7 +50,7 @@ const lastDayOf = ({ date, precision }: PartialDate) => {
 export const isAfter = (a: PartialDate, b: PartialDate) => a.date.getTime() > lastDayOf(b);
 
 // The form's text for a stored date, showing only the parts that are known.
-export function toDateValues(name: "started" | "ended", date: Date | null, precision: DatePrecision) {
+export function toDateValues(name: "started" | "ended" | "acquired", date: Date | null, precision: DatePrecision) {
   if (!date) return {};
   const pad = (value: number) => String(value).padStart(2, "0");
   return {

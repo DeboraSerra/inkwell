@@ -2,6 +2,8 @@
 
 import { BookCover } from "@/components/BookCover";
 import { Checkbox } from "@/components/ui/checkbox";
+import { BookFormat } from "@/generated/prisma/enums";
+import { formatAudioLength } from "@/server/library/audio-length.rules";
 import type { ShelfBook } from "@/server/library/library.service";
 import { readDatesLabel } from "@/server/library/read-label.rules";
 import { cn } from "cn";
@@ -66,10 +68,13 @@ export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
                 <small key={start}>{word}</small>
               ))}
               {book.earlierReads > 0 && (
-                <span className="ml-1 flex items-center">
+                <span className='ml-1 flex items-center'>
                   <small aria-hidden='true'> +{book.earlierReads}</small>
                   <small className='sr-only'>
-                    , {book.earlierReads === 1 ? "1 earlier read" : `${book.earlierReads} earlier reads`}
+                    ,{" "}
+                    {book.earlierReads === 1
+                      ? "1 earlier read"
+                      : `${book.earlierReads} earlier reads`}
                   </small>
                 </span>
               )}
@@ -81,8 +86,23 @@ export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
                 <span
                   key={format}
                   title={FORMAT_LABELS[format].title}
+                  className='flex items-center gap-1'
                 >
                   {FORMAT_LABELS[format].label}
+                  {format === BookFormat.AUDIO && book.audioMinutes && (
+                    <span className='flex gap-px'>
+                      {wordsWithPositions(
+                        formatAudioLength(book.audioMinutes),
+                      ).map(({ word, start }) => (
+                        <small
+                          key={start}
+                          className='font-normal text-muted-foreground'
+                        >
+                          {word}
+                        </small>
+                      ))}
+                    </span>
+                  )}
                 </span>
               ))}
             </span>

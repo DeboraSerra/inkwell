@@ -10,16 +10,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { useBookActions } from "@/hooks/useBookActions";
-import { ShelfBook } from "@/server/library/library.service";
+import type { ShelfBook } from "@/server/library/library.service";
 import { moveTargets } from "@/server/library/shelf-filters";
 import { Edit, EllipsisVertical, Trash } from "lucide-react";
 import { useState } from "react";
-import { DeleteBookDialog } from "../BookDialogs/DeleteBookDialog";
+import { BookDialog } from "../BookDialogs";
 import { EditBookDialog } from "../BookDialogs/EditBookDialog";
 import { MoveBookDialog } from "../BookDialogs/MoveBookDialog";
 import { FORMAT_LABELS } from "../formats";
 
-export const BookCardMenu = ({ book }: { book: ShelfBook }) => {
+export const BookCardMenu = ({ book }: Readonly<{ book: ShelfBook }>) => {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [movingTo, setMovingTo] = useState<ReadingStatus | null>(null);
@@ -102,12 +102,14 @@ export const BookCardMenu = ({ book }: { book: ShelfBook }) => {
         onOpenChange={setEditing}
         onSave={edit}
       />
-      <DeleteBookDialog
+      <BookDialog
         heading='Delete this book?'
         description={`“${book.title}” will be removed from your library, along with your formats and read dates. This can’t be undone.`}
         open={deleting}
         onOpenChange={setDeleting}
         onConfirm={remove}
+        btnVariant='destructive'
+        confirmText='Delete'
       />
     </>
   );

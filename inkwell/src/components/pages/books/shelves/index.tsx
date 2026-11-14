@@ -47,7 +47,15 @@ export const BooksShelves = () => {
               value={it.slug}
               nativeButton={false}
               render={
-                <Link href={shelfHref({ shelf: it.slug, formats, search, perPage: filters.perPage })} />
+                <Link
+                  href={shelfHref({
+                    shelf: it.slug,
+                    formats,
+                    search,
+                    perPage: filters.perPage,
+                    // No sort: each shelf opens on its own default order.
+                  })}
+                />
               }
             >
               {it.label}

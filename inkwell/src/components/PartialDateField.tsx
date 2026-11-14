@@ -16,15 +16,18 @@ import { Field, FieldLabel, FieldLegend, FieldSet } from "./ui/field";
 import { Input } from "./ui/input";
 
 const PARTS: { part: DatePart; suffix: string; label: string; placeholder: string; width: string }[] = [
-  { part: "day", suffix: "Day", label: "Day", placeholder: "DD", width: "w-16" },
-  { part: "month", suffix: "Month", label: "Month", placeholder: "MM", width: "w-16" },
-  { part: "year", suffix: "Year", label: "Year", placeholder: "YYYY", width: "w-20" },
+  { part: "day", suffix: "Day", label: "Day", placeholder: "DD", width: "w-12" },
+  { part: "month", suffix: "Month", label: "Month", placeholder: "MM", width: "w-12" },
+  { part: "year", suffix: "Year", label: "Year", placeholder: "YYYY", width: "w-15" },
 ];
 
 // Day, Month and Year inputs that move forward as a date is typed: after a
 // full part, after a separator, or after a single digit no two-digit value
 // starts with. Backspace in an empty part goes back, and a pasted date fills
 // all three. Tab works as usual, so a year alone can still be entered.
+// Password managers (1Password, LastPass, Bitwarden) are told to leave these
+// short number fields alone, since they can mistake them for card or
+// one-time-code inputs.
 export function PartialDateField({
   name,
   legend,
@@ -114,6 +117,9 @@ export function PartialDateField({
                 name={id}
                 inputMode='numeric'
                 autoComplete='off'
+                data-1p-ignore
+                data-lpignore='true'
+                data-bwignore
                 placeholder={placeholder}
                 maxLength={PART_LENGTH[part]}
                 defaultValue={typeof value === "string" ? value : undefined}

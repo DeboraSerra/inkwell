@@ -45,7 +45,7 @@ export async function addManualBook(
   const parsed = parseManualBook(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message, values };
 
-  const { formats, status, dates, ...details } = parsed.data;
+  const { formats, status, dates, audioMinutes, pastReads, acquired, ...details } = parsed.data;
   try {
     const { book, userBook, created } = await libraryService.addManualBook(
       user.id,
@@ -53,6 +53,9 @@ export async function addManualBook(
       formats,
       status,
       dates,
+      audioMinutes,
+      pastReads,
+      acquired,
     );
     revalidatePath(SHELVES_PATH);
     const list = LIST_NAMES[userBook.status];
@@ -163,13 +166,13 @@ export async function loadShelf(params: unknown): Promise<LoadShelfResult> {
   const user = await requireUser();
   const parsed = shelfParamsSchema.safeParse(params);
   if (!parsed.success) return { error: INVALID_REQUEST };
-  const { status, formats, search, page, perPage } = parseShelfFilters(parsed.data);
+  const { status, formats, search, page, perPage, sort } = parseShelfFilters(parsed.data);
   const pageSize = resolvePageSize({
     url: perPage,
     cookie: (await cookies()).get(PAGE_SIZE_COOKIE)?.value,
     isPhone: userAgent({ headers: await headers() }).device.type === "mobile",
   });
-  const shelf = await libraryService.listShelfPage(user.id, { status, formats, search }, page, pageSize);
+  const shelf = await libraryService.listShelfPage(user.id, { status, formats, search, sort }, page, pageSize);
   return { shelf };
 }
 

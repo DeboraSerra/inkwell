@@ -17,6 +17,7 @@ import {
 import { StatusField } from "../../../StatusField";
 import { TextField } from "../../../TextField";
 import { toast } from "../../../ui/toast";
+import { PartialDateField } from "@/components/PartialDateField";
 import { FormatsField } from "./FormatsField";
 import { applyIsbnFormat } from "./isbn-input";
 
@@ -42,6 +43,8 @@ export default function AddBookForm({ defaultIsbn }: Readonly<{ defaultIsbn?: st
   );
   const values = state.values;
   const [missing, setMissing] = useState<string[]>([]);
+  // Whether a format is ticked, reported by FormatsField.
+  const [owned, setOwned] = useState(false);
 
   // Cancelling the submit skips the action, so the form isn't remounted and
   // keeps what was typed.
@@ -128,10 +131,20 @@ export default function AddBookForm({ defaultIsbn }: Readonly<{ defaultIsbn?: st
         />
 
         <div className='grid grid-cols-2 gap-5'>
-          <FormatsField defaultValues={values?.formats} />
+          <FormatsField defaultValues={values?.formats} audioLength={values} onOwnedChange={setOwned} />
 
           <StatusField values={values} />
         </div>
+
+        {/* When you got it, if you remember: a year alone is fine. */}
+        {/* Only an owned book was acquired, so this shows once a format is ticked. */}
+        {owned && (
+          <PartialDateField
+            name='acquired'
+            legend='Acquired'
+            values={{ acquiredDay: values?.acquiredDay, acquiredMonth: values?.acquiredMonth, acquiredYear: values?.acquiredYear }}
+          />
+        )}
 
         <TextField name='isbn' label='ISBN' defaultValue={values?.isbn ?? defaultIsbn} />
         <TextField

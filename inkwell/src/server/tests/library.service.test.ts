@@ -37,6 +37,9 @@ const book = (status: ReadingStatus, formats: BookFormat[] = [PHYSICAL], id = "u
   status,
   formats,
   pageCount: null,
+  audioMinutes: null,
+  acquiredAt: null as Date | null,
+  acquiredAtPrecision: "DAY" as const,
   authors: [] as string[],
   coverUrl: null,
   authorSearch: "",
@@ -46,6 +49,18 @@ const book = (status: ReadingStatus, formats: BookFormat[] = [PHYSICAL], id = "u
 const read = (id: string, outcome: "DNF" | null, userBookId = "ub-1") =>
   ({ id, userBookId, outcome, startedAt: null, startedAtPrecision: "DAY" as const, endedAt: null, endedAtPrecision: "DAY" as const, createdAt: new Date(), updatedAt: new Date() });
 const input = { bookId: "book-1", formats: [EBOOK], source: UserBookSource.AMAZON_IMPORT };
+// A read with an outcome and an end date (or none), entered at `created`.
+const dated = (id: string, outcome: "FINISHED" | "DNF" | null, ended: string | null, created = "2024-01-01") => ({
+  id,
+  userBookId: "ub-1",
+  outcome,
+  startedAt: null,
+  startedAtPrecision: "DAY" as const,
+  endedAt: ended ? new Date(`${ended}T00:00:00Z`) : null,
+  endedAtPrecision: "DAY" as const,
+  createdAt: new Date(`${created}T00:00:00Z`),
+  updatedAt: new Date(`${created}T00:00:00Z`),
+});
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -125,6 +140,106 @@ describe("addBookToLibrary", () => {
     await expect(service.addBookToLibrary(USER, { ...input, formats: [], status: TO_READ })).rejects.toThrow(
       InvalidTransitionError,
     );
+  });
+});
+
+describe("purchase dates when adding", () => {
+  const on = (iso: string) => ({ date: new Date(`${iso}T00:00:00Z`), precision: "DAY" as const });
+
+  it("stores the date on a new book", async () => {
+    model.createUserBook.mockResolvedValue(book(TO_READ, [EBOOK]));
+    await service.addBookToLibrary(USER, { ...input, acquired: on("2021-10-05") });
+    expect(model.createUserBook).toHaveBeenCalledWith(
+      expect.objectContaining({ acquiredAt: on("2021-10-05").date, acquiredAtPrecision: "DAY" }),
+      "tx",
+    );
+  });
+
+  it("fills an empty date on a book already in the library, touching only that", async () => {
+    const existing = book(TO_READ, [EBOOK]);
+    model.findUserBookByBookId.mockResolvedValue(existing);
+    model.updateAcquired.mockResolvedValue({ ...existing, acquiredAt: on("2021-10-05").date } as never);
+    await service.addBookToLibrary(USER, { ...input, acquired: on("2021-10-05") });
+    expect(model.updateAcquired).toHaveBeenCalledWith(
+      USER,
+      "ub-1",
+      { acquiredAt: on("2021-10-05").date, acquiredAtPrecision: "DAY" },
+      "tx",
+    );
+    expect(model.createUserBook).not.toHaveBeenCalled();
+  });
+
+  it("replaces a later date with an earlier one", async () => {
+    model.findUserBookByBookId.mockResolvedValue({ ...book(TO_READ, [EBOOK]), acquiredAt: on("2023-01-01").date });
+    model.updateAcquired.mockResolvedValue(book(TO_READ, [EBOOK]) as never);
+    await service.addBookToLibrary(USER, { ...input, acquired: on("2021-10-05") });
+    expect(model.updateAcquired).toHaveBeenCalledWith(USER, "ub-1", expect.objectContaining({ acquiredAt: on("2021-10-05").date }), "tx");
+  });
+
+  it.each([
+    ["a later date", "2024-06-01"],
+    ["the same date", "2023-01-01"],
+  ])("never replaces an earlier date with %s", async (_name, iso) => {
+    model.findUserBookByBookId.mockResolvedValue({ ...book(TO_READ, [EBOOK]), acquiredAt: on("2023-01-01").date });
+    await service.addBookToLibrary(USER, { ...input, acquired: on(iso) });
+    expect(model.updateAcquired).not.toHaveBeenCalled();
+  });
+
+  it("leaves the date alone when the import has none", async () => {
+    model.findUserBookByBookId.mockResolvedValue({ ...book(TO_READ, [EBOOK]), acquiredAt: null });
+    await service.addBookToLibrary(USER, input);
+    expect(model.updateAcquired).not.toHaveBeenCalled();
+  });
+});
+
+describe("past reads when adding", () => {
+  const ended = { ended: { date: AT, precision: "YEAR" as const } };
+
+  it("adds the extra finished reads to a book added as already read", async () => {
+    model.createUserBook.mockResolvedValue(book(FINISHED, [EBOOK]));
+    await service.addBookToLibrary(USER, { ...input, status: FINISHED, at: null, pastReads: [{ dates: ended }] });
+    expect(reads.createReads).toHaveBeenLastCalledWith(
+      [expect.objectContaining({ userBookId: "ub-1", outcome: "FINISHED", endedAt: AT, endedAtPrecision: "YEAR" })],
+      "tx",
+    );
+  });
+
+  it("ignores them for a book that isn't finished, or already in the library", async () => {
+    model.createUserBook.mockResolvedValue(book(READING, [EBOOK]));
+    await service.addBookToLibrary(USER, { ...input, status: READING, at: null, pastReads: [{ dates: ended }] });
+    expect(reads.createReads).toHaveBeenCalledTimes(1);
+
+    vi.mocked(reads.createReads).mockClear();
+    model.findUserBookByBookId.mockResolvedValue(book(TO_READ, [EBOOK]));
+    await service.addBookToLibrary(USER, { ...input, status: FINISHED, pastReads: [{ dates: ended }] });
+    expect(reads.createReads).not.toHaveBeenCalled();
+  });
+});
+
+describe("audiobook length when adding", () => {
+  it("stores the length on a new book", async () => {
+    model.createUserBook.mockResolvedValue(book(TO_READ, [BookFormat.AUDIO]));
+    await service.addBookToLibrary(USER, { ...input, formats: [BookFormat.AUDIO], audioMinutes: 750 });
+    expect(model.createUserBook).toHaveBeenCalledWith(expect.objectContaining({ audioMinutes: 750 }), "tx");
+  });
+
+  it("leaves a book already in the library as it is, as with its status and dates", async () => {
+    model.findUserBookByBookId.mockResolvedValue({ ...book(TO_READ, [EBOOK]), audioMinutes: 300 });
+    await service.addBookToLibrary(USER, { ...input, formats: [BookFormat.AUDIO], audioMinutes: 750 });
+    expect(model.createUserBook).not.toHaveBeenCalled();
+    expect(model.updateUserBookState).toHaveBeenCalledWith(
+      USER,
+      "ub-1",
+      { status: TO_READ, formats: [EBOOK, BookFormat.AUDIO] },
+      "tx",
+    );
+  });
+
+  it("passes it on from a manual add", async () => {
+    vi.mocked(findOrCreateManualBook).mockResolvedValue({ id: "book-1" } as never);
+    model.createUserBook.mockResolvedValue(book(TO_READ, [BookFormat.AUDIO]));
+    await service.addManualBook(USER, { title: "T", authors: ["A"] }, [BookFormat.AUDIO], undefined, undefined, 45);
+    expect(model.createUserBook).toHaveBeenCalledWith(expect.objectContaining({ audioMinutes: 45 }), "tx");
   });
 });
 
@@ -269,15 +384,17 @@ describe("updateStatus: the read history table", () => {
     expect(model.updateUserBookState).toHaveBeenCalledWith(USER, "ub-1", { status: DNF, formats }, "tx");
   });
 
-  it("a single move to DNF records today as the end date", async () => {
-    vi.useFakeTimers({ now: AT, toFake: ["Date"] });
-    try {
-      model.findUserBook.mockResolvedValue(book(TO_READ, [EBOOK]));
-      await service.updateStatus(USER, "ub-1", DNF);
-      expect(reads.createReads).toHaveBeenCalledWith([{ userBookId: "ub-1", endedAt: AT, outcome: "DNF" }], "tx");
-    } finally {
-      vi.useRealTimers();
-    }
+  it("a single move records no date: the move isn't when the book was finished or given up", async () => {
+    model.findUserBook.mockResolvedValue(book(TO_READ, [EBOOK]));
+    await service.updateStatus(USER, "ub-1", DNF);
+    expect(reads.createReads).toHaveBeenCalledWith([{ userBookId: "ub-1", endedAt: null, outcome: "DNF" }], "tx");
+  });
+
+  it("closes the current read with no date on a single move", async () => {
+    model.findUserBook.mockResolvedValue(book(READING, [EBOOK]));
+    reads.findChangeableReads.mockResolvedValue([read("open", null)]);
+    await service.updateStatus(USER, "ub-1", FINISHED);
+    expect(reads.closeReads).toHaveBeenCalledWith(USER, ["open"], "FINISHED", null, "tx");
   });
 
   it("Reading → TBR discards only the current read", async () => {
@@ -440,9 +557,12 @@ describe("listShelfPage", () => {
       authors: ["A"],
       coverUrl: null,
       pageCount: 200,
+      audioMinutes: null,
       readDates: {},
       latestRead: null,
       earlierReads: 0,
+      pastReads: [],
+      acquiredValues: {},
     });
     expect([page, pageCount]).toEqual([2, 3]);
     expect(model.listUserBooks).toHaveBeenCalledWith(
@@ -506,6 +626,85 @@ describe("listShelfPage", () => {
     expect(books[1]).toMatchObject({ latestRead: {}, earlierReads: 0 });
   });
 
+  it("shows the most recent read as latest, and lists earlier finished reads", async () => {
+    model.countUserBooks.mockResolvedValue(1);
+    model.listUserBooks.mockResolvedValue([
+      {
+        ...row("reread"),
+        status: FINISHED,
+        // Entered newest first, as the query returns them.
+        readThroughs: [
+          dated("added-2019", "FINISHED", "2019-03-01", "2026-11-14"),
+          dated("gave-up", "DNF", "2022-01-01", "2022-01-01"),
+          dated("read-2024", "FINISHED", "2024-05-01", "2024-05-01"),
+        ],
+      },
+    ] as never);
+    const [shelfBook] = (await service.listShelfPage(USER, {})).books;
+    expect(shelfBook.latestRead?.ended?.date).toEqual(new Date("2024-05-01T00:00:00Z"));
+    expect(shelfBook.earlierReads).toBe(2);
+    expect(shelfBook.pastReads).toEqual([
+      { id: "added-2019", values: { endedYear: "2019", endedMonth: "03", endedDay: "01" } },
+    ]);
+  });
+
+  it.each([
+    ["acquired-asc", { by: "acquired", direction: "asc" }],
+    ["added-asc", { by: "added", direction: "asc" }],
+    ["title-asc", { by: "title", direction: "asc" }],
+    ["title-desc", { by: "title", direction: "desc" }],
+  ] as const)("passes sort=%s to the query", async (sort, order) => {
+    showing(1);
+    await service.listShelfPage(USER, { status: TO_READ, sort });
+    expect(model.listUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining({ sort: order }));
+  });
+
+  it("orders Finished by read dates, then loads only the page's books, in that order", async () => {
+    const withReads = (id: string, ended: string | null, added = "2024-01-01") => ({
+      id,
+      addedAt: new Date(`${added}T00:00:00Z`),
+      readThroughs: [dated(`${id}-read`, "FINISHED", ended)],
+    });
+    model.listUserBookReadDates.mockResolvedValue([
+      withReads("a-2020", "2020-01-01"),
+      withReads("b-none", null),
+      withReads("c-2024", "2024-01-01"),
+      withReads("d-2022", "2022-01-01"),
+    ] as never);
+    // Returned in another order: the service puts them back in sort order.
+    model.findUserBooksWithCatalog.mockResolvedValue([row("d-2022"), row("c-2024")] as never);
+
+    const shelf = await service.listShelfPage(USER, { status: FINISHED, sort: "read-desc" }, 1, 10);
+    expect(model.findUserBooksWithCatalog).toHaveBeenCalledWith(USER, ["c-2024", "d-2022", "a-2020", "b-none"]);
+    expect(shelf.books.map(({ id }) => id)).toEqual(["c-2024", "d-2022"]);
+    expect(shelf).toMatchObject({ total: 4, pageCount: 1 });
+    expect(model.countUserBooks).not.toHaveBeenCalled();
+    expect(model.listUserBooks).not.toHaveBeenCalled();
+  });
+
+  it("pages through books ordered by read dates", async () => {
+    model.listUserBookReadDates.mockResolvedValue(
+      Array.from({ length: 12 }, (_, index) => ({
+        id: `b${index}`,
+        addedAt: new Date("2024-01-01T00:00:00Z"),
+        readThroughs: [dated(`r${index}`, "FINISHED", `20${String(10 + index)}-01-01`)],
+      })) as never,
+    );
+    model.findUserBooksWithCatalog.mockResolvedValue([] as never);
+    const shelf = await service.listShelfPage(USER, { status: FINISHED, sort: "read-asc" }, 2, 10);
+    expect(model.findUserBooksWithCatalog).toHaveBeenCalledWith(USER, ["b10", "b11"]);
+    expect(shelf).toMatchObject({ page: 2, pageCount: 2, total: 12, firstIndex: 11 });
+  });
+
+  it("gives the edit form a stored acquired date as text", async () => {
+    model.countUserBooks.mockResolvedValue(1);
+    model.listUserBooks.mockResolvedValue([
+      { ...row("bought"), acquiredAt: new Date("2019-03-01T00:00:00Z"), acquiredAtPrecision: "MONTH" },
+    ] as never);
+    const [shelfBook] = (await service.listShelfPage(USER, {})).books;
+    expect(shelfBook.acquiredValues).toEqual({ acquiredYear: "2019", acquiredMonth: "03" });
+  });
+
   it("reports which books of the total the page shows", async () => {
     showing(65);
     await expect(service.listShelfPage(USER, {}, 3)).resolves.toMatchObject({ total: 65, firstIndex: 61 });
@@ -555,7 +754,8 @@ describe("editUserBook", () => {
   beforeEach(() => {
     model.updateEditedUserBook.mockResolvedValue(book(READING) as never);
     reads.findChangeableReads.mockResolvedValue([] as never);
-    reads.findLatestRead.mockResolvedValue({ id: "read-1" } as never);
+    reads.findBookReads.mockResolvedValue([dated("read-1", null, null)] as never);
+    reads.updateBookReadDates.mockResolvedValue(1);
   });
 
   it("saves the reader's details on their own book, never the catalog", async () => {
@@ -574,8 +774,32 @@ describe("editUserBook", () => {
       authors: ["Ann Lee", "Bo Kim"],
       authorSearch: "|ann lee|bo kim|",
       coverUrl: "https://example.test/mine.jpg",
+      audioMinutes: null,
+      acquiredAt: null,
+      acquiredAtPrecision: "DAY",
     });
-    expect(reads.updateReadDates).not.toHaveBeenCalled();
+    expect(reads.updateBookReadDates).not.toHaveBeenCalled();
+  });
+
+  it("saves the acquired date, and clears it when left out", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(TO_READ));
+    const acquired = { date: new Date("2020-03-01T00:00:00Z"), precision: "MONTH" as const };
+    await service.editUserBook(USER, "ub-1", { formats: [EBOOK], acquired, dates: {} });
+    expect(saved()).toMatchObject({ acquiredAt: acquired.date, acquiredAtPrecision: "MONTH" });
+
+    model.updateEditedUserBook.mockClear();
+    await service.editUserBook(USER, "ub-1", { formats: [EBOOK], dates: {} });
+    expect(saved()).toMatchObject({ acquiredAt: null, acquiredAtPrecision: "DAY" });
+  });
+
+  it("saves an audiobook's length, and clears it when left out", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(TO_READ));
+    await service.editUserBook(USER, "ub-1", { formats: [BookFormat.AUDIO], audioMinutes: 750, dates: {} });
+    expect(saved()).toMatchObject({ audioMinutes: 750 });
+
+    model.updateEditedUserBook.mockClear();
+    await service.editUserBook(USER, "ub-1", { formats: [BookFormat.AUDIO], dates: {} });
+    expect(saved()).toMatchObject({ audioMinutes: null });
   });
 
   it("keeps nothing when the details match the catalog", async () => {
@@ -599,8 +823,9 @@ describe("editUserBook", () => {
   it("sets the dates on the latest read", async () => {
     model.findUserBookWithCatalog.mockResolvedValue(stored(READING));
     await service.editUserBook(USER, "ub-1", { formats: [PHYSICAL], status: READING, dates });
-    expect(reads.updateReadDates).toHaveBeenCalledWith(
+    expect(reads.updateBookReadDates).toHaveBeenCalledWith(
       USER,
+      "ub-1",
       "read-1",
       { startedAt: AT, startedAtPrecision: "DAY" },
       "tx",
@@ -609,13 +834,85 @@ describe("editUserBook", () => {
 
   it("clears a finish date left blank", async () => {
     model.findUserBookWithCatalog.mockResolvedValue(stored(FINISHED));
+    reads.findBookReads.mockResolvedValue([dated("read-1", "FINISHED", "2024-05-01")] as never);
     await service.editUserBook(USER, "ub-1", { formats: [PHYSICAL], status: FINISHED, dates });
-    expect(reads.updateReadDates).toHaveBeenCalledWith(
+    expect(reads.updateBookReadDates).toHaveBeenCalledWith(
       USER,
+      "ub-1",
       "read-1",
       expect.objectContaining({ startedAt: AT, endedAt: null }),
       "tx",
     );
+  });
+
+  it("dates the latest read by date, not a past read entered later", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(FINISHED));
+    reads.findBookReads.mockResolvedValue([
+      dated("past-2019", "FINISHED", "2019-01-01", "2026-11-14"),
+      dated("read-2024", "FINISHED", "2024-05-01", "2024-05-01"),
+    ] as never);
+    await service.editUserBook(USER, "ub-1", { formats: [PHYSICAL], status: FINISHED, dates });
+    expect(reads.updateBookReadDates).toHaveBeenCalledWith(USER, "ub-1", "read-2024", expect.anything(), "tx");
+  });
+
+  it("dates the read a status change closed, even with a past read entered later", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(READING));
+    reads.findChangeableReads.mockResolvedValue([read("open-read", null)] as never);
+    reads.findBookReads.mockResolvedValue([dated("past-2019", "FINISHED", "2019-01-01", "2026-11-14")] as never);
+    await service.editUserBook(USER, "ub-1", { formats: [PHYSICAL], status: FINISHED, dates });
+    expect(reads.closeReads).toHaveBeenCalledWith(USER, ["open-read"], "FINISHED", null, "tx");
+    expect(reads.updateBookReadDates).toHaveBeenCalledWith(USER, "ub-1", "open-read", expect.anything(), "tx");
+  });
+
+  it("corrects an earlier read and adds a new one, without changing status or formats", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(FINISHED));
+    reads.findBookReads.mockResolvedValue([
+      dated("read-2024", "FINISHED", "2024-05-01"),
+      dated("read-2019", "FINISHED", "2019-01-01"),
+    ] as never);
+    const year = (iso: string) => ({ date: new Date(`${iso}T00:00:00Z`), precision: "YEAR" as const });
+    await service.editUserBook(USER, "ub-1", {
+      formats: [PHYSICAL],
+      status: FINISHED,
+      dates: {},
+      pastReads: [{ id: "read-2019", dates: { ended: year("2018-01-01") } }, { dates: { ended: year("2015-01-01") } }],
+    });
+    expect(reads.updateBookReadDates).toHaveBeenCalledWith(
+      USER,
+      "ub-1",
+      "read-2019",
+      expect.objectContaining({ endedAt: year("2018-01-01").date, endedAtPrecision: "YEAR" }),
+      "tx",
+    );
+    expect(reads.createReads).toHaveBeenCalledWith(
+      [expect.objectContaining({ userBookId: "ub-1", outcome: "FINISHED", endedAt: year("2015-01-01").date })],
+      "tx",
+    );
+    expect(saved()).toMatchObject({ status: FINISHED, formats: [PHYSICAL] });
+  });
+
+  it("refuses an earlier read that isn't one of this book's finished reads", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(FINISHED));
+    reads.findBookReads.mockResolvedValue([dated("read-2024", "FINISHED", "2024-05-01")] as never);
+    await expect(
+      service.editUserBook(USER, "ub-1", {
+        formats: [PHYSICAL],
+        status: FINISHED,
+        dates: {},
+        pastReads: [{ id: "someone-elses-read", dates: {} }],
+      }),
+    ).rejects.toThrow(NotFoundError);
+  });
+
+  it("ignores earlier reads unless the book is finished", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(READING));
+    await service.editUserBook(USER, "ub-1", {
+      formats: [PHYSICAL],
+      status: READING,
+      dates: {},
+      pastReads: [{ dates: {} }],
+    });
+    expect(reads.createReads).not.toHaveBeenCalled();
   });
 
   it("rejects someone else's book", async () => {
@@ -644,14 +941,29 @@ describe("moveUserBook", () => {
   beforeEach(() => {
     model.updateUserBookState.mockResolvedValue(book(READING) as never);
     reads.findChangeableReads.mockResolvedValue([] as never);
-    reads.findLatestRead.mockResolvedValue({ id: "read-2" } as never);
+    reads.findNewestRead.mockResolvedValue({ id: "read-2" } as never);
+    reads.updateBookReadDates.mockResolvedValue(1);
   });
 
   it("opens a new read for a reread and dates only that one", async () => {
     model.findUserBook.mockResolvedValue(book(FINISHED));
     await service.moveUserBook(USER, "ub-1", READING, { started });
     expect(reads.createReads).toHaveBeenCalledWith([expect.objectContaining({ userBookId: "ub-1" })], "tx");
-    expect(reads.updateReadDates).toHaveBeenCalledWith(USER, "read-2", { startedAt: AT, startedAtPrecision: "DAY" }, "tx");
+    expect(reads.updateBookReadDates).toHaveBeenCalledWith(
+      USER,
+      "ub-1",
+      "read-2",
+      { startedAt: AT, startedAtPrecision: "DAY" },
+      "tx",
+    );
+  });
+
+  it("dates the open read it finishes, not the newest entry", async () => {
+    model.findUserBook.mockResolvedValue(book(READING));
+    reads.findChangeableReads.mockResolvedValue([read("open-read", null)] as never);
+    await service.moveUserBook(USER, "ub-1", FINISHED, { started });
+    expect(reads.findNewestRead).not.toHaveBeenCalled();
+    expect(reads.updateBookReadDates).toHaveBeenCalledWith(USER, "ub-1", "open-read", expect.anything(), "tx");
   });
 
   it("rejects a move the rules don't allow", async () => {

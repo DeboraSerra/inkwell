@@ -4,7 +4,7 @@ import { ReadingStatus } from "@/generated/prisma/enums";
 
 describe("parseShelfFilters", () => {
   it("defaults to TBR with no filters", () => {
-    expect(parseShelfFilters({})).toEqual({ shelf: "tbr", status: "TO_READ", formats: [], search: "", page: 1 });
+    expect(parseShelfFilters({})).toEqual({ shelf: "tbr", status: "TO_READ", formats: [], search: "", page: 1, sort: "acquired-desc" });
   });
 
   it.each([
@@ -90,21 +90,16 @@ describe("moveDateValues", () => {
     expect(moveDateValues(at(ReadingStatus.FINISHED), ReadingStatus.READING, today)).toEqual(todayAs("started"));
   });
 
-  it("keeps the start date when finishing the current read", () => {
-    expect(moveDateValues(at(ReadingStatus.READING), ReadingStatus.FINISHED, today)).toEqual({
-      ...readDates,
-      ...todayAs("ended"),
-    });
+  it("keeps the start date when finishing the current read, and leaves the finish empty", () => {
+    expect(moveDateValues(at(ReadingStatus.READING), ReadingStatus.FINISHED, today)).toEqual(readDates);
   });
 
   it("keeps the dates when a DNF read is picked up again", () => {
     expect(moveDateValues(at(ReadingStatus.DNF), ReadingStatus.READING, today)).toEqual(readDates);
   });
 
-  it("leaves the start empty when a book goes straight to Finished", () => {
-    expect(moveDateValues({ ...at(ReadingStatus.WISHLIST), readDates: {} }, ReadingStatus.FINISHED, today)).toEqual(
-      todayAs("ended"),
-    );
+  it("leaves both dates empty when a book goes straight to Finished", () => {
+    expect(moveDateValues({ ...at(ReadingStatus.WISHLIST), readDates: {} }, ReadingStatus.FINISHED, today)).toEqual({});
   });
 });
 
@@ -191,5 +186,45 @@ describe("page size", () => {
     [0, 10, 1],
   ])("keeps book %i in view at %i per page, on page %i", (position, size, page) => {
     expect(pageHolding(position, size)).toBe(page);
+  });
+});
+
+describe("sort", () => {
+  it.each(["added-desc", "added-asc", "acquired-asc", "title-asc", "title-desc"])("reads sort=%s", (sort) => {
+    expect(parseShelfFilters({ sort }).sort).toBe(sort);
+  });
+
+  it.each(["read-desc", "read-asc"])("reads sort=%s on Finished only", (sort) => {
+    expect(parseShelfFilters({ shelf: "finished", sort }).sort).toBe(sort);
+    for (const shelf of ["tbr", "wishlist", "reading", "dnf"]) {
+      expect(parseShelfFilters({ shelf, sort }).sort).toBe("acquired-desc");
+    }
+  });
+
+  it.each(["", "added", "acquired", "title", "read", "__proto__"])("falls back to the shelf's default for %j", (sort) => {
+    expect(parseShelfFilters({ sort }).sort).toBe("acquired-desc");
+    expect(parseShelfFilters({ shelf: "finished", sort }).sort).toBe("read-desc");
+  });
+
+  it("defaults Finished to newest read and every other shelf to newest purchase", () => {
+    expect(parseShelfFilters({ shelf: "finished" }).sort).toBe("read-desc");
+    for (const shelf of ["tbr", "wishlist", "reading", "dnf"]) {
+      expect(parseShelfFilters({ shelf }).sort).toBe("acquired-desc");
+    }
+  });
+
+  it("keeps the sort in shelf links, leaving out the shelf's own default", () => {
+    const href = shelfHref({ shelf: "tbr", formats: [], search: "", sort: "acquired-asc" });
+    expect(href).toBe("/books/shelves?shelf=tbr&sort=acquired-asc");
+    expect(shelfHref({ shelf: "tbr", formats: [], search: "", sort: "acquired-desc" })).toBe("/books/shelves?shelf=tbr");
+    expect(shelfHref({ shelf: "finished", formats: [], search: "", sort: "read-desc" })).toBe("/books/shelves?shelf=finished");
+    expect(shelfHref({ shelf: "finished", formats: [], search: "", sort: "acquired-desc" })).toBe(
+      "/books/shelves?shelf=finished&sort=acquired-desc",
+    );
+    expect(parseShelfFilters(searchParamsRecord(new URL(href, "http://x").searchParams)).sort).toBe("acquired-asc");
+  });
+
+  it("ignores the old acquired filter in a URL", () => {
+    expect(parseShelfFilters({ acquired: "2024" })).not.toHaveProperty("acquired");
   });
 });

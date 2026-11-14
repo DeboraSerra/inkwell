@@ -92,3 +92,23 @@ describe("parseAmazonImport docs", () => {
     expect(parsed?.books[0].authors).toEqual(["Ann Lee", "Bo Kim"]);
   });
 });
+
+describe("acquired dates", () => {
+  it.each(["books", "docs"] as const)("reads Amazon's acquired text on %s rows", (kind) => {
+    const parsed = parseAmazonImport({ kind, books: [{ ...row, acquiredText: "Acquired on October 5, 2021" }] });
+    const [first] = parsed?.books ?? [];
+    expect(first).toMatchObject({ acquired: { date: new Date("2021-10-05T00:00:00Z"), precision: "DAY" } });
+    expect(first).not.toHaveProperty("acquiredText");
+  });
+
+  it.each([
+    ["text that isn't a date", "Recently"],
+    ["a future date", "Acquired on January 1, 2999"],
+    ["something that isn't text", 42],
+    ["text that's too long", `October 5, 2021 ${"x".repeat(300)}`],
+  ])("keeps the book but drops %s", (_name, acquiredText) => {
+    const parsed = parseAmazonImport({ books: [{ ...row, acquiredText }] });
+    expect(parsed?.skipped).toBe(0);
+    expect(parsed?.books[0]?.acquired).toBeUndefined();
+  });
+});

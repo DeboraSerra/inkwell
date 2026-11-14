@@ -17,7 +17,7 @@ const errorFor = (fields: Record<string, string | string[]>) => {
 describe("parseManualBook", () => {
   it("accepts just a title and an author, with no formats", () => {
     const result = parseManualBook(form({ ...valid, subtitle: "", coverUrl: "", pageCount: "", isbn: "" }));
-    expect(result.data).toEqual({ title: "The Hobbit", authors: ["J.R.R. Tolkien"], formats: [], dates: {} });
+    expect(result.data).toEqual({ title: "The Hobbit", authors: ["J.R.R. Tolkien"], formats: [], dates: {}, pastReads: [] });
   });
 
   it("parses every field", () => {
@@ -41,6 +41,7 @@ describe("parseManualBook", () => {
       isbn: "978-0-261-10221-7",
       formats: ["PHYSICAL", "AUDIO"],
       dates: {},
+      pastReads: [],
     });
   });
 
@@ -124,5 +125,116 @@ describe("manualBookValues", () => {
     const data = form({ title: "x", formats: ["EBOOK"] });
     data.append("authors", new File(["a"], "a.txt"));
     expect(manualBookValues(data)).toMatchObject({ title: "x", authors: "", formats: ["EBOOK"] });
+  });
+});
+
+describe("parseManualBook audiobook length", () => {
+  const audio = { ...valid, formats: ["AUDIO"] };
+
+  it("turns hours and minutes into minutes for an audiobook", () => {
+    const parsed = parseManualBook(form({ ...audio, audioHours: "12", audioMinutes: "30" }));
+    expect(parsed.success && parsed.data.audioMinutes).toBe(750);
+  });
+
+  it("leaves the length out when both parts are empty", () => {
+    const parsed = parseManualBook(form({ ...audio, audioHours: "", audioMinutes: "" }));
+    expect(parsed.success && parsed.data.audioMinutes).toBeUndefined();
+  });
+
+  it("ignores a length when the book isn't owned as an audiobook", () => {
+    const parsed = parseManualBook(form({ ...valid, formats: ["EBOOK"], audioHours: "999" }));
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.audioMinutes).toBeUndefined();
+  });
+
+  it.each([
+    [{ audioHours: "201" }, "at most 200 hours"],
+    [{ audioHours: "1", audioMinutes: "75" }, "0 to 59"],
+    [{ audioHours: "x" }, "whole hours and minutes"],
+  ])("rejects %j", (fields, message) => {
+    const parsed = parseManualBook(form({ ...audio, ...fields }));
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues[0].message).toContain(message);
+  });
+
+  it("keeps the typed length for a rejected form", () => {
+    expect(manualBookValues(form({ ...audio, audioHours: "1", audioMinutes: "99" }))).toMatchObject({
+      audioHours: "1",
+      audioMinutes: "99",
+    });
+  });
+});
+
+describe("past reads", () => {
+  const finished = { ...valid, status: "FINISHED" };
+  const pastReadsOf = (fields: Record<string, string>) => {
+    const parsed = parseManualBook(form({ ...finished, ...fields }));
+    return parsed.success ? parsed.data.pastReads : parsed.error.issues[0].message;
+  };
+
+  it("reads each extra set of dates as another finished read", () => {
+    const pastReads = pastReadsOf({ pastRead1EndedYear: "2019", pastRead2StartedYear: "2015", pastRead2EndedYear: "2016" });
+    expect(pastReads).toHaveLength(2);
+    expect(pastReads).toMatchObject([
+      { dates: { ended: { precision: "YEAR" } } },
+      { dates: { started: { precision: "YEAR" }, ended: { precision: "YEAR" } } },
+    ]);
+  });
+
+  it("skips a new set left empty, so + pressed by mistake adds nothing", () => {
+    expect(pastReadsOf({ pastRead1EndedYear: "2019", pastRead2EndedYear: "" })).toHaveLength(1);
+  });
+
+  it("keeps an existing read's id, even with its dates cleared", () => {
+    expect(pastReadsOf({ pastRead1Id: "read-1" })).toEqual([{ id: "read-1", dates: { started: undefined, ended: undefined } }]);
+  });
+
+  it("checks each set's dates like the first", () => {
+    expect(pastReadsOf({ pastRead1StartedYear: "2020", pastRead1EndedYear: "2019" })).toBe(
+      "The start date can't be after the finish date.",
+    );
+    expect(pastReadsOf({ pastRead1EndedYear: "3000" })).toEqual(expect.stringContaining("future"));
+  });
+
+  it("ignores past reads unless the book is already read", () => {
+    const parsed = parseManualBook(form({ ...valid, status: "READING", pastRead1EndedYear: "2019" }));
+    expect(parsed.success && parsed.data.pastReads).toEqual([]);
+  });
+
+  it("ignores fields past the 20th set", () => {
+    expect(pastReadsOf({ pastRead21EndedYear: "2019" })).toEqual([]);
+  });
+
+  it("keeps the typed sets for a rejected form", () => {
+    expect(manualBookValues(form({ ...finished, pastRead1EndedYear: "2019", other: "x" })).pastReads).toEqual({
+      pastRead1EndedYear: "2019",
+    });
+  });
+});
+
+describe("acquired date", () => {
+  const owned = { ...valid, formats: ["PHYSICAL"] };
+
+  it("accepts a year alone, or a full date", () => {
+    const year = parseManualBook(form({ ...owned, acquiredYear: "2019" }));
+    expect(year.success && year.data.acquired).toMatchObject({ precision: "YEAR" });
+    const full = parseManualBook(form({ ...owned, acquiredDay: "5", acquiredMonth: "10", acquiredYear: "2021" }));
+    expect(full.success && full.data.acquired).toEqual({ date: new Date("2021-10-05T00:00:00Z"), precision: "DAY" });
+  });
+
+  it("is left out when empty, and rejects a future date", () => {
+    const empty = parseManualBook(form(owned));
+    expect(empty.success && empty.data.acquired).toBeUndefined();
+    expect(errorFor({ formats: ["PHYSICAL"], acquiredYear: "2999" })).toContain("Acquired date");
+  });
+
+  it("ignores the date, even an invalid one, when no format is ticked", () => {
+    const parsed = parseManualBook(form({ ...valid, acquiredYear: "2999" }));
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.acquired).toBeUndefined();
+  });
+
+  it("keeps the typed date for a rejected form", () => {
+    expect(manualBookValues(form({ ...valid, acquiredYear: "2019" }))).toMatchObject({ acquiredYear: "2019" });
   });
 });

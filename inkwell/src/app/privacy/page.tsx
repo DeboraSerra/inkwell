@@ -44,8 +44,8 @@ export default function PrivacyPage() {
       <Section title='Your library'>
         <p>
           Inkwell stores the books you add, and for each one the list it’s on, the formats you own,
-          your read dates, and any cover, authors or page count you edit. Only you can see your
-          library.
+          your read dates, when you got it, an audiobook’s length, and any cover, authors or page
+          count you edit. Only you can see your library.
         </p>
         <p>
           When you look up a book by ISBN or search for one, the ISBN or the words you typed are sent
@@ -58,7 +58,8 @@ export default function PrivacyPage() {
         <p>
           The Inkwell Kindle import extension for Chrome runs only when you click it, and only on
           the page you clicked it on. On Amazon’s “Manage Your Content and Devices” list, it reads
-          each item’s title, authors, cover image address and Amazon identifier (ASIN). It sends
+          each item’s title, authors, cover image address, Amazon identifier (ASIN) and the date
+          you acquired it. It sends
           them to your Inkwell address, using the API token you created in Inkwell’s settings, to
           add them to your library. Personal documents from the Docs tab are kept private to you.
         </p>

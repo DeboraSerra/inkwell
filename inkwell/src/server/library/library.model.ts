@@ -1,6 +1,6 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
-import type { BookFormat, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
+import type { BookFormat, DatePrecision, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
 import { prisma, type Db } from "@/server/db";
 import type { ReadingState } from "./status.rules";
 
@@ -36,7 +36,14 @@ export function findUserBookWithCatalog(userId: string, userBookId: string, db: 
 // Returns null when the user already has this book. Uses ON CONFLICT rather
 // than catching a unique-key error, which would abort a surrounding transaction.
 export async function createUserBook(
-  data: { userId: string; bookId: string; source: UserBookSource } & ReadingState,
+  data: {
+    userId: string;
+    bookId: string;
+    source: UserBookSource;
+    audioMinutes?: number | null;
+    acquiredAt?: Date | null;
+    acquiredAtPrecision?: DatePrecision;
+  } & ReadingState,
   db: Db = prisma,
 ) {
   const created = await db.userBook.createManyAndReturn({
@@ -59,6 +66,8 @@ export type UserBookFilter = {
 };
 
 export type UserBookQuery = UserBookFilter & {
+  // By date added (the default, newest first), purchase date or title.
+  sort?: { by: "added" | "acquired" | "title"; direction: "asc" | "desc" };
   take: number;
   cursor?: string;
   skip?: number;
@@ -95,18 +104,60 @@ const userBookWhere = (userId: string, query: UserBookFilter) => {
   } satisfies Prisma.UserBookWhereInput;
 };
 
+// Books with no purchase date go last whichever way purchase dates run; the id
+// keeps pages stable when dates tie.
+const userBookOrder = (
+  sort: UserBookQuery["sort"] = { by: "added", direction: "desc" },
+): Prisma.UserBookOrderByWithRelationInput[] => {
+  if (sort.by === "acquired") {
+    return [{ acquiredAt: { sort: sort.direction, nulls: "last" } }, { addedAt: "desc" }, { id: "asc" }];
+  }
+  // The title is the catalog's; a reader can't change it.
+  if (sort.by === "title") return [{ book: { title: sort.direction } }, { id: "asc" }];
+  return [{ addedAt: sort.direction }, { id: "asc" }];
+};
+
 export function listUserBooks(userId: string, query: UserBookQuery, db: Db = prisma) {
   return db.userBook.findMany({
     where: userBookWhere(userId, query),
     include: withCatalog,
-    orderBy: [{ addedAt: "desc" }, { id: "asc" }],
+    orderBy: userBookOrder(query.sort),
     take: query.take,
     ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : { skip: query.skip }),
   });
 }
 
+// Every matching book with only what ordering by read dates needs, for the
+// orders the database can't do itself (by a date on the book's reads).
+export function listUserBookReadDates(userId: string, query: UserBookFilter, db: Db = prisma) {
+  return db.userBook.findMany({
+    where: userBookWhere(userId, query),
+    select: {
+      id: true,
+      addedAt: true,
+      readThroughs: { select: { outcome: true, startedAt: true, endedAt: true, createdAt: true } },
+    },
+  });
+}
+
+// These books with their catalog details, in no particular order.
+export function findUserBooksWithCatalog(userId: string, userBookIds: string[], db: Db = prisma) {
+  return db.userBook.findMany({ where: { id: { in: userBookIds }, userId }, include: withCatalog });
+}
+
 export function countUserBooks(userId: string, query: UserBookFilter, db: Db = prisma) {
   return db.userBook.count({ where: userBookWhere(userId, query) });
+}
+
+// When the reader got the book. Only this column changes, so the shelf order
+// (addedAt), status and reads stay as they are.
+export function updateAcquired(
+  userId: string,
+  userBookId: string,
+  acquired: { acquiredAt: Date | null; acquiredAtPrecision: DatePrecision },
+  db: Db = prisma,
+) {
+  return db.userBook.update({ where: { id: userBookId, userId }, data: acquired });
 }
 
 export function updateUserBookState(
@@ -129,6 +180,9 @@ export function updateEditedUserBook(
     authors: string[];
     authorSearch: string;
     coverUrl: string | null;
+    audioMinutes: number | null;
+    acquiredAt: Date | null;
+    acquiredAtPrecision: DatePrecision;
   },
   db: Db = prisma,
 ) {

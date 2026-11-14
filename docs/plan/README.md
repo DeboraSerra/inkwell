@@ -7,6 +7,7 @@
 | Users | Built for you alone, but every piece of data belongs to a user, so more people can sign up later. No social features. Login with Firebase Auth. |
 | Hosting | Vercel (Next.js) and Supabase Postgres, using Prisma |
 | Extension import | The extension POSTs the scraped list directly to an authenticated API endpoint |
+| Extension releases | One store release per batch of extension changes: a release step goes last, after every extension change the plan includes, since each submission waits for the store's review |
 | Re-import | Sync: add new books, match existing ones (ASIN, then ISBN, then normalized title + author), and only ever add a format. Never overwrite your status, dates or list order |
 | Lists | Five: **Wishlist, TBR, Reading, Finished, DNF**. The list is `UserBook.status`; lists are only views in the UI. A wishlist book moves to TBR as soon as it has a format |
 | Formats | A multi-value detail of the book, not a list: ebook, physical and/or audiobook. Filterable on every list |
@@ -33,8 +34,8 @@
    - **Fix: moving to DNF ✅ built:** Wishlist, TBR and Finished books can now move to DNF; not yet clicked through signed in
    - **Fix: searching a shelf jumps back to TBR ✅ built:** search keeps the shelf and filters, and clearing the box removes `?q=`; browser check still to do signed in
    - **Fix: `&amp;` in imported titles ✅ built:** imports decode entities; the backfill fixed 5 titles locally and 41 on Supabase
-   - **3e — Polish, before 4c:** ✅ show the account an import goes to (item 1); ✅ give the options page a favicon (item 2); ✅ redesign the options page (item 3); ✅ add a copy button for new API tokens (item 4, not yet clicked signed in); ✅ add a books-per-page select (5, 10, 20, 30, 50), default 10 on phones and 30 on desktop (item 5, not yet checked signed in); ✅ show the full title on hover (item 6); ✅ move to the next date part automatically (item 7); ✅ show read dates on shelf cards, with "+N" for earlier reads (item 8); add an audiobook length, add a past read without moving the book
-   - **3f — Purchase dates, after 3e:** save Amazon's acquired date as `UserBook.acquiredAt`, editable for hand-added books, filterable and sortable on the shelves
+   - **3e — Polish, before 4c:** ✅ show the account an import goes to (item 1); ✅ give the options page a favicon (item 2); ✅ redesign the options page (item 3); ✅ add a copy button for new API tokens (item 4, not yet clicked signed in); ✅ add a books-per-page select (5, 10, 20, 30, 50), default 10 on phones and 30 on desktop (item 5, not yet checked signed in); ✅ show the full title on hover (item 6); ✅ move to the next date part automatically (item 7); ✅ show read dates on shelf cards, with "+N" for earlier reads (item 8); ✅ add an audiobook length (item 9); ✅ add past reads from the dates area, with "latest" now by date (item 10); ✅ extension 2.2.0 built (item 11; screenshot retake and upload are the user's)
+   - **3f — Purchase dates, in progress:** app side built (column, parser, import, form field, and sorting by date added, purchase date, title, or last finished on Finished); the extension sends the date and 2.3.0 is built; deploying, the Chrome check, upload and re-import are the user's
 4. [Phase 4 — Search and ISBN](phase-4-adding-books.md) in progress; 4c follows 3e and 3f
    - 4a — Metadata providers (Open Library, Google Books) ✅ done, plus the per-user rate limit
    - 4b — Add by ISBN ✅ done, at `/books/new`

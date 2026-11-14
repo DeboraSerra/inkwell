@@ -58,11 +58,33 @@ export function deleteOpenReads(userId: string, userBookIds: string[], db: Db = 
   });
 }
 
-export function findLatestRead(userId: string, userBookId: string, db: Db = prisma) {
+// The read entered most recently, which is the one a status change just
+// created. "Latest" by date is decided in the service, from findBookReads.
+export function findNewestRead(userId: string, userBookId: string, db: Db = prisma) {
   return db.readThrough.findFirst({
     where: { userBookId, userBook: { userId } },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   });
+}
+
+export function findBookReads(userId: string, userBookId: string, db: Db = prisma) {
+  return db.readThrough.findMany({ where: { userBookId, userBook: { userId } } });
+}
+
+// Only a read of this book, belonging to this user, is changed. Returns how
+// many rows changed, which is 0 for anyone else's read.
+export async function updateBookReadDates(
+  userId: string,
+  userBookId: string,
+  readId: string,
+  dates: Pick<NewRead, "startedAt" | "startedAtPrecision" | "endedAt" | "endedAtPrecision">,
+  db: Db = prisma,
+) {
+  const { count } = await db.readThrough.updateMany({
+    where: { id: readId, userBookId, userBook: { userId } },
+    data: dates,
+  });
+  return count;
 }
 
 export function updateReadDates(

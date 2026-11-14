@@ -45,6 +45,8 @@ describe("every model function is scoped by userId", () => {
     ["createUserBook", () => model.createUserBook(newBook)],
     ["listUserBooks", () => model.listUserBooks(USER, { take: 10, formats: [BookFormat.EBOOK] })],
     ["countUserBooks", () => model.countUserBooks(USER, { formats: [BookFormat.EBOOK] })],
+    ["listUserBookReadDates", () => model.listUserBookReadDates(USER, { formats: [BookFormat.EBOOK] })],
+    ["findUserBooksWithCatalog", () => model.findUserBooksWithCatalog(USER, ["ub"])],
     ["updateUserBookState", () => model.updateUserBookState(USER, "ub", state)],
     ["updateUserBookStatuses", () => model.updateUserBookStatuses(USER, ["ub"], ReadingStatus.FINISHED)],
     ["findChangeableReads", () => reads.findChangeableReads(USER, ["ub"])],
@@ -80,6 +82,18 @@ describe("listUserBooks", () => {
   it("matches books owned in any of the formats", async () => {
     await model.listUserBooks(USER, { take: 10, formats: [BookFormat.EBOOK, BookFormat.AUDIO] });
     expect(calls[0].args.where).toMatchObject({ formats: { hasSome: ["EBOOK", "AUDIO"] } });
+  });
+
+  it.each([
+    [{ by: "acquired", direction: "desc" }, [{ acquiredAt: { sort: "desc", nulls: "last" } }, { addedAt: "desc" }, { id: "asc" }]],
+    [{ by: "acquired", direction: "asc" }, [{ acquiredAt: { sort: "asc", nulls: "last" } }, { addedAt: "desc" }, { id: "asc" }]],
+    [{ by: "added", direction: "asc" }, [{ addedAt: "asc" }, { id: "asc" }]],
+    [{ by: "title", direction: "asc" }, [{ book: { title: "asc" } }, { id: "asc" }]],
+    [{ by: "title", direction: "desc" }, [{ book: { title: "desc" } }, { id: "asc" }]],
+    [undefined, [{ addedAt: "desc" }, { id: "asc" }]],
+  ] as const)("orders by %j, with undated purchases last", async (sort, orderBy) => {
+    await model.listUserBooks(USER, { take: 10, sort });
+    expect((calls[0].args as unknown as { orderBy: unknown }).orderBy).toEqual(orderBy);
   });
 });
 
@@ -125,6 +139,9 @@ describe("removing and editing a book", () => {
       status: "TO_READ",
       formats: [],
       pageCount: 310,
+      audioMinutes: 750,
+      acquiredAt: null,
+      acquiredAtPrecision: "DAY",
       authors: [],
       authorSearch: "",
       coverUrl: null,
@@ -133,10 +150,13 @@ describe("removing and editing a book", () => {
   });
 
   it("scopes read dates by user", async () => {
-    await reads.findLatestRead(USER, "ub");
+    await reads.findNewestRead(USER, "ub");
+    await reads.findBookReads(USER, "ub");
     await reads.updateReadDates(USER, "r", { startedAt: null });
-    expect(calls[0].args.where).toMatchObject({ userBook: { userId: USER } });
-    expect(calls[1].args.where).toMatchObject({ userBook: { userId: USER } });
+    results.updateMany = [{ count: 1 }];
+    await expect(reads.updateBookReadDates(USER, "ub", "r", { startedAt: null })).resolves.toBe(1);
+    for (const call of calls) expect(call.args.where).toMatchObject({ userBook: { userId: USER } });
+    expect(calls[3].args.where).toMatchObject({ id: "r", userBookId: "ub" });
   });
 });
 

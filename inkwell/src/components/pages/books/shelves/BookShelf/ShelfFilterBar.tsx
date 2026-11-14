@@ -6,13 +6,22 @@ import { Input } from "@/components/ui/input";
 import { BookFormat } from "@/generated/prisma/enums";
 import { type ShelfFilters, shelfHref } from "@/server/library/shelf-filters";
 import { useRouter } from "next/navigation";
-import { type ChangeEvent, type SubmitEvent, useEffect, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type SubmitEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { FORMAT_LABELS } from "../formats";
+import { ShelfOrderControls } from "./ShelfOrderControls";
 
 // How long typing has to pause before the search runs.
 const SEARCH_DELAY_MS = 500;
 
-export function ShelfFilterBar({ filters }: Readonly<{ filters: ShelfFilters }>) {
+export function ShelfFilterBar({
+  filters,
+}: Readonly<{ filters: ShelfFilters }>) {
   const router = useRouter();
   const { shelf, formats, search } = filters;
   const [text, setText] = useState(search);
@@ -22,10 +31,20 @@ export function ShelfFilterBar({ filters }: Readonly<{ filters: ShelfFilters }>)
   const requested = useRef(search);
 
   const toggleFormat = (format: BookFormat, checked: boolean) => {
-    const next = checked ? [...formats, format] : formats.filter((item) => item !== format);
+    const next = checked
+      ? [...formats, format]
+      : formats.filter((item) => item !== format);
     // Includes what's typed but not searched yet.
     requested.current = text.trim();
-    router.push(shelfHref({ shelf, formats: next, search: requested.current, perPage: filters.perPage }));
+    router.push(
+      shelfHref({
+        shelf,
+        formats: next,
+        search: requested.current,
+        perPage: filters.perPage,
+        sort: filters.sort,
+      }),
+    );
   };
 
   // A search changed from outside (back and forward, a link) shows in the box.
@@ -38,10 +57,20 @@ export function ShelfFilterBar({ filters }: Readonly<{ filters: ShelfFilters }>)
 
   // A pending search runs on the shelf and filters showing when it fires, not
   // the ones it was typed on.
-  const current = useRef({ shelf, formats, perPage: filters.perPage });
+  const current = useRef({
+    shelf,
+    formats,
+    perPage: filters.perPage,
+    sort: filters.sort,
+  });
   useEffect(() => {
-    current.current = { shelf, formats, perPage: filters.perPage };
-  }, [shelf, formats, filters.perPage]);
+    current.current = {
+      shelf,
+      formats,
+      perPage: filters.perPage,
+      sort: filters.sort,
+    };
+  }, [shelf, formats, filters.perPage, filters.sort]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -60,7 +89,8 @@ export function ShelfFilterBar({ filters }: Readonly<{ filters: ShelfFilters }>)
     const { value } = event.currentTarget;
     setText(value);
     clearTimeout(timer.current);
-    if (value.trim()) timer.current = setTimeout(() => runSearch(value), SEARCH_DELAY_MS);
+    if (value.trim())
+      timer.current = setTimeout(() => runSearch(value), SEARCH_DELAY_MS);
     else runSearch("");
   };
 
@@ -72,9 +102,14 @@ export function ShelfFilterBar({ filters }: Readonly<{ filters: ShelfFilters }>)
   };
 
   return (
-    <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+    <div className='flex flex-col gap-3'>
       <search>
-        <form action='/books/shelves' method='get' onSubmit={submitSearch} className='flex gap-2 sm:w-80'>
+        <form
+          action='/books/shelves'
+          method='get'
+          onSubmit={submitSearch}
+          className='flex gap-2 sm:w-80'
+        >
           <input type='hidden' name='shelf' value={shelf} />
           {formats.map((format) => (
             <input key={format} type='hidden' name='format' value={format} />
@@ -90,21 +125,28 @@ export function ShelfFilterBar({ filters }: Readonly<{ filters: ShelfFilters }>)
         </form>
       </search>
 
-      <fieldset className='flex flex-wrap gap-x-4 gap-y-2'>
-        <legend className='sr-only'>Owned formats</legend>
-        {Object.values(BookFormat).map((format) => (
-          <Field key={format} orientation='horizontal' className='w-auto'>
-            <Checkbox
-              id={`filter-${format as string}`}
-              checked={formats.includes(format)}
-              onCheckedChange={(checked) => toggleFormat(format, checked)}
-            />
-            <FieldLabel htmlFor={`filter-${format as string}`} className='font-normal'>
-              {FORMAT_LABELS[format].title}
-            </FieldLabel>
-          </Field>
-        ))}
-      </fieldset>
+      <div className="flex justify-between items-center">
+        <fieldset className='flex flex-wrap gap-x-4 gap-y-2'>
+          <legend className='sr-only'>Owned formats</legend>
+          {Object.values(BookFormat).map((format) => (
+            <Field key={format} orientation='horizontal' className='w-auto'>
+              <Checkbox
+                id={`filter-${format as string}`}
+                checked={formats.includes(format)}
+                onCheckedChange={(checked) => toggleFormat(format, checked)}
+              />
+              <FieldLabel
+                htmlFor={`filter-${format as string}`}
+                className='font-normal'
+              >
+                {FORMAT_LABELS[format].title}
+              </FieldLabel>
+            </Field>
+          ))}
+        </fieldset>
+
+        <ShelfOrderControls />
+      </div>
     </div>
   );
 }

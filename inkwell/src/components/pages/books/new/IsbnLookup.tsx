@@ -32,6 +32,7 @@ import {
   useState,
   useTransition,
 } from "react";
+import { PartialDateField } from "@/components/PartialDateField";
 import { FormatsField } from "./FormatsField";
 import { applyIsbnFormat } from "./isbn-input";
 
@@ -118,6 +119,8 @@ function AddPreviewedBook({
     }
   }, [state, onAdded]);
 
+  // Whether a format is ticked, reported by FormatsField.
+  const [owned, setOwned] = useState(false);
   const inLibrary = Boolean(preview.inLibrary);
   const submitLabel = inLibrary ? "Add formats" : "Add book";
   return (
@@ -125,16 +128,25 @@ function AddPreviewedBook({
       <input type='hidden' name='isbn' value={preview.isbn13} />
       <FieldGroup>
         {inLibrary ? (
-          <FormatsField defaultValues={state.values?.formats} />
+          <FormatsField defaultValues={state.values?.formats} withLength={false} onOwnedChange={setOwned} />
         ) : (
           <div className='grid grid-cols-2 gap-5'>
-            <FormatsField defaultValues={state.values?.formats} />
+            <FormatsField defaultValues={state.values?.formats} audioLength={state.values} onOwnedChange={setOwned} />
             <StatusField values={state.values} />
           </div>
         )}
+        {/* Only an owned book was acquired, so this shows once a format is ticked. */}
+        {owned && (
+          <PartialDateField
+            name='acquired'
+            legend='Acquired'
+            values={{ acquiredDay: state.values?.acquiredDay, acquiredMonth: state.values?.acquiredMonth, acquiredYear: state.values?.acquiredYear }}
+          />
+        )}
         {inLibrary && (
           <FieldDescription>
-            Adding it again only adds the formats you tick.
+            Adding it again only adds the formats you tick, and the acquired
+            date when it's earlier than the one you have.
           </FieldDescription>
         )}
         <Field orientation='horizontal' className='flex justify-end'>

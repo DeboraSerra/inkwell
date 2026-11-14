@@ -3,8 +3,15 @@
 import { z } from "zod";
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import {
+  acquiredFields,
+  audioLengthFields,
+  audioLengthFor,
   coverUrlField,
   optional,
+  parseAcquired,
+  parsePastReads,
+  pastReadsField,
+  pastReadValues,
   pageCountField,
   parseReadDates,
   readDateFields,
@@ -39,6 +46,9 @@ const editBookSchema = z
     authors: optional(typedAuthorsField),
     coverUrl: coverUrlField,
     ...readDateFields,
+    ...audioLengthFields,
+    ...acquiredFields,
+    pastReads: pastReadsField,
   })
   .transform((data, ctx) => {
     const { dates, error } = parseReadDates(data.status, data);
@@ -46,15 +56,48 @@ const editBookSchema = z
       ctx.addIssue({ code: "custom", message: error ?? "Those dates aren't valid." });
       return z.NEVER;
     }
+    // Left empty, or no longer an audiobook, the stored length is removed.
+    const length = audioLengthFor(data.formats, data);
+    if (length.error) {
+      ctx.addIssue({ code: "custom", message: length.error });
+      return z.NEVER;
+    }
+    const past = parsePastReads(data.status, data.pastReads);
+    if (!past.pastReads) {
+      ctx.addIssue({ code: "custom", message: past.error ?? "Those dates aren't valid." });
+      return z.NEVER;
+    }
+    // Left empty, a stored acquired date is cleared.
+    const { acquired, error: acquiredError } = parseAcquired(data.formats, data);
+    if (acquiredError) {
+      ctx.addIssue({ code: "custom", message: acquiredError });
+      return z.NEVER;
+    }
     const { userBookId, formats, status, pageCount, authors, coverUrl } = data;
-    return { userBookId, formats, status, pageCount, authors, coverUrl, dates };
+    return {
+      acquired,
+      userBookId,
+      formats,
+      status,
+      pageCount,
+      authors,
+      coverUrl,
+      dates,
+      audioMinutes: length.minutes,
+      pastReads: past.pastReads,
+    };
   });
 
 export function parseEditBook(userBookId: string, formData: FormData) {
   const fields = Object.fromEntries(
-    [...formData.entries()].filter(([name]) => name !== "formats" && name !== "userBookId"),
+    [...formData.entries()].filter(([name]) => name !== "formats" && name !== "userBookId" && !name.startsWith("pastRead")),
   );
-  return editBookSchema.safeParse({ ...fields, userBookId, formats: formData.getAll("formats") });
+  return editBookSchema.safeParse({
+    ...fields,
+    userBookId,
+    formats: formData.getAll("formats"),
+    pastReads: pastReadValues(formData),
+  });
 }
 
 const moveBookSchema = z

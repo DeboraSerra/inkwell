@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { toIsbn13 } from "@/server/books/isbn";
-import { isAfter, parsePartialDate, type ReadDates } from "./partial-date.rules";
+import { parseAudioLength } from "./audio-length.rules";
+import { isAfter, type PartialDate, parsePartialDate, type ReadDates } from "./partial-date.rules";
 
 const MAX_AUTHORS = 25;
 
@@ -65,6 +66,96 @@ export function parseReadDates(status: ReadingStatus | undefined, text: ReadDate
   return { dates: { started: started.value, ended: ended.value } };
 }
 
+// When the reader got the book, typed like a read date: a year alone is fine.
+export const acquiredFields = {
+  acquiredDay: z.string().max(10).optional(),
+  acquiredMonth: z.string().max(10).optional(),
+  acquiredYear: z.string().max(10).optional(),
+};
+
+// Only an owned book was acquired: with no format ticked the field is hidden,
+// so anything left in it is ignored, and an edit then clears the stored date.
+export function parseAcquired(
+  formats: readonly BookFormat[],
+  text: { acquiredDay?: string; acquiredMonth?: string; acquiredYear?: string },
+): {
+  acquired?: PartialDate;
+  error?: string;
+} {
+  if (!formats.length) return {};
+  const { value, error } = parsePartialDate("Acquired date", {
+    day: text.acquiredDay,
+    month: text.acquiredMonth,
+    year: text.acquiredYear,
+  });
+  return error ? { error } : { acquired: value };
+}
+
+export const audioLengthFields = {
+  audioHours: z.string().max(10).optional(),
+  audioMinutes: z.string().max(10).optional(),
+};
+
+// The length only applies to a book owned as an audiobook; the field is hidden
+// otherwise, so anything left in it is ignored.
+export function audioLengthFor(
+  formats: readonly BookFormat[],
+  text: { audioHours?: string; audioMinutes?: string },
+): { minutes?: number; error?: string } {
+  if (!formats.includes(BookFormat.AUDIO)) return {};
+  return parseAudioLength(text.audioHours, text.audioMinutes);
+}
+
+// More finished reads of a book, from the date sets the form adds with its +
+// button: pastRead1StartedYear, pastRead1EndedMonth, pastRead1Id and so on.
+export const MAX_PAST_READS = 20;
+const PAST_READ_PARTS = ["StartedDay", "StartedMonth", "StartedYear", "EndedDay", "EndedMonth", "EndedYear", "Id"];
+
+export const pastReadsField = z.record(z.string().max(40), z.string().max(64)).optional();
+
+// The past-read fields a form sent, so a rejected form can keep them.
+export function pastReadValues(formData: FormData) {
+  const values: Record<string, string> = {};
+  for (let index = 1; index <= MAX_PAST_READS; index++) {
+    for (const part of PAST_READ_PARTS) {
+      const name = `pastRead${index}${part}`;
+      const value = formData.get(name);
+      if (typeof value === "string" && value) values[name] = value;
+    }
+  }
+  return values;
+}
+
+type PastReadInput = { id?: string; dates: ReadDates };
+
+// Only a finished book has past reads. A new set left empty is skipped, so
+// pressing + by mistake adds nothing; an existing read keeps its place even
+// when its dates are cleared.
+export function parsePastReads(
+  status: ReadingStatus | undefined,
+  text: Record<string, string> = {},
+): { pastReads?: PastReadInput[]; error?: string } {
+  if (status !== ReadingStatus.FINISHED) return { pastReads: [] };
+  const pastReads: PastReadInput[] = [];
+  for (let index = 1; index <= MAX_PAST_READS; index++) {
+    const field = (part: string) => text[`pastRead${index}${part}`];
+    const id = field("Id");
+    const dateText = {
+      startedDay: field("StartedDay"),
+      startedMonth: field("StartedMonth"),
+      startedYear: field("StartedYear"),
+      endedDay: field("EndedDay"),
+      endedMonth: field("EndedMonth"),
+      endedYear: field("EndedYear"),
+    };
+    if (!id && Object.values(dateText).every((value) => !value)) continue;
+    const { dates, error } = parseReadDates(ReadingStatus.FINISHED, dateText);
+    if (!dates) return { error: error ?? "Those dates aren't valid." };
+    pastReads.push({ ...(id && { id }), dates });
+  }
+  return { pastReads };
+}
+
 // Separated by semicolons, because a name can contain a comma ("Tolkien, J. R. R.").
 export const typedAuthorsField = authorsField((value) => value.split(";"));
 
@@ -83,14 +174,46 @@ const manualBookSchema = z.object({
   // Not started is left out: formats decide between Wishlist and TBR.
   status: readStatusField,
   ...readDateFields,
+  ...audioLengthFields,
+  ...acquiredFields,
+  pastReads: pastReadsField,
 }).transform((data, ctx) => {
-  const { startedDay, startedMonth, startedYear, endedDay, endedMonth, endedYear, ...book } = data;
+  const {
+    startedDay,
+    startedMonth,
+    startedYear,
+    endedDay,
+    endedMonth,
+    endedYear,
+    audioHours,
+    audioMinutes,
+    acquiredDay,
+    acquiredMonth,
+    acquiredYear,
+    pastReads: pastReadText,
+    ...book
+  } = data;
   const { dates, error } = parseReadDates(book.status, { startedDay, startedMonth, startedYear, endedDay, endedMonth, endedYear });
   if (!dates) {
     ctx.addIssue({ code: "custom", message: error ?? "Those dates aren't valid." });
     return z.NEVER;
   }
-  return { ...book, dates };
+  const length = audioLengthFor(book.formats, { audioHours, audioMinutes });
+  if (length.error) {
+    ctx.addIssue({ code: "custom", message: length.error });
+    return z.NEVER;
+  }
+  const past = parsePastReads(book.status, pastReadText);
+  if (!past.pastReads) {
+    ctx.addIssue({ code: "custom", message: past.error ?? "Those dates aren't valid." });
+    return z.NEVER;
+  }
+  const { acquired, error: acquiredError } = parseAcquired(book.formats, { acquiredDay, acquiredMonth, acquiredYear });
+  if (acquiredError) {
+    ctx.addIssue({ code: "custom", message: acquiredError });
+    return z.NEVER;
+  }
+  return { ...book, dates, audioMinutes: length.minutes, pastReads: past.pastReads, acquired };
 });
 
 export type ManualBookValues = {
@@ -108,6 +231,12 @@ export type ManualBookValues = {
   endedDay?: string;
   endedMonth?: string;
   endedYear?: string;
+  audioHours?: string;
+  audioMinutes?: string;
+  acquiredDay?: string;
+  acquiredMonth?: string;
+  acquiredYear?: string;
+  pastReads?: Record<string, string>;
 };
 
 const text = (formData: FormData, name: string) => {
@@ -131,6 +260,12 @@ export const manualBookValues = (formData: FormData): ManualBookValues => ({
   endedDay: text(formData, "endedDay"),
   endedMonth: text(formData, "endedMonth"),
   endedYear: text(formData, "endedYear"),
+  audioHours: text(formData, "audioHours"),
+  audioMinutes: text(formData, "audioMinutes"),
+  acquiredDay: text(formData, "acquiredDay"),
+  acquiredMonth: text(formData, "acquiredMonth"),
+  acquiredYear: text(formData, "acquiredYear"),
+  pastReads: pastReadValues(formData),
 });
 
 export function parseManualBook(formData: FormData) {

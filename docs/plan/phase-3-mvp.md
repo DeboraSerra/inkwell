@@ -198,7 +198,7 @@ Reported by the user on 2026-11-08: moving a book to DNF doesn't work.
 ### DNF fix outcome (2026-11-14)
 
 - **Rules:** `TRANSITIONS` in `status.rules.ts` gains Wishlist/TBR → DNF and Finished → DNF, both `addDnf`. `initialState` no longer special-cases DNF, since the table now covers it.
-- **Dates:** no service change was needed. A single move (`updateStatus`) already passes now as the end date, and a bulk move passes none. The edit dialog records no DNF date, as it has no DNF date fields.
+- **Dates:** no service change was needed. A single move (`updateStatus`) already passes now as the end date, and a bulk move passes none. The edit dialog records no DNF date, as it has no DNF date fields. *Changed on 2026-11-14:* a single move now records no date either (see "Move dates" under 3e item 8).
 - **Error:** `InvalidTransitionError` now reads "A book on DNF can't move to Finished." When a not-started list doesn't fit the formats, it adds why ("…, because you own it").
 - **Card menu:** the target list moved to `moveTargets` in `shelf-filters.ts`, so it's unit-tested. The bulk menu and the edit dialog needed no change.
 - **Verified:** tests (rules table, service single and bulk moves, Finished → DNF keeping the finished read, the error text, the card menu's targets), typecheck, lint and build.
@@ -429,11 +429,33 @@ Added at the user's request on 2026-11-08, after the extension's store build was
      - **"Latest"** is still the newest read entered, until item 10 changes the order.
      - **Verified:** typecheck, lint, 676 tests and the build. The tests cover each status, each precision, missing dates, Wishlist and TBR, and the service's latest read and count.
      - **Not verified:** on the real shelves signed in.
+   - **Move dates, fixed (2026-11-14) after the user reported it:**
+     - **The bug:** moving a book to Finished saved the move date as the date it was finished. The move dialog pre-filled Finished with today (`moveDateValues`), and a plain move to DNF recorded now as the stop date (`updateStatus`).
+     - **The fix:** neither happens now. The finish date starts empty, while the dialog still keeps a continuing read's start date. `updateStatus` records no date unless one is passed. A finish or stop date is saved only when the reader types it, as the rule that dates are never invented asks. This reverses 3d's "dialogs start from today" for the finish date, and the DNF fix's "a single move records today".
+     - **Unchanged:** starting a new read (moving to Reading) still pre-fills today as the start date in the dialog, where it can be cleared.
+     - **Existing reads keep their dates:** a finish date saved from the old pre-fill can't be told apart from one the reader typed.
+     - **Verified:** typecheck, lint, 679 tests and the build.
 9. **Add an audiobook length** for books owned as audiobooks.
    - **Schema:** `UserBook.audioMinutes Int?`, an additive migration (`add_user_book_audio_minutes`). It's per reader, like `UserBook.pageCount`: Open Library and Google Books don't give an audiobook's length, and editions differ.
    - **Forms:** in the add form and the edit dialog, a "Length" field with hours and minutes, shown only when "Audiobook" is ticked. It's optional, and validated as a whole number of minutes from 1 to 12,000 (200 hours). Clearing it in the edit dialog removes it, as with page count.
    - **Shelf card:** an audiobook shows its length ("12 h 30 min") where a book shows its pages.
    - **Later:** Phase 6 uses it for audiobook progress ("time remaining") and for minutes-based goals.
+   - **✅ Built (2026-11-14):**
+     - **Schema:** migration `20261114212954_add_user_book_audio_minutes` adds `UserBook.audioMinutes Int?`. It's applied locally, and to Supabase on 2026-11-14 with the user's go-ahead (`prisma migrate deploy`, which reported the schema up to date afterwards).
+     - **Rules:** `library/audio-length.rules.ts` (pure).
+       - `parseAudioLength`: hours and minutes to a total from 1 to 12,000. Either part alone is fine, minutes must be 0 to 59 when hours are given, and both empty means no length.
+       - `formatAudioLength`: "12 h 30 min", "45 min", "3 h".
+       - `splitAudioLength`: the form's text for a stored length.
+     - **Validation:** `audioLengthFields` and `audioLengthFor` in `manual-book.schema.ts`, used by the Manual, ISBN and Edit schemas. The length only counts when Audiobook is ticked. Rejected forms keep what was typed.
+     - **Saving:**
+       - A new book stores the length.
+       - A book already in the library keeps its own, as it keeps its status and dates.
+       - An edit stores the length, or clears it when the field is emptied or Audiobook is unticked.
+     - **UI:** `components/AudioLengthField.tsx` (Hours and Minutes) shows under the format checkboxes while Audiobook is ticked: in `FormatsField`, used by both add tabs, and in the edit dialog, where it resets each time the dialog opens. It's hidden for an ISBN book already in the library, since only formats are added there.
+     - **One part left empty:** at the user's request, `AudioLengthField` fills the empty part with 0 on submit when the other is filled, so the form shows what's saved. The server already read an empty part as 0. The "app breaks" the user saw was the running dev server's Prisma client, generated before `audioMinutes` existed (`Unknown argument audioMinutes`), not the empty part. Restarting the dev server fixes it.
+     - **Card:** the length follows the headphones icon ("12 h 30 min"). The plan said "where a book shows its pages", but the card shows format icons rather than pages.
+     - **Verified:** typecheck, lint, 728 tests and the build. Tests cover the rules, all three schemas, the service (create, re-add, edit and clear) and the controller passing the length on. In the browser, on a temporary page: the field appears with Audiobook, sends its values, and disappears when unticked.
+     - **Not verified:** a real save signed in, and the card.
 10. **Add another read directly,** for a book read before, or read again, without moving it back to Reading and then to Finished just to record the dates.
     - **Where:**
       - The edit dialog gets a **Reads** section listing every read, newest first. Each shows its outcome and dates, for example "Finished · 5 Oct 2025 – 12 Nov 2025", or "Finished · 2019" for a year alone.
@@ -451,10 +473,48 @@ Added at the user's request on 2026-11-08, after the extension's store build was
       - Server actions in `library.controller.ts`, validated with zod in a schema file, never in the `"use server"` file.
       - `createReads` in `read-through.model.ts` already exists, and `updateReadDates` is reused for the edits.
     - **Later:** Phase 6's books-per-year goal counts finished reads by their end date, so a past read counts in its own year, and one with no date doesn't count.
+    - **✅ Built (2026-11-14), following the user's design rather than a separate Reads section:**
+      - **UI (`StatusField`):** the dates area has a "Dates" label, then the latest read's Started and Finished, then one set per earlier finished read. A ➕ adds another set.
+        - The ➕ and the earlier sets show only when the status is Finished ("Already read"), as the user asked.
+        - The edit dialog starts with the book's earlier finished reads. The add form, on both its Manual and ISBN tabs, starts with none.
+        - A rejected form keeps the sets that were typed.
+      - **Changes from the plan:**
+        - There's no card-menu entry and no outcome choice: every added read is Finished.
+        - Earlier DNF reads aren't listed for editing, though they still count in "+N".
+        - So the standalone `addRead` and `editReadDates` aren't needed: both forms save through their existing actions.
+      - **Fields:** `pastRead<n>StartedDay` … `pastRead<n>EndedYear`, plus `pastRead<n>Id` for an existing read, for up to 20 sets.
+        - `parsePastReads` in `manual-book.schema.ts` checks each set with the same date rules as the first.
+        - A new set left empty is skipped, so a stray ➕ adds nothing.
+        - An existing read whose dates are cleared keeps its place, since no read is ever removed.
+      - **"Latest" is now by date:** `read-order.rules.ts` (`compareReads`, `sortReads`) puts the open read first, then sorts by end date, then start date, newest first, with undated reads last. The shelf card, "+N" and the edit dialog all use it.
+      - **Status changes still act on the right read:** `applyReadChanges` returns the read each change acted on, and the dates given with a move or an edit go to it. That's the open read it closed, the DNF read it reopened, or, for a read it created, the newest entry, which is what the old code assumed.
+        - Without a status change, the dates go to the latest read by date, which is the one the form shows.
+        - `findChangeableReads` is unchanged, so closing and reopening pick the same reads as before.
+      - **Saving:** `savePastReads` (service) adds the new reads and corrects the earlier ones. An id must be one of this book's finished reads. It runs only for a Finished book, never changes status or formats, and never touches the open read. Adding a book as already read creates the extra reads too. A book already in the library ignores them, as it ignores its dates.
+      - **Fixed in the user's draft:** `new Array({ length })` always made one set, every set shared the same field names, and the two tooltip buttons were labelled "About formats".
+      - **Verified:**
+        - Typecheck, lint, 752 tests and the build.
+        - The tests cover the ordering rule, dates going to the read a change closed or created even with a past read entered later, correcting and adding past reads, refusing another book's read, the shelf's latest read and list, and the field parsing.
+        - In the browser, on a temporary page: the ➕ shows for Finished and is hidden for Reading; it adds sets; and only filled sets, with their ids, are sent.
+      - **Not verified:** a real save signed in.
 11. **Release:**
    - Bump the version to 2.2.0 in `extension/manifest.json`.
    - Rebuild with `node extension/build.mjs https://<domain>`.
    - Retake any store screenshot that shows the options page or the import dialog.
+   - **✅ Built (2026-11-14):**
+     - `extension/manifest.json` is at 2.2.0.
+     - `node extension/build.mjs https://inkwell-phi-bice.vercel.app` wrote `extension/dist/inkwell-kindle-import-2.2.0.zip` and `dist/package/`.
+     - **Checked:**
+       - The package's version is 2.2.0, and `host_permissions` holds only the Vercel address, with no optional permissions.
+       - `config.js` defaults to that address.
+       - Every shipped file matches the source, and the zip holds only the extension's own files.
+     - **Screenshots, still to do by the user:**
+       - `screenshots/…pageNumber=1.png` shows the old import dialog, with no account line and no Books/Docs choice. It needs retaking on the real Amazon page.
+       - `…pageNumber=2.png` (the result banner) and the shelves screenshot are unchanged. No screenshot shows the options page.
+       - Both Amazon screenshots show the account holder's first name and delivery postcode in Amazon's header, and the store listing is public. Crop or blur that area when retaking.
+     - **Still to do by the user:**
+       - Load `dist/package/` unpacked in Chrome and run one import against the deployed site.
+       - Upload the zip.
 12. **Tests**, the same way as the Docs-tab fix and the store build:
    - Run the real `app.js` and `options.html` on temporary pages with a stand-in for Chrome's API. Cover: the account shown in the dialog, a 401 and an unreachable site stopping before scraping, batch errors keeping their wording, and the options page in both builds.
    - A visual check of the options page in light and dark.
@@ -506,8 +566,26 @@ So the purchase date gets its own column.
    - It's optional: Wishlist books and books with no known date have none.
 2. **One date per book:** a book can be owned in several formats bought on different days. Keep the **earliest** known date, which is when the book first became the reader's. A later, different date never replaces an earlier one.
 3. **Extension (`app.js`):** read each row's acquired-date text, sent as `acquiredText` alongside the title and authors.
-   - **Needs a real sample first.** The row's HTML structure isn't known, and the text is in the account's language. On amazon.com.br it reads like "Adquirido em 5 de outubro de 2021". Ask the user for one row's outerHTML from the Books tab and one from the Docs tab, with anything private removed.
-   - The authors selector, which takes the first `.information_row`, must keep working once a date sits next to it.
+   - **The element, from the user's Books tab (amazon.ca, 2026-11-14):**
+
+     ```html
+     <div id="content-acquired-date-B0D87B83ZK" class="information_row"><span>Acquired on</span> June 12, 2026</div>
+     ```
+
+     The id is `content-acquired-date-` followed by the item's ASIN. The text is the whole element's, in the account's language, so it reads "Acquired on June 12, 2026", or "Adquirido em 12 de junho de 2026" on amazon.com.br. `parseAcquiredText` already reads both.
+   - **Reading it:** `row.querySelector('[id^="content-acquired-date-"]')?.innerText`, sent as `acquiredText`. It's matched by the id's prefix, not by position or class, so it doesn't depend on the order of the row's lines. When it's missing, nothing is sent and the book is still imported.
+   - **Fix the authors selector at the same time.** The date's element is also an `.information_row`, and `scrapeRow` takes the *first* `.information_row` as the authors.
+     - If the date comes first, or a row has no author line (common on the Docs tab), "Acquired on June 12, 2026" would be imported as the author. It would then reach the dedupe key and author search, and a hand-typed copy would no longer match.
+     - Use `.information_row:not([id^="content-acquired-date-"])` for the authors. A Docs row with no other line then sends no authors, which the schema already accepts.
+   - **The ASIN** also appears in this id. `findAsin` already scans every element id in the row, and the ASIN pattern matches after the hyphen, so it gains a second source and needs no change. A test should still confirm it.
+   - **Docs tab:** not sampled. The same id prefix is expected there, possibly with a document id instead of an ASIN.
+     - If a Docs row has no such element, nothing is sent and the document imports as before.
+     - When running the first import on the Docs tab, check that the documents come in with dates and without "Acquired on …" as their author.
+   - **Tests,** with the real `app.js` on a fake page built from this element and a stand-in for Chrome:
+     - A Books row with the date line before and after the authors sends the right `acquiredText` and authors.
+     - A row with only the date line sends no authors.
+     - A row without it sends no `acquiredText`.
+     - The ASIN is still found.
 4. **Server:**
    - **Parsing:** a pure parser in `imports/acquired-date.rules.ts`, unit-tested, for English and Portuguese month names at least ("October 5, 2021", "5 de outubro de 2021"). Treat the text as untrusted: cap its length, use no backtracking regex, and drop anything that doesn't parse or is in the future.
    - **Validation:** `amazon-import.schema.ts` accepts the new optional field.
@@ -525,11 +603,69 @@ So the purchase date gets its own column.
    - the import, for a new book getting the date, an existing book's empty date filled, an earlier date replacing a later one, a later date never replacing an earlier one, and `addedAt` never changing
    - the schema, the filter and sort in the service and URL parsing, and the form fields
    - the extension on a fake page built from the user's real row HTML
+9. **Release the extension, last:** once the extension reads the acquired date, and only after every other extension change in the phase.
+   - Bump the version to 2.3.0 in `extension/manifest.json`. 2.2.0, from 3e, was already submitted to the store.
+   - Update the privacy page's extension section to say it reads each item's acquired date.
+   - Rebuild with `node extension/build.mjs https://inkwell-phi-bice.vercel.app`, and retake any screenshot that shows the changed dialog.
+   - Load the package in real Chrome, then upload it.
+   - Then run one import over the whole library, so books already imported get their purchase dates.
+   - **Lesson from 3e:** its release (item 11) was placed before 3f's extension change, which meant a second store submission and review. A release step goes at the end of a plan, after all its extension changes.
+
+### 3f progress (2026-11-14)
+
+- **✅ Schema:** migration `20261114222412_add_user_book_acquired_at` adds `UserBook.acquiredAt DateTime?` and `acquiredAtPrecision DatePrecision @default(DAY)`. It's applied locally, and to Supabase on 2026-11-14 with the user's go-ahead (`prisma migrate deploy`, which reported the schema up to date afterwards).
+- **✅ Parser:** `imports/acquired-date.rules.ts` (`parseAcquiredText`, pure).
+  - It reads English, Portuguese and Spanish month names, full or abbreviated, in either order, such as "Acquired on October 5, 2021" or "Adquirido em 5 de outubro de 2021".
+  - It needs exactly one day, month and year. It drops impossible dates and future ones, with one day's margin.
+  - It caps the text at 120 characters and only splits it into words, so no pattern can backtrack.
+- **✅ Import:** `amazon-import.schema.ts` accepts an optional `acquiredText` on Books and Docs rows and turns it into `acquired`. Text that doesn't parse is dropped, and the book is still imported.
+  - `imports.service.ts` keeps the date out of the catalog details and passes it to `addBookToLibrary`.
+  - A new book gets the date.
+  - A book already in the library gets it only when it has none, or the new one is earlier (`updateAcquired` changes only those two columns). `addedAt`, the status, the reads and the shelf order are never touched.
+- **✅ Hand-added:** an "Acquired" `PartialDateField` in the add form (Manual and ISBN tabs) and the edit dialog, so a year alone is fine.
+  - It's validated with `parseAcquired` in `manual-book.schema.ts`, which rejects future dates.
+  - A manual or ISBN re-add follows the same earliest-date rule.
+  - The edit dialog clears the date when the field is emptied.
+  - **Shown only while a format is ticked,** at the user's request, since only an owned book was acquired. `FormatsField` reports whether any format is ticked (`onOwnedChange`, on mount too, so the add form's remount after a submit starts in step). The edit dialog tracks its own checkboxes and starts over each time it opens. The server matches: `parseAcquired(formats, …)` ignores the date with no format, so an edit that unticks every format clears it. Checked in the browser on a temporary page.
+- **✅ Shelves, as the user chose:** a sort menu kept in the URL as `?sort=`:
+  - **Defaults, chosen by the user:** Finished opens on Read newest first, and every other shelf on Purchase newest first (`defaultSortFor`). The default is left out of the URL. Shelf tabs don't carry the sort, so each shelf opens on its own default. Within a shelf, filters, search and paging keep the chosen order.
+  - Added newest first (`added-desc`) and oldest first (`added-asc`).
+  - Purchase newest first (`acquired-desc`) and oldest first (`acquired-asc`), with books with no purchase date last either way.
+  - Title A to Z (`title-asc`) and Z to A (`title-desc`), by the catalog title.
+  - **On Finished only,** Read newest first (`read-desc`) and oldest first (`read-asc`): by the finish date of each book's latest read (the same "latest by date" as the cards), with undated books last. A `read-…` sort on another shelf falls back to that shelf's default.
+    - The database can't order books by a date on their reads, so `listShelfPage` loads the shelf's books with only their read dates (`listUserBookReadDates`), orders them with `sortByLastFinished` (`read-order.rules.ts`), and loads only the page's books in full (`findUserBooksWithCatalog`). That's fine at the size of a personal Finished shelf.
+  - Parsed in `shelf-filters.ts` (`SHELF_SORTS`), kept by `shelfHref`, and turned into the query's order in `library.model.ts` (`userBookOrder`).
+  - `ShelfOrderControls` is the user's filter-icon menu. The current order is checked, and the button is labelled "Sort books" for screen readers.
+  - **No acquired-year filter:** a year filter (in, before or after a year) was built first and then removed at the user's request, along with its URL parameter, query and tests. So step 6's "filter" and the "filtered by acquired year" item in "Done when" no longer apply.
+- **✅ Privacy page:** the library section now says Inkwell stores when you got a book, and an audiobook's length.
+- **Verified:** typecheck, lint, 813 tests and the build. The tests cover the parser, the import schema and service, keeping the earliest date (fill, earlier, later, the same date, no date), editing and clearing, the filter and sort from URL to query, and the form fields.
+- **✅ Extension (step 3, 2026-11-14):**
+  - `app.js` reads `[id^="content-acquired-date-"]` and sends **only the date**, as the user asked: the line's own text, without the "Acquired on" label in its `<span>`. So "June 12, 2026" is sent as `acquiredText`.
+  - The authors come from `.information_row:not([id^="content-acquired-date-"])`.
+  - The privacy page's extension section now lists the acquired date.
+  - **Tested** with the real `app.js` on a fake page built from the user's element:
+    - The date line before and after the authors gives the right date and authors.
+    - A document with only a date line sends no authors.
+    - A row without one sends no date.
+    - Both ASINs are found, one of them only in the date's id.
+    - The same batch through `parseAmazonImport` gave dates of 2026-06-12, 2021-10-05 and 2020-03-03, the undated book none, and nothing skipped.
+  - **Not tested:** the real Amazon page, including the Docs tab.
+- **✅ Step 9, release 2.3.0 built (2026-11-14):**
+  - `extension/manifest.json` is at 2.3.0.
+  - `node extension/build.mjs https://inkwell-phi-bice.vercel.app` wrote `extension/dist/inkwell-kindle-import-2.3.0.zip`. The submitted 2.2.0 zip was kept next to it, since the build clears `dist/`.
+  - **Checked:** version 2.3.0, `host_permissions` only for the Vercel address with no optional ones, every file matching the source, and the zipped `app.js` reading `content-acquired-date-`.
+  - **Screenshots:** 2.3.0 changes nothing visible, but `…pageNumber=1.png` still shows the pre-2.2.0 dialog and still needs retaking, with the name and postcode in Amazon's header cropped or blurred.
+  - **Still to do by the user, in this order:**
+    1. Deploy the app to Vercel with this phase's server changes. The migration is already on Supabase. Until then the deployed site ignores `acquiredText`, which is harmless but saves no dates.
+    2. Load `dist/package/` in Chrome and run one import, on both the Books and Docs tabs.
+    3. Upload the 2.3.0 zip, once 2.2.0's review allows, or after cancelling that pending review.
+    4. Run one import over the whole library, so books already imported get their purchase dates.
+- **Not verified:** the shelf controls and the forms signed in.
 
 **Done when:**
 - Importing from Amazon saves each book's purchase date, and re-importing fills it in for books already imported, without reordering the shelves.
 - A book added by hand can have an acquired date, including just a year.
-- The shelves can be filtered by acquired year and sorted by purchase date.
+- The shelves can be sorted by purchase date, either way round (the year filter was dropped at the user's request).
 
 ## Done when
 

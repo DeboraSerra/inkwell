@@ -48,6 +48,37 @@ export const resolvePageSize = ({
 export const pageHolding = (position: number, size: number) =>
   Math.floor((Math.max(position, 1) - 1) / size) + 1;
 
+// The shelf's order: by when a book was added to Inkwell, when it was bought,
+// its title, or (on Finished only) when it was last read, each either way
+// round. Each shelf has its own default (defaultSortFor). Books with no
+// purchase or finish date go last in those orders.
+export const SHELF_SORTS = [
+  "added-desc",
+  "added-asc",
+  "acquired-desc",
+  "acquired-asc",
+  "title-asc",
+  "title-desc",
+  "read-desc",
+  "read-asc",
+] as const;
+export type ShelfSort = (typeof SHELF_SORTS)[number];
+// Finished opens on the books read most recently; every other shelf on the
+// books bought most recently. The default stays out of the URL.
+export const defaultSortFor = (status: ReadingStatus): ShelfSort =>
+  status === ReadingStatus.FINISHED ? "read-desc" : "acquired-desc";
+
+// Only finished books have a finish date to sort by.
+export const sortsReadDates = (sort: ShelfSort) => sort === "read-desc" || sort === "read-asc";
+
+const parseShelfSort = (value: unknown, status: ReadingStatus): ShelfSort => {
+  const sort = SHELF_SORTS.find((allowed) => allowed === value);
+  if (!sort || (sortsReadDates(sort) && status !== ReadingStatus.FINISHED)) return defaultSortFor(status);
+  return sort;
+};
+
+const statusOf = (slug: string) => (SHELVES.find((shelf) => shelf.slug === slug) ?? SHELVES[0]).status;
+
 export type ShelfFilters = {
   shelf: string;
   status: ReadingStatus;
@@ -56,6 +87,7 @@ export type ShelfFilters = {
   page: number;
   // Only when the URL asks for one; otherwise the cookie or device decides.
   perPage?: PageSize;
+  sort: ShelfSort;
 };
 
 export type ShelfParams = Record<string, string | string[] | undefined>;
@@ -86,11 +118,14 @@ export function parseShelfFilters(params: ShelfParams): ShelfFilters {
     search,
     page: Number.isSafeInteger(page) && page >= 1 ? page : 1,
     perPage: parsePageSize(list(params.per)[0]),
+    sort: parseShelfSort(list(params.sort)[0], shelf.status),
   };
 }
 
 // What the move dialog starts with: dates of the read that continues, and today
-// for the date this move marks. `today` is the reader's calendar day, in UTC.
+// as the start of a new read. The finish date starts empty: the day a book is
+// moved to Finished isn't the day it was finished, so it's saved only when the
+// reader types it. `today` is the reader's calendar day, in UTC.
 export function moveDateValues(
   book: ReadingState & { readDates: Record<string, string> },
   status: ReadingStatus,
@@ -98,9 +133,7 @@ export function moveDateValues(
 ) {
   const newRead = startsNewRead(book, status);
   const known = newRead ? {} : book.readDates;
-  if (status === ReadingStatus.FINISHED) {
-    return { ...known, ...toDateValues("ended", today, "DAY") };
-  }
+  if (status === ReadingStatus.FINISHED) return known;
   return newRead ? toDateValues("started", today, "DAY") : known;
 }
 
@@ -110,12 +143,15 @@ export function shelfHref({
   formats,
   search,
   perPage,
+  sort,
   page = 1,
-}: Pick<ShelfFilters, "shelf" | "formats" | "search" | "perPage"> & { page?: number }) {
+}: Pick<ShelfFilters, "shelf" | "formats" | "search"> &
+  Partial<Pick<ShelfFilters, "perPage" | "sort">> & { page?: number }) {
   const query = new URLSearchParams({ shelf });
   for (const format of formats) query.append("format", format);
   if (search) query.set("q", search);
   if (perPage) query.set("per", String(perPage));
+  if (sort && sort !== defaultSortFor(statusOf(shelf))) query.set("sort", sort);
   if (page > 1) query.set("page", String(page));
   return `/books/shelves?${query}`;
 }
