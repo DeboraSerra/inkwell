@@ -7,6 +7,7 @@ import { Input } from "./ui/input";
 // An audiobook's length as hours and minutes, sent as `audioHours` and
 // `audioMinutes`. Optional: leaving both empty means no length. With only one
 // part filled, the other becomes 0 on submit, so the form shows what's saved.
+// Password managers are told to leave these fields alone, as in PartialDateField.
 export function AudioLengthField({
   values,
 }: Readonly<{ values?: { audioHours?: string; audioMinutes?: string } }>) {
@@ -45,6 +46,9 @@ export function AudioLengthField({
             name='audioHours'
             inputMode='numeric'
             autoComplete='off'
+            data-1p-ignore
+            data-lpignore='true'
+            data-bwignore
             maxLength={3}
             placeholder='h'
             defaultValue={values?.audioHours}
@@ -60,6 +64,9 @@ export function AudioLengthField({
             name='audioMinutes'
             inputMode='numeric'
             autoComplete='off'
+            data-1p-ignore
+            data-lpignore='true'
+            data-bwignore
             maxLength={2}
             placeholder='min'
             defaultValue={values?.audioMinutes}

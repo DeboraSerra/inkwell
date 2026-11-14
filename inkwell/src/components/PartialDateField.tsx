@@ -25,6 +25,9 @@ const PARTS: { part: DatePart; suffix: string; label: string; placeholder: strin
 // full part, after a separator, or after a single digit no two-digit value
 // starts with. Backspace in an empty part goes back, and a pasted date fills
 // all three. Tab works as usual, so a year alone can still be entered.
+// Password managers (1Password, LastPass, Bitwarden) are told to leave these
+// short number fields alone, since they can mistake them for card or
+// one-time-code inputs.
 export function PartialDateField({
   name,
   legend,
@@ -114,6 +117,9 @@ export function PartialDateField({
                 name={id}
                 inputMode='numeric'
                 autoComplete='off'
+                data-1p-ignore
+                data-lpignore='true'
+                data-bwignore
                 placeholder={placeholder}
                 maxLength={PART_LENGTH[part]}
                 defaultValue={typeof value === "string" ? value : undefined}
