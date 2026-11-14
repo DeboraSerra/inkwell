@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { BookFormat } from "@/generated/prisma/enums";
 import { type ShelfFilters, shelfHref } from "@/server/library/shelf-filters";
 import { useRouter } from "next/navigation";
-import type { SubmitEvent } from "react";
+import type { ChangeEvent, SubmitEvent } from "react";
 import { FORMAT_LABELS } from "./formats";
 
 export function ShelfFilterBar({ filters }: Readonly<{ filters: ShelfFilters }>) {
@@ -19,15 +19,28 @@ export function ShelfFilterBar({ filters }: Readonly<{ filters: ShelfFilters }>)
     router.push(shelfHref({ shelf, formats: next, search }));
   };
 
+  // The form also works without JavaScript, through its hidden fields; this
+  // stops that native submission so only the client navigation happens.
   const submitSearch = (event: SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault();
     const q = new FormData(event.currentTarget).get("q");
     router.push(shelfHref({ shelf, formats, search: typeof q === "string" ? q.trim() : "" }));
+  };
+
+  // Emptying the box in any way (its ✕, Escape, deleting the text) shows the
+  // whole shelf again. Not the "search" event, which Firefox doesn't fire.
+  const clearSearch = (event: ChangeEvent<HTMLInputElement>) => {
+    if (search && !event.currentTarget.value.trim()) router.push(shelfHref({ shelf, formats, search: "" }));
   };
 
   return (
     <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
       <search>
-        <form onSubmit={submitSearch} className='flex gap-2 sm:w-80'>
+        <form action='/books/shelves' method='get' onSubmit={submitSearch} className='flex gap-2 sm:w-80'>
+          <input type='hidden' name='shelf' value={shelf} />
+          {formats.map((format) => (
+            <input key={format} type='hidden' name='format' value={format} />
+          ))}
           <Input
             key={search}
             name='q'
@@ -35,6 +48,7 @@ export function ShelfFilterBar({ filters }: Readonly<{ filters: ShelfFilters }>)
             aria-label='Search by title or author'
             placeholder='Title or author'
             defaultValue={search}
+            onChange={clearSearch}
           />
           <Button type="submit">Search</Button>
         </form>

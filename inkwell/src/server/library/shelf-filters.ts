@@ -2,7 +2,7 @@
 // components. Input is untrusted, so anything unknown falls back to no filter.
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { toDateValues } from "./partial-date.rules";
-import { LIST_NAMES, type ReadingState, startsNewRead } from "./status.rules";
+import { canTransition, LIST_NAMES, type ReadingState, startsNewRead } from "./status.rules";
 
 const MAX_SEARCH_LENGTH = 200;
 // Pages on each side of the current one in the page links.
@@ -15,6 +15,10 @@ export const SHELVES = [
   { slug: "finished", status: ReadingStatus.FINISHED },
   { slug: "dnf", status: ReadingStatus.DNF },
 ].map((shelf) => ({ ...shelf, label: LIST_NAMES[shelf.status] }));
+
+// The shelves a book's "Mark as" menu offers: only moves the status rules allow.
+export const moveTargets = (book: ReadingState) =>
+  SHELVES.filter(({ status }) => status !== book.status && canTransition(book, status));
 
 export type ShelfFilters = {
   shelf: string;

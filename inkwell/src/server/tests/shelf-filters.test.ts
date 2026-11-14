@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moveDateValues, pageLinks, parseShelfFilters, shelfHref } from "@/server/library/shelf-filters";
+import { moveDateValues, moveTargets, pageLinks, parseShelfFilters, shelfHref } from "@/server/library/shelf-filters";
 import { ReadingStatus } from "@/generated/prisma/enums";
 
 describe("parseShelfFilters", () => {
@@ -105,5 +105,21 @@ describe("moveDateValues", () => {
     expect(moveDateValues({ ...at(ReadingStatus.WISHLIST), readDates: {} }, ReadingStatus.FINISHED, today)).toEqual(
       todayAs("ended"),
     );
+  });
+});
+
+describe("moveTargets", () => {
+  const slugs = (status: ReadingStatus, formats: ("EBOOK" | "PHYSICAL" | "AUDIO")[]) =>
+    moveTargets({ status, formats }).map(({ slug }) => slug);
+
+  it("offers DNF from TBR, Wishlist, Reading and Finished", () => {
+    expect(slugs(ReadingStatus.TO_READ, ["EBOOK"])).toEqual(["reading", "finished", "dnf"]);
+    expect(slugs(ReadingStatus.WISHLIST, [])).toEqual(["reading", "finished", "dnf"]);
+    expect(slugs(ReadingStatus.READING, ["EBOOK"])).toEqual(["tbr", "finished", "dnf"]);
+    expect(slugs(ReadingStatus.FINISHED, ["EBOOK"])).toEqual(["tbr", "reading", "dnf"]);
+  });
+
+  it("offers a DNF book only Reading or its not-started list", () => {
+    expect(slugs(ReadingStatus.DNF, [])).toEqual(["wishlist", "reading"]);
   });
 });

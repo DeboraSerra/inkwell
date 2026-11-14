@@ -257,6 +257,29 @@ describe("updateStatus: the read history table", () => {
     );
   });
 
+  it.each([
+    [WISHLIST, []],
+    [TO_READ, [EBOOK]],
+    [FINISHED, [EBOOK]],
+  ] as const)("%s → DNF adds a DNF read and leaves earlier reads", async (from, formats) => {
+    await change(from, DNF, [...formats]);
+    expect(reads.createReads).toHaveBeenCalledWith([{ userBookId: "ub-1", endedAt: AT, outcome: "DNF" }], "tx");
+    expect(reads.closeReads).not.toHaveBeenCalled();
+    expect(reads.deleteOpenReads).not.toHaveBeenCalled();
+    expect(model.updateUserBookState).toHaveBeenCalledWith(USER, "ub-1", { status: DNF, formats }, "tx");
+  });
+
+  it("a single move to DNF records today as the end date", async () => {
+    vi.useFakeTimers({ now: AT, toFake: ["Date"] });
+    try {
+      model.findUserBook.mockResolvedValue(book(TO_READ, [EBOOK]));
+      await service.updateStatus(USER, "ub-1", DNF);
+      expect(reads.createReads).toHaveBeenCalledWith([{ userBookId: "ub-1", endedAt: AT, outcome: "DNF" }], "tx");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("Reading → TBR discards only the current read", async () => {
     await change(READING, TO_READ);
     expect(reads.deleteOpenReads).toHaveBeenCalledWith(USER, ["ub-1"], "tx");
@@ -281,8 +304,8 @@ describe("updateStatus: the read history table", () => {
     await expect(service.updateStatus(USER, "missing", READING)).rejects.toThrow(NotFoundError);
   });
 
-  it("rejects an invalid change without writing", async () => {
-    await expect(change(TO_READ, DNF)).rejects.toThrow(InvalidTransitionError);
+  it("rejects an invalid change without writing, naming the lists", async () => {
+    await expect(change(DNF, FINISHED)).rejects.toThrow("A book on DNF can't move to Finished.");
     expect(model.updateUserBookState).not.toHaveBeenCalled();
     expect(reads.createReads).not.toHaveBeenCalled();
   });
@@ -315,9 +338,28 @@ describe("updateStatuses", () => {
     expect(model.updateUserBookStatuses).toHaveBeenCalledWith(USER, result.moved, FINISHED, "tx");
   });
 
+  it("moves books to DNF with no dates, keeping earlier reads", async () => {
+    model.findUserBooks.mockResolvedValue([
+      book(TO_READ, [EBOOK], "tbr"),
+      book(WISHLIST, [], "wish"),
+      book(FINISHED, [EBOOK], "done"),
+      book(READING, [EBOOK], "reading"),
+    ]);
+    reads.findChangeableReads.mockResolvedValue([read("open", null, "reading")]);
+    const { moved, skipped } = await service.updateStatuses(USER, ["tbr", "wish", "done", "reading"], DNF);
+    expect(moved).toEqual(["tbr", "wish", "done", "reading"]);
+    expect(skipped).toEqual([]);
+    expect(reads.createReads).toHaveBeenCalledWith(
+      ["tbr", "wish", "done"].map((userBookId) => ({ userBookId, endedAt: null, outcome: "DNF" })),
+      "tx",
+    );
+    expect(reads.closeReads).toHaveBeenCalledWith(USER, ["open"], "DNF", null, "tx");
+    expect(reads.deleteOpenReads).not.toHaveBeenCalled();
+  });
+
   it("skips a move that doesn't fit the book", async () => {
-    model.findUserBooks.mockResolvedValue([book(TO_READ, [EBOOK], "a")]);
-    const { moved, skipped } = await service.updateStatuses(USER, ["a"], DNF);
+    model.findUserBooks.mockResolvedValue([book(DNF, [EBOOK], "a")]);
+    const { moved, skipped } = await service.updateStatuses(USER, ["a"], FINISHED);
     expect(moved).toEqual([]);
     expect(skipped).toHaveLength(1);
     expect(model.updateUserBookStatuses).not.toHaveBeenCalled();

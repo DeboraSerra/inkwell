@@ -14,8 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import type { ShelfBook } from "@/server/library/library.service";
-import { SHELVES } from "@/server/library/shelf-filters";
-import { canTransition } from "@/server/library/status.rules";
+import { moveTargets } from "@/server/library/shelf-filters";
 import { cn } from "cn";
 import { Edit, EllipsisVertical, Trash } from "lucide-react";
 import { useState } from "react";
@@ -67,9 +66,7 @@ export function BookCard({
       setMovingTo(status);
     else onMove(status);
   };
-  const targets = SHELVES.filter(
-    ({ status }) => status !== book.status && canTransition(book, status),
-  );
+  const targets = moveTargets(book);
 
   const toggleFormat = (format: BookFormat, checked: boolean) =>
     onFormats(

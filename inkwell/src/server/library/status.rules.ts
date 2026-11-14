@@ -30,9 +30,12 @@ export type ReadChange =
   | "discardOpen";
 
 export class InvalidTransitionError extends ValidationError {
-  constructor(from: ReadingStatus, to: ReadingStatus, formats: BookFormat[]) {
-    const owned = formats.length ? formats.join(", ") : "no formats";
-    super(`Can't change status from ${from} to ${to} for a book with ${owned}`);
+  constructor(from: ReadingStatus, to: ReadingStatus, formats: readonly BookFormat[]) {
+    let reason = "";
+    if (isNotStarted(to) && to !== notStartedStatusFor(formats)) {
+      reason = formats.length ? ", because you own it" : ", because you don't own it in any format";
+    }
+    super(`A book on ${LIST_NAMES[from]} can't move to ${LIST_NAMES[to]}${reason}.`);
   }
 }
 
@@ -44,11 +47,13 @@ const isNotStarted = (status: ReadingStatus) =>
   status === ReadingStatus.WISHLIST || status === ReadingStatus.TO_READ;
 
 const TRANSITIONS: Record<ReadingStatus, Partial<Record<ReadingStatus, ReadChange>>> = {
-  WISHLIST: { READING: "open", FINISHED: "addFinished" },
-  TO_READ: { READING: "open", FINISHED: "addFinished" },
+  // Giving up before starting, or after only a little, still records a DNF read.
+  WISHLIST: { READING: "open", FINISHED: "addFinished", DNF: "addDnf" },
+  TO_READ: { READING: "open", FINISHED: "addFinished", DNF: "addDnf" },
   READING: { FINISHED: "closeFinished", DNF: "closeDnf", WISHLIST: "discardOpen", TO_READ: "discardOpen" },
-  // A reread opens a new read; the finished one stays in the history.
-  FINISHED: { READING: "open", WISHLIST: "none", TO_READ: "none" },
+  // A reread opens a new read, and a reread given up on adds a DNF read; the
+  // finished one stays in the history either way.
+  FINISHED: { READING: "open", DNF: "addDnf", WISHLIST: "none", TO_READ: "none" },
   DNF: { READING: "reopen", WISHLIST: "none", TO_READ: "none" },
 };
 
@@ -87,7 +92,6 @@ export function initialState(
 ): ReadingState & { readChange: ReadChange } {
   const unique = uniqueFormats(formats);
   const notStarted = notStartedStatusFor(unique);
-  if (status === ReadingStatus.DNF) return { formats: unique, status, readChange: "addDnf" };
   const readChange = readChangeFor({ formats: unique, status: notStarted }, status);
   return { formats: unique, status, readChange };
 }

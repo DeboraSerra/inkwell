@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: ✅ 3a–3d done; ⏭️ next: the DNF and `&amp;` fixes, then 3e, then 3f.** 3a to 3d are committed, and the ["Done when"](#done-when) list was checked on 2026-11-08 (see "Checked" under it). The Docs-tab issue found during that check is fixed in the extension, but the fix hasn't been run on the real page yet.
+**Status: ✅ 3a–3d done; ✅ the DNF, `&amp;` and shelf-search fixes are built (the backfill and a signed-in browser check still need you); ⏭️ next: 3e, then 3f.** 3a to 3d are committed, and the ["Done when"](#done-when) list was checked on 2026-11-08 (see "Checked" under it). The Docs-tab issue found during that check is fixed in the extension, but the fix hasn't been run on the real page yet.
 
 Goal: add books manually or through the Chrome extension, move them between lists, and browse them with filters.
 
@@ -46,6 +46,8 @@ Phase 2c built shelves to hold the lists, and one `ownership` value per book. St
      | DNF → Reading | Reopens the DNF read, keeping its start date |
      | Reading → Finished or DNF | Closes the current read |
      | Wishlist or TBR → Finished | Adds a finished read |
+     | Wishlist or TBR → DNF | Adds a DNF read (added by the DNF fix) |
+     | Finished → DNF | Adds a DNF read and keeps the finished one (added by the DNF fix) |
      | Reading → Wishlist or TBR | Discards the current read, since it was put back; closed reads stay |
      | Finished or DNF → Wishlist or TBR | No change |
 
@@ -193,6 +195,15 @@ Reported by the user on 2026-11-08: moving a book to DNF doesn't work.
 
 **Done when:** a book on Wishlist, TBR, Reading or Finished can be moved to DNF from its menu, a bulk move and the edit dialog. Each move adds or closes a DNF read without erasing earlier reads.
 
+### DNF fix outcome (2026-11-14)
+
+- **Rules:** `TRANSITIONS` in `status.rules.ts` gains Wishlist/TBR → DNF and Finished → DNF, both `addDnf`. `initialState` no longer special-cases DNF, since the table now covers it.
+- **Dates:** no service change was needed. A single move (`updateStatus`) already passes now as the end date, and a bulk move passes none. The edit dialog records no DNF date, as it has no DNF date fields.
+- **Error:** `InvalidTransitionError` now reads "A book on DNF can't move to Finished." When a not-started list doesn't fit the formats, it adds why ("…, because you own it").
+- **Card menu:** the target list moved to `moveTargets` in `shelf-filters.ts`, so it's unit-tested. The bulk menu and the edit dialog needed no change.
+- **Verified:** tests (rules table, service single and bulk moves, Finished → DNF keeping the finished read, the error text, the card menu's targets), typecheck, lint and build.
+- **Not verified:** clicking the moves in the browser, signed in.
+
 ## Fix: `&amp;` in imported titles (do first, with the DNF fix)
 
 Reported by the user on 2026-11-08: titles with `&` show as `&amp;`.
@@ -234,6 +245,42 @@ The encoded text also reaches `dedupeKey` as an extra word "amp". So "Snow & Ash
 - An Amazon title with `&` is stored and shown as `&`.
 - The 5 existing titles are fixed and their dedupe keys recomputed.
 - A book typed by hand with `&` matches its imported copy.
+
+### `&amp;` fix outcome (2026-11-14)
+
+- **Code:** `decodeEntities` in `books/text.ts`. `&nbsp;` becomes a plain space, so search and dedupe treat it like one.
+- **Import:** `amazon-import.schema.ts` decodes titles and authors on both tabs. Authors are decoded *before* being split, so the `;` in `&#39;` doesn't cut a name in two. A title that's only an entity is skipped as blank.
+- **Providers:** `cleanText` decodes, so Open Library and Google titles, subtitles and authors are decoded once. `stripHtml` uses `decodeEntities`. `cleanDescription` no longer goes through `cleanText`, so a description isn't decoded twice.
+- **Backfill:** `prisma/backfill-decode-entities.ts`, with `--dry-run`. It only touches rows whose text changes when decoded. It decodes `Book.title`, `subtitle` and `authors`, recomputes `dedupeKey` and `authorSearch`, and decodes `UserBook.authors` and its `authorSearch`.
+  - A dry run on the local database lists exactly the 5 titles above and 0 library entries, and writes nothing.
+  - **Still to do, with your go-ahead:** run it without `--dry-run` on the local database, then on Supabase, before the next Amazon re-import. Then run it again to check that it changes nothing.
+- **Verified:** tests (each entity, decimal and hex, decoding once, unknown and invalid entities, hostile input, the import schema on both tabs with a hand-typed copy getting the same dedupe key, `stripHtml` and `cleanDescription`), typecheck, lint and build.
+
+## Fix: searching a shelf jumps back to TBR (do first, with the other fixes)
+
+Reported by the user on 2026-11-08: searching for an author on the Finished shelf showed TBR.
+
+**Cause.** In `components/pages/books/shelves/ShelfFilterBar.tsx`, `submitSearch` builds the right address with `shelfHref({ shelf, formats, search })` and calls `router.push`, but it never calls `event.preventDefault()`. So the browser also does its own submission of the form, a plain GET to the current path with only the search box (`/books/shelves?q=…`). That drops `shelf`, the format filters and the page, and `parseShelfFilters` falls back to the default shelf, TBR. Every shelf except TBR is affected. The format checkboxes aren't, because they navigate without a form.
+
+**Fix:**
+1. Call `event.preventDefault()` first in `submitSearch`, so only the `router.push` to `shelfHref(...)` happens.
+2. **Also make the form right without JavaScript:** add hidden inputs for `shelf` and each selected `format`. Then a submission before the page has hydrated, or with scripts blocked, keeps the shelf and filters too. A new search starts at page 1, as `shelfHref` already does.
+3. **Clearing the search box removes the search from the address.** Today the ✕ in the box only empties the field: `?q=` stays in the URL, so the shelf stays filtered until the form is submitted again.
+   - Handle it in the input's `onChange`: when the value becomes empty while a search is active (`filters.search` isn't empty), navigate at once to `shelfHref({ shelf, formats, search: "" })`. That keeps the shelf and format filters and goes back to page 1.
+   - That covers every way of emptying the box: the ✕ (Chrome and Safari), Escape in a search field (Chrome), selecting all and deleting, or backspacing to empty. Don't rely on the non-standard `search` event, which Firefox doesn't fire.
+   - Submitting the form empty does the same, through `submitSearch`.
+4. **Tests:**
+   - In the browser: search on each of the five shelves, with and without a format filter. The shelf, filters and results stay, and the page resets to 1.
+   - Clear the search with the ✕, with Escape, and by deleting the text. Each time `q` leaves the URL, the full shelf shows again, and the shelf and format filters stay.
+   - With JavaScript off, search on Finished and stay on Finished.
+
+**Done when:** searching on any shelf stays on that shelf, keeps its format filters, and shows the matching books from page 1. Clearing the search box removes `q` from the address and shows the whole shelf again.
+
+### Shelf search fix outcome (2026-11-14)
+
+- **Code:** in `ShelfFilterBar.tsx`, `submitSearch` calls `preventDefault()`. The form has `action="/books/shelves"` and `method="get"`, with hidden `shelf` and `format` inputs. The input's `onChange` navigates without `q` when the box is emptied while a search is active (blank or spaces only counts as empty).
+- **Verified:** typecheck, lint and build.
+- **Not verified:** the browser checks above. They need a signed-in session on the dev server.
 
 ## 3e — Polish before Phase 4c (after the fixes)
 
@@ -305,11 +352,28 @@ Added at the user's request on 2026-11-08, after the extension's store build was
    - **Forms:** in the add form and the edit dialog, a "Length" field with hours and minutes, shown only when "Audiobook" is ticked. It's optional, and validated as a whole number of minutes from 1 to 12,000 (200 hours). Clearing it in the edit dialog removes it, as with page count.
    - **Shelf card:** an audiobook shows its length ("12 h 30 min") where a book shows its pages.
    - **Later:** Phase 6 uses it for audiobook progress ("time remaining") and for minutes-based goals.
-10. **Release:**
+10. **Add another read directly,** for a book read before, or read again, without moving it back to Reading and then to Finished just to record the dates.
+    - **Where:**
+      - The edit dialog gets a **Reads** section listing every read, newest first. Each shows its outcome and dates, for example "Finished · 5 Oct 2025 – 12 Nov 2025", or "Finished · 2019" for a year alone.
+      - The section has an **"Add a read"** button, and the card menu gets an **"Add a past read"** entry that opens the same fields.
+    - **Fields:** the outcome (Finished or Did not finish) and optional start and finish dates, using `PartialDateField` (with item 7's auto-advance), so a year or a month alone is fine. Validation follows `partial-date.rules.ts`: no future dates, and no start after the finish when the two periods can't overlap.
+    - **Adding a read never changes the book's status or formats.** It only adds a closed read to the history. A book on TBR can carry a read from years ago and stay on TBR, ready for a reread. Earlier reads are never touched.
+    - **Only one open read:** adding always creates a *closed* read (outcome Finished or DNF). The current read of a Reading book stays the only open one, and is still started and finished by moving the book.
+    - **Editing dates of earlier reads:** each listed read can have its dates corrected in place. Today only the latest read's dates are editable.
+    - **"Latest read" must mean the most recent, not the most recently entered.** Today it's the newest row by `createdAt`, in `read-through.model.ts` (`findLatestRead`, `findChangeableReads`) and in the shelf query (`library.model.ts`). A 2019 read added today would then become "latest", replacing the 2024 dates on the card and in the edit dialog.
+      - Order by: the open read first, then by end date, then start date, newest first. Reads with no dates go last, then by `createdAt`.
+      - The status changes (closing or reopening the current read) must keep acting on the open read, or the latest DNF read, as now. Check that the new order doesn't change which read they pick, and test it.
+    - **Removing a read:** not included. Earlier reads are never erased. If a way to remove a read added by mistake is wanted, decide it separately: it would need a confirmation, like deleting a book.
+    - **Code:**
+      - `addRead(userId, userBookId, { outcome, dates })` and `editReadDates(userId, readId, dates)` in `library.service.ts`, both checking that the book and the read belong to the user.
+      - Server actions in `library.controller.ts`, validated with zod in a schema file, never in the `"use server"` file.
+      - `createReads` in `read-through.model.ts` already exists, and `updateReadDates` is reused for the edits.
+    - **Later:** Phase 6's books-per-year goal counts finished reads by their end date, so a past read counts in its own year, and one with no date doesn't count.
+11. **Release:**
    - Bump the version to 2.2.0 in `extension/manifest.json`.
    - Rebuild with `node extension/build.mjs https://<domain>`.
    - Retake any store screenshot that shows the options page or the import dialog.
-11. **Tests**, the same way as the Docs-tab fix and the store build:
+12. **Tests**, the same way as the Docs-tab fix and the store build:
    - Run the real `app.js` and `options.html` on temporary pages with a stand-in for Chrome's API. Cover: the account shown in the dialog, a 401 and an unreachable site stopping before scraping, batch errors keeping their wording, and the options page in both builds.
    - A visual check of the options page in light and dark.
    - Shelf page size:
@@ -319,6 +383,11 @@ Added at the user's request on 2026-11-08, after the extension's store build was
    - Date parts:
      - Unit tests for the helper: advancing after 2 digits and on early single digits, separators, cleaning non-digits, and each pasted form plus junk.
      - In the browser: typing `05102021` without pausing fills Day, Month and Year; Backspace walks back; pasting `2021-10-05` fills all three; a year alone still saves; editing the middle of a part doesn't jump.
+   - Adding reads:
+     - In the service: adding a finished or DNF read with full, partial or no dates leaves the status and formats unchanged, keeps one open read at most, and rejects another user's book or read and invalid dates.
+     - Editing an earlier read's dates.
+     - The new "latest read" order: a past read added later doesn't replace the latest dates, and status changes still close or reopen the right read.
+     - In the browser: add a 2019 read to a book finished in 2024, and check that the card still shows 2024 and the edit dialog lists both.
    - Read dates on cards: unit tests for the formatter, for each status, each precision, missing dates and rereads, plus a browser check on each shelf.
    - Audiobook length: schema validation (bounds, hours and minutes to minutes, clearing), the field only appearing with Audiobook ticked, and the card showing it.
    - Titles on the shelves, in the browser: a long title (for example *The Boy Who Led Them (The King of Smugglers: …)*) is clamped and shows its full text on hover and on keyboard focus; a short one has no tooltip; clicking a card still selects it; three lines at phone width.
@@ -335,6 +404,7 @@ Added at the user's request on 2026-11-08, after the extension's store build was
 - Typing a date moves from Day to Month to Year without pressing Tab, and pasting a full date fills all three parts.
 - Shelf cards show when a book was started, and finished or stopped, at the precision that's known.
 - An audiobook can have a length, entered in hours and minutes, and the card shows it.
+- A read can be added to any book, finished or given up, with full, partial or no dates, without moving the book between lists. The card and the edit dialog keep showing the most recent read.
 - The store package rebuilds at version 2.2.0.
 
 ## 3f — Purchase dates (after 3e, before Phase 4c)

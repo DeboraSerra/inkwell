@@ -2,6 +2,7 @@
 // that doesn't fit becomes undefined rather than an error, so one bad field
 // never loses the rest of a book.
 import { cleanIsbn, isValidIsbn10, isValidIsbn13 } from "@/server/books/isbn";
+import { decodeEntities } from "@/server/books/text";
 
 export const LIMITS = {
   title: 500,
@@ -15,11 +16,17 @@ export const LIMITS = {
 // can't point the app at an arbitrary server.
 const COVER_HOSTS = new Set(["covers.openlibrary.org", "books.google.com"]);
 
-export function cleanText(value: unknown, max: number): string | undefined {
-  if (typeof value !== "string") return undefined;
+// Collapses whitespace and caps the length, for text that's already decoded.
+function squash(value: string, max: number): string | undefined {
   const text = value.replaceAll(/\s+/g, " ").trim();
   if (!text) return undefined;
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
+// Providers sometimes send entities ("Snow &amp; Ash"), so they're decoded once here.
+export function cleanText(value: unknown, max: number): string | undefined {
+  if (typeof value !== "string") return undefined;
+  return squash(decodeEntities(value), max);
 }
 
 export function cleanAuthors(values: unknown): string[] {
@@ -37,8 +44,7 @@ export function cleanAuthors(values: unknown): string[] {
 }
 
 // A single pass over the characters, dropping everything between < and >, so
-// there's no regex to backtrack on hostile input. Entities that commonly
-// appear in Google's descriptions are decoded; others stay as they are.
+// there's no regex to backtrack on hostile input. Entities are then decoded once.
 export function stripHtml(html: string): string {
   let text = "";
   let inTag = false;
@@ -52,19 +58,13 @@ export function stripHtml(html: string): string {
       text += char;
     }
   }
-  return text
-    .replaceAll("&nbsp;", " ")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#39;", "'")
-    .replaceAll("&apos;", "'")
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&amp;", "&");
+  return decodeEntities(text);
 }
 
+// Not cleanText, which would decode a second time.
 export function cleanDescription(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
-  return cleanText(stripHtml(value), LIMITS.description);
+  return squash(stripHtml(value), LIMITS.description);
 }
 
 // Upgrades http to https (Google sends http links) and keeps only known hosts.

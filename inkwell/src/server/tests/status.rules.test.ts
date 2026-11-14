@@ -18,10 +18,10 @@ const STATUSES = Object.values(ReadingStatus);
 // The full table: current status → allowed status → what happens to the reads.
 // The target that doesn't fit the formats is filtered out below.
 const TABLE: Record<ReadingStatus, Partial<Record<ReadingStatus, ReadChange>>> = {
-  WISHLIST: { READING: "open", FINISHED: "addFinished" },
-  TO_READ: { READING: "open", FINISHED: "addFinished" },
+  WISHLIST: { READING: "open", FINISHED: "addFinished", DNF: "addDnf" },
+  TO_READ: { READING: "open", FINISHED: "addFinished", DNF: "addDnf" },
   READING: { FINISHED: "closeFinished", DNF: "closeDnf", WISHLIST: "discardOpen", TO_READ: "discardOpen" },
-  FINISHED: { READING: "open", WISHLIST: "none", TO_READ: "none" },
+  FINISHED: { READING: "open", DNF: "addDnf", WISHLIST: "none", TO_READ: "none" },
   DNF: { READING: "reopen", WISHLIST: "none", TO_READ: "none" },
 };
 
@@ -111,5 +111,20 @@ describe("startsNewRead", () => {
     expect(startsNewRead(at(ReadingStatus.READING), ReadingStatus.FINISHED)).toBe(false);
     expect(startsNewRead(at(ReadingStatus.DNF), ReadingStatus.READING)).toBe(false);
     expect(startsNewRead(at(ReadingStatus.FINISHED), ReadingStatus.FINISHED)).toBe(false);
+  });
+});
+
+describe("InvalidTransitionError", () => {
+  it("names the lists, not the database values", () => {
+    expect(new InvalidTransitionError(DNF, FINISHED, [EBOOK]).message).toBe("A book on DNF can't move to Finished.");
+  });
+
+  it("explains a not-started list that doesn't fit the formats", () => {
+    expect(() => readChangeFor({ status: WISHLIST, formats: [] }, TO_READ)).toThrow(
+      "A book on Wishlist can't move to TBR, because you don't own it in any format.",
+    );
+    expect(() => readChangeFor({ status: READING, formats: [EBOOK] }, WISHLIST)).toThrow(
+      "A book on Reading can't move to Wishlist, because you own it.",
+    );
   });
 });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { dedupeKey } from "@/server/books/dedupe";
 import { MAX_BOOKS_PER_REQUEST, parseAmazonImport } from "@/server/imports/amazon-import.schema";
 
 const row = { asin: "B0ABCDEFGH", title: " Fourth Wing ", authors: "Yarros, Rebecca", coverUrl: "https://example.test/c.jpg" };
@@ -12,7 +13,28 @@ describe("parseAmazonImport", () => {
     });
   });
 
+  it.each(["books", "docs"] as const)("decodes entities in %s titles and authors before dedupe", (kind) => {
+    const parsed = parseAmazonImport({
+      kind,
+      books: [{ title: " Snow &amp; Ash: Endless Winter ", authors: "Kate O&#39;Brien, Ann Lee" }],
+    });
+    const [book] = parsed?.books ?? [];
+    expect(book?.title).toBe("Snow & Ash: Endless Winter");
+    // Decoded before splitting, so the ";" in "&#39;" doesn't split a name.
+    expect(book?.authors).toEqual(["Kate O'Brien", "Ann Lee"]);
+    // A copy typed by hand gets the same key as the imported one.
+    expect(dedupeKey(book?.title ?? "", book?.authors ?? [])).toBe(
+      dedupeKey("Snow & Ash: Endless Winter", ["Ann Lee", "Kate O'Brien"]),
+    );
+  });
+
+  it("decodes only once", () => {
+    const parsed = parseAmazonImport({ books: [{ ...row, title: "Tom &amp;amp; Jerry" }] });
+    expect(parsed?.books[0]?.title).toBe("Tom &amp; Jerry");
+  });
+
   it.each([
+    ["a title that's only an entity", { ...row, title: "&nbsp;" }],
     ["a blank title", { ...row, title: "  " }],
     ["a long title", { ...row, title: "x".repeat(301) }],
     ["no author", { ...row, authors: "" }],

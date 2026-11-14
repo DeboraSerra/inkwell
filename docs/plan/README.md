@@ -25,14 +25,15 @@
    - [2a — Catalog](phase-2-data-model.md#phase-2a--catalog)
    - [2b — Library](phase-2-data-model.md#phase-2b--library)
    - [2c — Shelves](phase-2-data-model.md#phase-2c--shelves)
-3. **[Phase 3 — MVP: add books and browse them](phase-3-mvp.md) ✅ 3a–3d done; ⏭️ next: DNF and `&amp;` fixes, 3e, 3f** (Docs-tab fix not yet run on the real page)
+3. **[Phase 3 — MVP: add books and browse them](phase-3-mvp.md) ✅ 3a–3d done; ✅ three fixes built (DNF, `&amp;`, shelf search); ⏭️ next: 3e, 3f** (Docs-tab fix not yet run on the real page)
    - 3a — Rework the model (formats, status as the list, read history) ✅ implemented
    - 3b — Add books manually ✅ implemented
    - 3c — Add books through the extension ✅ done, run on Amazon
    - 3d — Browse, filter and move books ✅ done, at `/books/shelves`
-   - **Fix: moving to DNF ⏭️ first:** TBR, Wishlist and Finished books can't be moved to DNF; add the missing moves
-   - **Fix: `&amp;` in imported titles ⏭️ first:** decode HTML entities from Amazon on the server, and clean up the 5 affected titles (needs your go-ahead)
-   - **3e — Polish, before 4c:** show the account an import goes to, give the options page a favicon, redesign the options page, add a copy button for new API tokens, add a books-per-page select (default 10 on phones, 30 on desktop), show the full title on hover, move to the next date part automatically, show read dates on shelf cards, add an audiobook length
+   - **Fix: moving to DNF ✅ built:** Wishlist, TBR and Finished books can now move to DNF; not yet clicked through signed in
+   - **Fix: searching a shelf jumps back to TBR ✅ built:** search keeps the shelf and filters, and clearing the box removes `?q=`; browser check still to do signed in
+   - **Fix: `&amp;` in imported titles ✅ built:** imports decode entities; the backfill for the 5 affected titles is written and dry-run, and needs your go-ahead to run
+   - **3e — Polish, before 4c:** show the account an import goes to, give the options page a favicon, redesign the options page, add a copy button for new API tokens, add a books-per-page select (default 10 on phones, 30 on desktop), show the full title on hover, move to the next date part automatically, show read dates on shelf cards, add an audiobook length, add a past read without moving the book
    - **3f — Purchase dates, after 3e:** save Amazon's acquired date as `UserBook.acquiredAt`, editable for hand-added books, filterable and sortable on the shelves
 4. [Phase 4 — Search and ISBN](phase-4-adding-books.md) in progress; 4c follows 3e and 3f
    - 4a — Metadata providers (Open Library, Google Books) ✅ done, plus the per-user rate limit
