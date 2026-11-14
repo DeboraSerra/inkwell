@@ -1,5 +1,5 @@
 import "server-only";
-import { type BookFormat, type DatePrecision, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
+import { type BookFormat, type DatePrecision, ReadingStatus, ReadOutcome, UserBookSource } from "@/generated/prisma/enums";
 import {
   fillMissingIsbn,
   findExistingBook,
@@ -23,6 +23,7 @@ import {
 } from "./status.rules";
 import { type ReadDates, toDateValues, toEditedReadFields, toReadFields } from "./partial-date.rules";
 import type { ShelfRead } from "./read-label.rules";
+import { sortReads } from "./read-order.rules";
 import { type PageSize, parsePageSize } from "./shelf-filters";
 
 // Every function takes the signed-in user's id first.
@@ -39,16 +40,23 @@ const NOT_IN_LIBRARY = "Book not found in your library";
 const inTransaction = <T>(tx: Tx | undefined, fn: (tx: Tx) => Promise<T>) =>
   tx ? fn(tx) : transaction(fn);
 
+// The read a status change acted on: an existing one by id, or "created" for
+// the read it added, which is then the book's newest entry.
+type ActedOn = Map<string, string>;
+const CREATED = "created";
+
 // Applies status-change effects to the read history in a fixed number of
 // queries however many books move, so a bulk move fits in one transaction.
-// `at` is when it happened, or null when that isn't known.
+// `at` is when it happened, or null when that isn't known. Returns, per book,
+// the read the change acted on, so dates given with the change go to it.
 async function applyReadChanges(
   userId: string,
   changes: { userBookId: string; change: ReadChange }[],
   at: Date | null,
   tx: Tx,
   dates: ReadDates = {},
-) {
+): Promise<ActedOn> {
+  const actedOn: ActedOn = new Map();
   const idsFor = (...kinds: ReadChange[]) =>
     changes.filter(({ change }) => kinds.includes(change)).map(({ userBookId }) => userBookId);
 
@@ -65,7 +73,16 @@ async function applyReadChanges(
   const reopened = toReopen.flatMap((id) => latest(id, "DNF")?.id ?? []);
   const reopenMissing = toReopen.filter((id) => !latest(id, "DNF"));
 
+  for (const id of toReopen) {
+    const read = latest(id, "DNF");
+    if (read) actedOn.set(id, read.id);
+  }
+
   const closeAs = async (ids: string[], outcome: "FINISHED" | "DNF") => {
+    for (const id of ids) {
+      const open = latest(id, null);
+      if (open) actedOn.set(id, open.id);
+    }
     const readIds = ids.flatMap((id) => latest(id, null)?.id ?? []);
     if (readIds.length) await readModel.closeReads(userId, readIds, outcome, at, tx);
     return ids
@@ -90,6 +107,8 @@ async function applyReadChanges(
     ...closedWithoutOpenRead,
   ];
   if (newReads.length) await readModel.createReads(newReads, tx);
+  for (const { userBookId } of newReads) actedOn.set(userBookId, CREATED);
+  return actedOn;
 }
 
 export type AddBookInput = {
@@ -105,6 +124,8 @@ export type AddBookInput = {
   dates?: ReadDates;
   // An audiobook's length in minutes, when the reader gave one.
   audioMinutes?: number;
+  // More finished reads, for a book added as already read more than once.
+  pastReads?: PastRead[];
 };
 
 // Adding a book already in the library only ever adds formats. Its status,
@@ -124,7 +145,7 @@ function addFormats(userId: string, bookId: string, formats: BookFormat[], outer
 // A book already in the library keeps its length, as it keeps its status and
 // dates: adding again only adds formats.
 export async function addBookToLibrary(userId: string, input: AddBookInput, outerTx?: Tx) {
-  const { bookId, formats, source, status, at, dates, audioMinutes } = input;
+  const { bookId, formats, source, status, at, dates, audioMinutes, pastReads } = input;
   const existing = await libraryModel.findUserBookByBookId(userId, bookId, outerTx);
   if (existing) return { userBook: await addFormats(userId, bookId, formats, outerTx), created: false };
 
@@ -134,6 +155,9 @@ export async function addBookToLibrary(userId: string, input: AddBookInput, oute
     if (userBook) {
       const change = { userBookId: userBook.id, change: readChange };
       await applyReadChanges(userId, [change], at === undefined ? new Date() : at, tx, dates);
+      if (state.status === ReadingStatus.FINISHED && pastReads?.length) {
+        await savePastReads(userId, userBook.id, pastReads.filter(({ id }) => !id), tx);
+      }
     }
     return userBook;
   });
@@ -152,12 +176,13 @@ export function addManualBook(
   status?: ReadingStatus,
   dates?: ReadDates,
   audioMinutes?: number,
+  pastReads?: PastRead[],
 ) {
   return transaction(async (tx) => {
     const book = await findOrCreateManualBook(details, tx);
     const added = await addBookToLibrary(
       userId,
-      { bookId: book.id, formats, source: UserBookSource.MANUAL, status, at: null, dates, audioMinutes },
+      { bookId: book.id, formats, source: UserBookSource.MANUAL, status, at: null, dates, audioMinutes, pastReads },
       tx,
     );
     return { ...added, book };
@@ -229,6 +254,7 @@ export type LookupChoices = {
   status?: ReadingStatus;
   dates?: ReadDates;
   audioMinutes?: number;
+  pastReads?: PastRead[];
   source?: typeof UserBookSource.ISBN | typeof UserBookSource.SEARCH;
 };
 
@@ -237,7 +263,7 @@ export type LookupChoices = {
 // provider said. The lookup runs before the transaction, so no network call
 // holds it open.
 export async function addBookByIsbn(userId: string, isbn: string, choices: LookupChoices) {
-  const { formats, status, dates, audioMinutes, source = UserBookSource.ISBN } = choices;
+  const { formats, status, dates, audioMinutes, pastReads, source = UserBookSource.ISBN } = choices;
   const lookup = await lookupIsbn(isbn);
   if (lookup.found === "none") throw new NotFoundError("We couldn't find a book with that ISBN.");
 
@@ -245,7 +271,7 @@ export async function addBookByIsbn(userId: string, isbn: string, choices: Looku
     const book = lookup.found === "catalog" ? lookup.book : await findOrCreateMetadataBook(lookup.metadata, tx);
     const result = await addBookToLibrary(
       userId,
-      { bookId: book.id, formats, source, status, at: null, dates, audioMinutes },
+      { bookId: book.id, formats, source, status, at: null, dates, audioMinutes, pastReads },
       tx,
     );
     return { ...result, book };
@@ -343,6 +369,8 @@ export type ShelfBook = {
   latestRead: ShelfRead | null;
   // How many reads there are besides the latest one.
   earlierReads: number;
+  // The earlier finished reads, most recent first, as the edit form's text.
+  pastReads: { id: string; values: Record<string, string> }[];
 };
 
 // One page of a shelf, in the plain shape the page and client components share.
@@ -360,19 +388,26 @@ export async function listShelfPage(
   const page = Math.min(Math.max(requestedPage, 1), pageCount);
   const skip = (page - 1) * pageSize;
   const rows = await listUserBooks(userId, { ...filters, take: pageSize, skip });
-  const books: ShelfBook[] = rows.map(({ id, status, formats, pageCount, audioMinutes, authors, coverUrl, readThroughs, book }) => ({
-    id,
-    status,
-    formats,
-    pageCount: pageCount ?? book.pageCount,
-    audioMinutes,
-    readDates: latestReadValues(readThroughs.at(0)),
-    latestRead: toShelfRead(readThroughs.at(0)),
-    earlierReads: Math.max(readThroughs.length - 1, 0),
-    title: book.title,
-    authors: authors.length ? authors : book.authors,
-    coverUrl: coverUrl ?? book.coverUrl,
-  }));
+  const books: ShelfBook[] = rows.map(({ id, status, formats, pageCount, audioMinutes, authors, coverUrl, readThroughs, book }) => {
+    // The latest read is the most recent by date, not the most recently entered.
+    const [latest, ...earlier] = sortReads(readThroughs);
+    return {
+      id,
+      status,
+      formats,
+      pageCount: pageCount ?? book.pageCount,
+      audioMinutes,
+      readDates: latestReadValues(latest),
+      latestRead: toShelfRead(latest),
+      earlierReads: earlier.length,
+      pastReads: earlier
+        .filter((read) => read.outcome === ReadOutcome.FINISHED)
+        .map((read) => ({ id: read.id, values: latestReadValues(read) })),
+      title: book.title,
+      authors: authors.length ? authors : book.authors,
+      coverUrl: coverUrl ?? book.coverUrl,
+    };
+  });
   return { books, page, pageCount, pageSize, total, firstIndex: skip + 1 };
 }
 
@@ -438,18 +473,62 @@ export function updateFormats(userId: string, userBookId: string, formats: BookF
   });
 }
 
+// The latest read by date, as the shelf shows it: the open read first, then the
+// most recent dates.
+async function findLatestRead(userId: string, userBookId: string, tx: Tx) {
+  return sortReads(await readModel.findBookReads(userId, userBookId, tx)).at(0);
+}
+
+// Saves the dates the form showed for the latest read. After a status change
+// they go to the read that change acted on: the one it closed or reopened, or
+// the one it added. Without a change, to the latest read by date, which is the
+// one the form showed.
 async function saveLatestReadDates(
   userId: string,
   userBookId: string,
   status: ReadingStatus,
   dates: ReadDates,
   tx: Tx,
+  actedOn?: string,
 ) {
   if (status !== ReadingStatus.READING && status !== ReadingStatus.FINISHED) return;
-  const read = await readModel.findLatestRead(userId, userBookId, tx);
+  let readId = actedOn;
+  if (actedOn === CREATED) readId = (await readModel.findNewestRead(userId, userBookId, tx))?.id;
+  if (!actedOn) readId = (await findLatestRead(userId, userBookId, tx))?.id;
   const fields = toEditedReadFields(dates, status === ReadingStatus.FINISHED);
-  if (read) await readModel.updateReadDates(userId, read.id, fields, tx);
+  if (readId) await readModel.updateBookReadDates(userId, userBookId, readId, fields, tx);
 }
+
+// Another finished read in the book's history, besides the latest one: new
+// when it has no id, or an earlier read's corrected dates when it has one.
+export type PastRead = { id?: string; dates: ReadDates };
+
+const READ_NOT_FOUND = "That read isn't in your library.";
+
+// Never changes the book's status or formats, never touches the open read,
+// and never removes a read. An id must be one of this book's finished reads.
+async function savePastReads(userId: string, userBookId: string, pastReads: PastRead[], tx: Tx) {
+  const edited = pastReads.filter((read): read is Required<PastRead> => Boolean(read.id));
+  if (edited.length) {
+    const finished = new Set(
+      (await readModel.findBookReads(userId, userBookId, tx))
+        .filter((read) => read.outcome === ReadOutcome.FINISHED)
+        .map((read) => read.id),
+    );
+    for (const { id, dates } of edited) {
+      if (!finished.has(id)) throw new NotFoundError(READ_NOT_FOUND);
+      await readModel.updateBookReadDates(userId, userBookId, id, toEditedReadFields(dates, true), tx);
+    }
+  }
+  const added = pastReads.filter(({ id }) => !id);
+  if (added.length) {
+    await readModel.createReads(
+      added.map(({ dates }) => ({ userBookId, outcome: ReadOutcome.FINISHED, ...toReadFields(dates) })),
+      tx,
+    );
+  }
+}
+
 
 // Moves one book with the dates the reader chose. Dates left blank stay unknown.
 export function moveUserBook(userId: string, userBookId: string, status: ReadingStatus, dates: ReadDates) {
@@ -457,9 +536,9 @@ export function moveUserBook(userId: string, userBookId: string, status: Reading
     const current = await libraryModel.findUserBook(userId, userBookId, tx);
     if (!current) throw new NotFoundError(NOT_IN_LIBRARY);
     const change = readChangeFor(current, status);
-    await applyReadChanges(userId, [{ userBookId, change }], null, tx);
+    const actedOn = await applyReadChanges(userId, [{ userBookId, change }], null, tx);
     const updated = await libraryModel.updateUserBookState(userId, userBookId, { status, formats: current.formats }, tx);
-    await saveLatestReadDates(userId, userBookId, status, dates, tx);
+    await saveLatestReadDates(userId, userBookId, status, dates, tx, actedOn.get(userBookId));
     return updated;
   });
 }
@@ -475,13 +554,15 @@ export type BookEdit = {
   // Left out means no length, which clears a stored one.
   audioMinutes?: number;
   dates: ReadDates;
+  // Earlier finished reads: corrected dates, and reads added with the dialog.
+  pastReads?: PastRead[];
 };
 
 const sameList = (a: string[], b: string[]) => a.join(";") === b.join(";");
 
-// Saves what belongs to this reader. The dates apply to the latest read, so
-// earlier reads stay as they are. Throws InvalidTransitionError for a status
-// change that isn't allowed.
+// Saves what belongs to this reader. `dates` apply to the latest read, and
+// `pastReads` to earlier ones; no read is ever removed. Throws
+// InvalidTransitionError for a status change that isn't allowed.
 export function editUserBook(userId: string, userBookId: string, edit: BookEdit) {
   return transaction(async (tx) => {
     const current = await libraryModel.findUserBookWithCatalog(userId, userBookId, tx);
@@ -490,7 +571,7 @@ export function editUserBook(userId: string, userBookId: string, edit: BookEdit)
     const owned = changeFormats(current, edit.formats);
     const status = edit.status ?? notStartedStatusFor(owned.formats);
     const change = readChangeFor(owned, status);
-    await applyReadChanges(userId, [{ userBookId, change }], null, tx);
+    const actedOn = await applyReadChanges(userId, [{ userBookId, change }], null, tx);
     // Only real differences are kept, so later catalog fixes still reach this book.
     const { book } = current;
     const authors = edit.authors && !sameList(edit.authors, book.authors) ? edit.authors : [];
@@ -509,7 +590,10 @@ export function editUserBook(userId: string, userBookId: string, edit: BookEdit)
       tx,
     );
 
-    await saveLatestReadDates(userId, userBookId, status, edit.dates, tx);
+    await saveLatestReadDates(userId, userBookId, status, edit.dates, tx, actedOn.get(userBookId));
+    if (status === ReadingStatus.FINISHED && edit.pastReads?.length) {
+      await savePastReads(userId, userBookId, edit.pastReads, tx);
+    }
     return updated;
   });
 }

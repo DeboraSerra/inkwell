@@ -473,6 +473,30 @@ Added at the user's request on 2026-11-08, after the extension's store build was
       - Server actions in `library.controller.ts`, validated with zod in a schema file, never in the `"use server"` file.
       - `createReads` in `read-through.model.ts` already exists, and `updateReadDates` is reused for the edits.
     - **Later:** Phase 6's books-per-year goal counts finished reads by their end date, so a past read counts in its own year, and one with no date doesn't count.
+    - **✅ Built (2026-11-14), following the user's design rather than a separate Reads section:**
+      - **UI (`StatusField`):** the dates area has a "Dates" label, then the latest read's Started and Finished, then one set per earlier finished read. A ➕ adds another set.
+        - The ➕ and the earlier sets show only when the status is Finished ("Already read"), as the user asked.
+        - The edit dialog starts with the book's earlier finished reads. The add form, on both its Manual and ISBN tabs, starts with none.
+        - A rejected form keeps the sets that were typed.
+      - **Changes from the plan:**
+        - There's no card-menu entry and no outcome choice: every added read is Finished.
+        - Earlier DNF reads aren't listed for editing, though they still count in "+N".
+        - So the standalone `addRead` and `editReadDates` aren't needed: both forms save through their existing actions.
+      - **Fields:** `pastRead<n>StartedDay` … `pastRead<n>EndedYear`, plus `pastRead<n>Id` for an existing read, for up to 20 sets.
+        - `parsePastReads` in `manual-book.schema.ts` checks each set with the same date rules as the first.
+        - A new set left empty is skipped, so a stray ➕ adds nothing.
+        - An existing read whose dates are cleared keeps its place, since no read is ever removed.
+      - **"Latest" is now by date:** `read-order.rules.ts` (`compareReads`, `sortReads`) puts the open read first, then sorts by end date, then start date, newest first, with undated reads last. The shelf card, "+N" and the edit dialog all use it.
+      - **Status changes still act on the right read:** `applyReadChanges` returns the read each change acted on, and the dates given with a move or an edit go to it. That's the open read it closed, the DNF read it reopened, or, for a read it created, the newest entry, which is what the old code assumed.
+        - Without a status change, the dates go to the latest read by date, which is the one the form shows.
+        - `findChangeableReads` is unchanged, so closing and reopening pick the same reads as before.
+      - **Saving:** `savePastReads` (service) adds the new reads and corrects the earlier ones. An id must be one of this book's finished reads. It runs only for a Finished book, never changes status or formats, and never touches the open read. Adding a book as already read creates the extra reads too. A book already in the library ignores them, as it ignores its dates.
+      - **Fixed in the user's draft:** `new Array({ length })` always made one set, every set shared the same field names, and the two tooltip buttons were labelled "About formats".
+      - **Verified:**
+        - Typecheck, lint, 752 tests and the build.
+        - The tests cover the ordering rule, dates going to the read a change closed or created even with a past read entered later, correcting and adding past reads, refusing another book's read, the shelf's latest read and list, and the field parsing.
+        - In the browser, on a temporary page: the ➕ shows for Finished and is hidden for Reading; it adds sets; and only filled sets, with their ids, are sent.
+      - **Not verified:** a real save signed in.
 11. **Release:**
    - Bump the version to 2.2.0 in `extension/manifest.json`.
    - Rebuild with `node extension/build.mjs https://<domain>`.

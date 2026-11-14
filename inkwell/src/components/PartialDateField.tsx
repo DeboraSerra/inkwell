@@ -16,9 +16,9 @@ import { Field, FieldLabel, FieldLegend, FieldSet } from "./ui/field";
 import { Input } from "./ui/input";
 
 const PARTS: { part: DatePart; suffix: string; label: string; placeholder: string; width: string }[] = [
-  { part: "day", suffix: "Day", label: "Day", placeholder: "DD", width: "w-16" },
-  { part: "month", suffix: "Month", label: "Month", placeholder: "MM", width: "w-16" },
-  { part: "year", suffix: "Year", label: "Year", placeholder: "YYYY", width: "w-20" },
+  { part: "day", suffix: "Day", label: "Day", placeholder: "DD", width: "w-12" },
+  { part: "month", suffix: "Month", label: "Month", placeholder: "MM", width: "w-12" },
+  { part: "year", suffix: "Year", label: "Year", placeholder: "YYYY", width: "w-15" },
 ];
 
 // Day, Month and Year inputs that move forward as a date is typed: after a

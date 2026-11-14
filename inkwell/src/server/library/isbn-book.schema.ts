@@ -7,7 +7,9 @@ import {
   audioLengthFields,
   audioLengthFor,
   manualBookValues,
+  parsePastReads,
   parseReadDates,
+  pastReadsField,
   readDateFields,
   readStatusField,
 } from "./manual-book.schema";
@@ -25,10 +27,21 @@ const isbnBookSchema = z
     status: readStatusField,
     ...readDateFields,
     ...audioLengthFields,
+    pastReads: pastReadsField,
   })
   .transform((data, ctx) => {
-    const { startedDay, startedMonth, startedYear, endedDay, endedMonth, endedYear, audioHours, audioMinutes, ...choices } =
-      data;
+    const {
+      startedDay,
+      startedMonth,
+      startedYear,
+      endedDay,
+      endedMonth,
+      endedYear,
+      audioHours,
+      audioMinutes,
+      pastReads: pastReadText,
+      ...choices
+    } = data;
     const { dates, error } = parseReadDates(choices.status, {
       startedDay,
       startedMonth,
@@ -46,7 +59,12 @@ const isbnBookSchema = z
       ctx.addIssue({ code: "custom", message: length.error });
       return z.NEVER;
     }
-    return { ...choices, dates, audioMinutes: length.minutes };
+    const past = parsePastReads(choices.status, pastReadText);
+    if (!past.pastReads) {
+      ctx.addIssue({ code: "custom", message: past.error ?? "Those dates aren't valid." });
+      return z.NEVER;
+    }
+    return { ...choices, dates, audioMinutes: length.minutes, pastReads: past.pastReads };
   });
 
 export function parseIsbnBook(formData: FormData) {

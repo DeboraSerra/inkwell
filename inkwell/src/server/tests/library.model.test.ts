@@ -134,10 +134,13 @@ describe("removing and editing a book", () => {
   });
 
   it("scopes read dates by user", async () => {
-    await reads.findLatestRead(USER, "ub");
+    await reads.findNewestRead(USER, "ub");
+    await reads.findBookReads(USER, "ub");
     await reads.updateReadDates(USER, "r", { startedAt: null });
-    expect(calls[0].args.where).toMatchObject({ userBook: { userId: USER } });
-    expect(calls[1].args.where).toMatchObject({ userBook: { userId: USER } });
+    results.updateMany = [{ count: 1 }];
+    await expect(reads.updateBookReadDates(USER, "ub", "r", { startedAt: null })).resolves.toBe(1);
+    for (const call of calls) expect(call.args.where).toMatchObject({ userBook: { userId: USER } });
+    expect(calls[3].args.where).toMatchObject({ id: "r", userBookId: "ub" });
   });
 });
 

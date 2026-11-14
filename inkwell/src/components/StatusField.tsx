@@ -2,11 +2,15 @@
 
 import { ReadingStatus } from "@/generated/prisma/enums";
 import type { ManualBookValues } from "@/server/library/manual-book.schema";
-import { type ReadingState, startsNewRead } from "@/server/library/status.rules";
-import { Info } from "lucide-react";
+import {
+  type ReadingState,
+  startsNewRead,
+} from "@/server/library/status.rules";
+import { Info, PlusCircle } from "lucide-react";
 import { useState } from "react";
 import { PartialDateField } from "./PartialDateField";
-import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "./ui/field";
+import { Button } from "./ui/button";
+import { Field, FieldLabel, FieldLegend, FieldSet } from "./ui/field";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
@@ -27,24 +31,82 @@ const STATUS = [
   },
 ];
 
+// An earlier finished read's date fields, sent as pastRead<n>StartedYear and
+// so on. `id` is set for a read already saved, so its dates are corrected
+// rather than added again.
+type PastReadSet = { key: string; id?: string; values?: Record<string, string> };
+
+const MAX_PAST_READS = 20;
+
+const DATE_PARTS = ["StartedDay", "StartedMonth", "StartedYear", "EndedDay", "EndedMonth", "EndedYear"];
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
+
+// The form's text for one read ({ startedYear: "2019" }), renamed for its
+// place in the form ({ pastRead1StartedYear: "2019" }).
+const prefixed = (index: number, values: Record<string, string> = {}) =>
+  Object.fromEntries(
+    DATE_PARTS.flatMap((part) => {
+      const value = values[lowerFirst(part)];
+      return value ? [[`pastRead${index}${part}`, value]] : [];
+    }),
+  );
+
+// The sets to start with: what a rejected form sent, or the book's earlier
+// finished reads when editing.
+function initialPastReads(values?: ManualBookValues, saved: { id: string; values: Record<string, string> }[] = []) {
+  const sent = values?.pastReads ?? {};
+  if (!Object.keys(sent).length) return saved.map(({ id, values: readValues }) => ({ key: id, id, values: readValues }));
+  const sets: PastReadSet[] = [];
+  for (let index = 1; index <= MAX_PAST_READS; index++) {
+    const id = sent[`pastRead${index}Id`];
+    const readValues = Object.fromEntries(
+      DATE_PARTS.flatMap((part) => {
+        const value = sent[`pastRead${index}${part}`];
+        return value ? [[lowerFirst(part), value]] : [];
+      }),
+    );
+    if (id || Object.keys(readValues).length) sets.push({ key: `sent-${index}`, id, values: readValues });
+  }
+  return sets;
+}
+
 // Keeps the choice here rather than in the form, so the form's remount after
 // each submit also resets it.
-// `current` is the book being edited, if any.
+// `current` is the book being edited, if any, with its earlier finished reads.
 export function StatusField({
   values,
   current,
-}: Readonly<{ values?: ManualBookValues; current?: ReadingState }>) {
+  pastReads,
+}: Readonly<{
+  values?: ManualBookValues;
+  current?: ReadingState;
+  pastReads?: { id: string; values: Record<string, string> }[];
+}>) {
   const [status, setStatus] = useState(values?.status ?? "");
-  const hasStart = status === ReadingStatus.READING || status === ReadingStatus.FINISHED;
+  const [sets, setSets] = useState<PastReadSet[]>(() => initialPastReads(values, pastReads));
+  const addSet = () =>
+    setSets((current) =>
+      current.length < MAX_PAST_READS ? [...current, { key: `new-${crypto.randomUUID()}` }] : current,
+    );
+  const hasStart =
+    status === ReadingStatus.READING || status === ReadingStatus.FINISHED;
   const hasEnd = status === ReadingStatus.FINISHED;
   // Rereading a finished book starts a new read, so the old dates don't apply.
-  const isNewRead = hasStart && current !== undefined && startsNewRead(current, status as ReadingStatus);
-  const dateValues = isNewRead ? undefined : values;
+  const isNewRead =
+    hasStart &&
+    current !== undefined &&
+    startsNewRead(current, status as ReadingStatus);
+  const { pastReads: _sentPastReads, ...firstValues } = values ?? {};
+  const dateValues = isNewRead ? undefined : firstValues;
 
   return (
     <>
       <FieldSet>
-        <FieldLegend variant='label' id='status-legend' className="flex gap-1 items-center">
+        <FieldLegend
+          variant='label'
+          id='status-legend'
+          className='flex gap-1 items-center'
+        >
           <span>Status</span>
           <Tooltip>
             <TooltipTrigger aria-label={`About status`}>
@@ -52,9 +114,9 @@ export function StatusField({
             </TooltipTrigger>
             <TooltipContent>
               <p>
-                Choose where you are with this book. If you haven’t started
-                it, it goes to your TBR when you own a format, or to your
-                Wishlist when you don’t.
+                Choose where you are with this book. If you haven’t started it,
+                it goes to your TBR when you own a format, or to your Wishlist
+                when you don’t.
               </p>
             </TooltipContent>
           </Tooltip>
@@ -69,10 +131,7 @@ export function StatusField({
           {STATUS.map(({ value, label, info }) => (
             <Field key={value} orientation='horizontal' className='w-fit'>
               <RadioGroupItem id={`status-${value}`} value={value} />
-              <FieldLabel
-                htmlFor={`status-${value}`}
-                className='font-normal'
-              >
+              <FieldLabel htmlFor={`status-${value}`} className='font-normal'>
                 {label}
               </FieldLabel>
               {info && (
@@ -93,14 +152,76 @@ export function StatusField({
       {hasStart && (
         // The inputs keep their own text, so a new key applies the right defaults.
         <div key={String(isNewRead)} className='col-span-2 flex flex-col gap-3'>
-          <div className='flex flex-wrap gap-x-10 gap-y-4'>
-            <PartialDateField name='started' legend='Started' values={dateValues} />
-            {hasEnd && <PartialDateField name='ended' legend='Finished' values={dateValues} />}
+          <p className='flex gap-2 items-center'>
+            Dates
+            <Tooltip>
+              <TooltipTrigger aria-label='About dates'>
+                <Info size={16} />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  Optional. Fill in as much as you remember: just the year, the
+                  month and year, or the full date.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </p>
+
+          <div className='flex justify-between items-end'>
+            <div className='flex flex-col gap-4'>
+              <div className='flex flex-wrap gap-x-10 gap-y-4'>
+                <PartialDateField
+                  name='started'
+                  legend='Started'
+                  values={dateValues}
+                />
+                {hasEnd && (
+                  <PartialDateField
+                    name='ended'
+                    legend='Finished'
+                    values={dateValues}
+                  />
+                )}
+              </div>
+              {/* Earlier reads only belong to a book that's been read. */}
+              {hasEnd &&
+                sets.map((set, index) => {
+                  const number = index + 1;
+                  const setValues = prefixed(number, set.values);
+                  return (
+                    <div key={set.key} className='flex flex-wrap gap-x-10 gap-y-4'>
+                      {set.id && (
+                        <input type='hidden' name={`pastRead${number}Id`} value={set.id} />
+                      )}
+                      <PartialDateField
+                        name={`pastRead${number}Started`}
+                        legend='Started'
+                        values={setValues}
+                      />
+                      <PartialDateField
+                        name={`pastRead${number}Ended`}
+                        legend='Finished'
+                        values={setValues}
+                      />
+                    </div>
+                  );
+                })}
+            </div>
+            {hasEnd && sets.length < MAX_PAST_READS && (
+              <Tooltip>
+                <TooltipTrigger
+                  aria-label='Add another read'
+                  onClick={addSet}
+                  render={<Button type='button' variant='ghost' size='icon' />}
+                >
+                  <PlusCircle size={16} />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Add new set of dates</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
-          <FieldDescription>
-            Optional. Fill in as much as you remember: just the year, the month
-            and year, or the full date.
-          </FieldDescription>
         </div>
       )}
     </>

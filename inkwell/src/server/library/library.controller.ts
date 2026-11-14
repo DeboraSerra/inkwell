@@ -45,7 +45,7 @@ export async function addManualBook(
   const parsed = parseManualBook(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message, values };
 
-  const { formats, status, dates, audioMinutes, ...details } = parsed.data;
+  const { formats, status, dates, audioMinutes, pastReads, ...details } = parsed.data;
   try {
     const { book, userBook, created } = await libraryService.addManualBook(
       user.id,
@@ -54,6 +54,7 @@ export async function addManualBook(
       status,
       dates,
       audioMinutes,
+      pastReads,
     );
     revalidatePath(SHELVES_PATH);
     const list = LIST_NAMES[userBook.status];

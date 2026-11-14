@@ -54,13 +54,14 @@ describe("addManualBook", () => {
       undefined,
       { started: undefined, ended: undefined },
       undefined,
+      [],
     );
   });
 
   it("passes an audiobook's length", async () => {
     service.addManualBook.mockResolvedValue(added(ReadingStatus.TO_READ, true));
     await addManualBook({}, form({ ...valid, formats: "AUDIO", audioHours: "1", audioMinutes: "5" }));
-    expect(service.addManualBook).toHaveBeenCalledWith("user-1", expect.anything(), ["AUDIO"], undefined, expect.anything(), 65);
+    expect(service.addManualBook).toHaveBeenCalledWith("user-1", expect.anything(), ["AUDIO"], undefined, expect.anything(), 65, []);
   });
 
   it("passes the chosen status and names its list", async () => {
@@ -74,6 +75,7 @@ describe("addManualBook", () => {
       "FINISHED",
       { started: undefined, ended: undefined },
       undefined,
+      [],
     );
   });
 
@@ -344,6 +346,7 @@ describe("add by ISBN", () => {
         formats: ["EBOOK"],
         status: "FINISHED",
         dates: { started: undefined, ended: expect.objectContaining({ precision: "YEAR" }) },
+        pastReads: [],
       });
     });
 

@@ -7,6 +7,9 @@ import {
   audioLengthFor,
   coverUrlField,
   optional,
+  parsePastReads,
+  pastReadsField,
+  pastReadValues,
   pageCountField,
   parseReadDates,
   readDateFields,
@@ -42,6 +45,7 @@ const editBookSchema = z
     coverUrl: coverUrlField,
     ...readDateFields,
     ...audioLengthFields,
+    pastReads: pastReadsField,
   })
   .transform((data, ctx) => {
     const { dates, error } = parseReadDates(data.status, data);
@@ -55,15 +59,35 @@ const editBookSchema = z
       ctx.addIssue({ code: "custom", message: length.error });
       return z.NEVER;
     }
+    const past = parsePastReads(data.status, data.pastReads);
+    if (!past.pastReads) {
+      ctx.addIssue({ code: "custom", message: past.error ?? "Those dates aren't valid." });
+      return z.NEVER;
+    }
     const { userBookId, formats, status, pageCount, authors, coverUrl } = data;
-    return { userBookId, formats, status, pageCount, authors, coverUrl, dates, audioMinutes: length.minutes };
+    return {
+      userBookId,
+      formats,
+      status,
+      pageCount,
+      authors,
+      coverUrl,
+      dates,
+      audioMinutes: length.minutes,
+      pastReads: past.pastReads,
+    };
   });
 
 export function parseEditBook(userBookId: string, formData: FormData) {
   const fields = Object.fromEntries(
-    [...formData.entries()].filter(([name]) => name !== "formats" && name !== "userBookId"),
+    [...formData.entries()].filter(([name]) => name !== "formats" && name !== "userBookId" && !name.startsWith("pastRead")),
   );
-  return editBookSchema.safeParse({ ...fields, userBookId, formats: formData.getAll("formats") });
+  return editBookSchema.safeParse({
+    ...fields,
+    userBookId,
+    formats: formData.getAll("formats"),
+    pastReads: pastReadValues(formData),
+  });
 }
 
 const moveBookSchema = z

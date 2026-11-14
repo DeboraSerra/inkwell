@@ -100,6 +100,7 @@ export function EditBookDialog({
             <StatusField
               values={{ status: formStatus(book.status), ...book.readDates }}
               current={book}
+              pastReads={book.pastReads}
             />
           </div>
           <TextField

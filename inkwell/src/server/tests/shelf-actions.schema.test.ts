@@ -31,3 +31,18 @@ describe("parseEditBook audiobook length", () => {
     expect(parsed.success).toBe(false);
   });
 });
+
+describe("parseEditBook past reads", () => {
+  it("passes corrected and new past reads for a finished book", () => {
+    const parsed = parseEditBook(
+      "ub-1",
+      form({ formats: ["PHYSICAL"], status: "FINISHED", pastRead1Id: "read-1", pastRead1EndedYear: "2018", pastRead2EndedYear: "2015" }),
+    );
+    expect(parsed.success && parsed.data.pastReads).toMatchObject([{ id: "read-1" }, { dates: { ended: { precision: "YEAR" } } }]);
+  });
+
+  it("rejects an invalid past read", () => {
+    const parsed = parseEditBook("ub-1", form({ formats: ["PHYSICAL"], status: "FINISHED", pastRead1EndedMonth: "13", pastRead1EndedYear: "2018" }));
+    expect(parsed.success).toBe(false);
+  });
+});
