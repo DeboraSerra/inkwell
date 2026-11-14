@@ -390,6 +390,25 @@ Added at the user's request on 2026-11-08, after the extension's store build was
    - **Structure:**
      - The component becomes a client component (`"use client"`).
      - The decisions go in a pure helper, `components/date-input.ts`, so they can be unit-tested without a browser: when to advance, how a part's text is cleaned, and how a pasted date is split.
+   - **✅ Done (2026-11-14):**
+     - **Helper:** `components/date-input.ts` (pure) holds `cleanPart`, `isPartComplete`, `isSeparator`, `nextPart`/`previousPart` and `splitPastedDate`. Its tests are in `server/tests/date-input.test.ts`, where AGENTS.md keeps every test.
+     - **Component:** `PartialDateField` is now a client component and keeps its uncontrolled inputs, so the forms still read them through `FormData`. Day and Month take 2 characters and Year 4, and only digits are kept.
+     - **When it moves on:** decided from the input event, not key presses, because phone keyboards don't always report keys. A part moves on only when one character was typed at its end (`inputType` `insertText`). Editing the middle, replacing a selection, autofill and pasting never move it.
+     - **Choices the plan left open:**
+       - A separator in an empty part does nothing. Otherwise the "/" in "5/10/2021" would skip Month, since Day already moved on after the "5".
+       - A pasted date puts the cursor in Year.
+       - `autoComplete="off"` keeps the browser's suggestions out of the way.
+     - **Checked** in the browser on a temporary page, since removed, with key-by-key typing:
+       - `05102021` fills all three, and Backspace walks back into Month.
+       - "5/10/2021", "1-1.1999" and early single digits (4 to 9 in Day, 2 to 9 in Month) move on.
+       - Letters are stripped, and typing in the middle of a part stays put.
+       - Tab, Tab, then "2019" leaves a year alone.
+       - Pasting `2021-10-05` into Day, `10/2021` and `2019` fills the parts, and pasting "hello" is left to the browser.
+     - **Not checked:** inside the real add form and dialogs while signed in, or on a real phone keyboard.
+   - **Also fixed (2026-11-14), reported by the user:**
+     - **The bug:** an error toast from a dialog appeared behind the dialog, so the message couldn't be read. Toasts and dialogs both use `z-50`. Once a toast has been shown, the toasts' portal stays in the page ahead of a dialog opened later, so the dialog's overlay covered every new toast.
+     - **The fix:** `globals.css` raises `[data-slot="toast-viewport"]` to `z-index: 60`, outside any layer so it wins over the utility class. The vendored `ui/toast.tsx` is unchanged.
+     - **Checked:** on a temporary page, showing a toast, then opening a dialog, then showing an error. Before, the error sat under the dialog's overlay. With the rule, the error and its close button are on top.
 8. **Show the read dates on the shelf cards** (`BookCard.tsx`). Today they only appear in the edit dialog.
    - **What's shown,** from the latest read:
      - **Reading:** "Started 5 Oct 2025".
