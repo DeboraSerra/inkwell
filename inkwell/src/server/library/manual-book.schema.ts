@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { toIsbn13 } from "@/server/books/isbn";
+import { parseAudioLength } from "./audio-length.rules";
 import { isAfter, parsePartialDate, type ReadDates } from "./partial-date.rules";
 
 const MAX_AUTHORS = 25;
@@ -65,6 +66,21 @@ export function parseReadDates(status: ReadingStatus | undefined, text: ReadDate
   return { dates: { started: started.value, ended: ended.value } };
 }
 
+export const audioLengthFields = {
+  audioHours: z.string().max(10).optional(),
+  audioMinutes: z.string().max(10).optional(),
+};
+
+// The length only applies to a book owned as an audiobook; the field is hidden
+// otherwise, so anything left in it is ignored.
+export function audioLengthFor(
+  formats: readonly BookFormat[],
+  text: { audioHours?: string; audioMinutes?: string },
+): { minutes?: number; error?: string } {
+  if (!formats.includes(BookFormat.AUDIO)) return {};
+  return parseAudioLength(text.audioHours, text.audioMinutes);
+}
+
 // Separated by semicolons, because a name can contain a comma ("Tolkien, J. R. R.").
 export const typedAuthorsField = authorsField((value) => value.split(";"));
 
@@ -83,14 +99,20 @@ const manualBookSchema = z.object({
   // Not started is left out: formats decide between Wishlist and TBR.
   status: readStatusField,
   ...readDateFields,
+  ...audioLengthFields,
 }).transform((data, ctx) => {
-  const { startedDay, startedMonth, startedYear, endedDay, endedMonth, endedYear, ...book } = data;
+  const { startedDay, startedMonth, startedYear, endedDay, endedMonth, endedYear, audioHours, audioMinutes, ...book } = data;
   const { dates, error } = parseReadDates(book.status, { startedDay, startedMonth, startedYear, endedDay, endedMonth, endedYear });
   if (!dates) {
     ctx.addIssue({ code: "custom", message: error ?? "Those dates aren't valid." });
     return z.NEVER;
   }
-  return { ...book, dates };
+  const length = audioLengthFor(book.formats, { audioHours, audioMinutes });
+  if (length.error) {
+    ctx.addIssue({ code: "custom", message: length.error });
+    return z.NEVER;
+  }
+  return { ...book, dates, audioMinutes: length.minutes };
 });
 
 export type ManualBookValues = {
@@ -108,6 +130,8 @@ export type ManualBookValues = {
   endedDay?: string;
   endedMonth?: string;
   endedYear?: string;
+  audioHours?: string;
+  audioMinutes?: string;
 };
 
 const text = (formData: FormData, name: string) => {
@@ -131,6 +155,8 @@ export const manualBookValues = (formData: FormData): ManualBookValues => ({
   endedDay: text(formData, "endedDay"),
   endedMonth: text(formData, "endedMonth"),
   endedYear: text(formData, "endedYear"),
+  audioHours: text(formData, "audioHours"),
+  audioMinutes: text(formData, "audioMinutes"),
 });
 
 export function parseManualBook(formData: FormData) {

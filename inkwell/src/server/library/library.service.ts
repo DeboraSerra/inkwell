@@ -103,6 +103,8 @@ export type AddBookInput = {
   at?: Date | null;
   // Dates the user gave for the first read, which win over `at`.
   dates?: ReadDates;
+  // An audiobook's length in minutes, when the reader gave one.
+  audioMinutes?: number;
 };
 
 // Adding a book already in the library only ever adds formats. Its status,
@@ -119,14 +121,16 @@ function addFormats(userId: string, bookId: string, formats: BookFormat[], outer
 }
 
 // Throws InvalidTransitionError for a status that doesn't fit the formats.
+// A book already in the library keeps its length, as it keeps its status and
+// dates: adding again only adds formats.
 export async function addBookToLibrary(userId: string, input: AddBookInput, outerTx?: Tx) {
-  const { bookId, formats, source, status, at, dates } = input;
+  const { bookId, formats, source, status, at, dates, audioMinutes } = input;
   const existing = await libraryModel.findUserBookByBookId(userId, bookId, outerTx);
   if (existing) return { userBook: await addFormats(userId, bookId, formats, outerTx), created: false };
 
   const { readChange, ...state } = initialState(formats, status);
   const created = await inTransaction(outerTx, async (tx) => {
-    const userBook = await libraryModel.createUserBook({ userId, bookId, source, ...state }, tx);
+    const userBook = await libraryModel.createUserBook({ userId, bookId, source, audioMinutes, ...state }, tx);
     if (userBook) {
       const change = { userBookId: userBook.id, change: readChange };
       await applyReadChanges(userId, [change], at === undefined ? new Date() : at, tx, dates);
@@ -147,12 +151,13 @@ export function addManualBook(
   formats: BookFormat[],
   status?: ReadingStatus,
   dates?: ReadDates,
+  audioMinutes?: number,
 ) {
   return transaction(async (tx) => {
     const book = await findOrCreateManualBook(details, tx);
     const added = await addBookToLibrary(
       userId,
-      { bookId: book.id, formats, source: UserBookSource.MANUAL, status, at: null, dates },
+      { bookId: book.id, formats, source: UserBookSource.MANUAL, status, at: null, dates, audioMinutes },
       tx,
     );
     return { ...added, book };
@@ -223,6 +228,7 @@ export type LookupChoices = {
   formats: BookFormat[];
   status?: ReadingStatus;
   dates?: ReadDates;
+  audioMinutes?: number;
   source?: typeof UserBookSource.ISBN | typeof UserBookSource.SEARCH;
 };
 
@@ -231,7 +237,7 @@ export type LookupChoices = {
 // provider said. The lookup runs before the transaction, so no network call
 // holds it open.
 export async function addBookByIsbn(userId: string, isbn: string, choices: LookupChoices) {
-  const { formats, status, dates, source = UserBookSource.ISBN } = choices;
+  const { formats, status, dates, audioMinutes, source = UserBookSource.ISBN } = choices;
   const lookup = await lookupIsbn(isbn);
   if (lookup.found === "none") throw new NotFoundError("We couldn't find a book with that ISBN.");
 
@@ -239,7 +245,7 @@ export async function addBookByIsbn(userId: string, isbn: string, choices: Looku
     const book = lookup.found === "catalog" ? lookup.book : await findOrCreateMetadataBook(lookup.metadata, tx);
     const result = await addBookToLibrary(
       userId,
-      { bookId: book.id, formats, source, status, at: null, dates },
+      { bookId: book.id, formats, source, status, at: null, dates, audioMinutes },
       tx,
     );
     return { ...result, book };
@@ -329,6 +335,8 @@ export type ShelfBook = {
   status: ReadingStatus;
   formats: BookFormat[];
   pageCount: number | null;
+  // An audiobook's length in minutes, or null.
+  audioMinutes: number | null;
   // The latest read's dates, as the edit form's text.
   readDates: Record<string, string>;
   // The latest read's dates, for the card to show at their precision.
@@ -352,11 +360,12 @@ export async function listShelfPage(
   const page = Math.min(Math.max(requestedPage, 1), pageCount);
   const skip = (page - 1) * pageSize;
   const rows = await listUserBooks(userId, { ...filters, take: pageSize, skip });
-  const books: ShelfBook[] = rows.map(({ id, status, formats, pageCount, authors, coverUrl, readThroughs, book }) => ({
+  const books: ShelfBook[] = rows.map(({ id, status, formats, pageCount, audioMinutes, authors, coverUrl, readThroughs, book }) => ({
     id,
     status,
     formats,
     pageCount: pageCount ?? book.pageCount,
+    audioMinutes,
     readDates: latestReadValues(readThroughs.at(0)),
     latestRead: toShelfRead(readThroughs.at(0)),
     earlierReads: Math.max(readThroughs.length - 1, 0),
@@ -463,6 +472,8 @@ export type BookEdit = {
   pageCount?: number;
   authors?: string[];
   coverUrl?: string;
+  // Left out means no length, which clears a stored one.
+  audioMinutes?: number;
   dates: ReadDates;
 };
 
@@ -493,6 +504,7 @@ export function editUserBook(userId: string, userBookId: string, edit: BookEdit)
         authors,
         authorSearch: authorSearchText(authors),
         coverUrl: edit.coverUrl === book.coverUrl ? null : (edit.coverUrl ?? null),
+        audioMinutes: edit.audioMinutes ?? null,
       },
       tx,
     );

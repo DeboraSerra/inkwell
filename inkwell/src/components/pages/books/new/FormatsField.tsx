@@ -1,6 +1,8 @@
 "use client";
 
 import { Info } from "lucide-react";
+import { useState } from "react";
+import { AudioLengthField } from "@/components/AudioLengthField";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -13,8 +15,19 @@ const FORMATS = [
 ];
 
 // The "formats you own" checkboxes, sent as `formats`. Base UI checkboxes keep
-// their own state, so the form remounts to clear them.
-export function FormatsField({ defaultValues }: Readonly<{ defaultValues?: string[] }>) {
+// their own state, so the form remounts to clear them. Ticking Audiobook shows
+// its length, unless `withLength` is false (a book already in the library only
+// gains formats, so a length there would be ignored).
+export function FormatsField({
+  defaultValues,
+  audioLength,
+  withLength = true,
+}: Readonly<{
+  defaultValues?: string[];
+  audioLength?: { audioHours?: string; audioMinutes?: string };
+  withLength?: boolean;
+}>) {
+  const [audio, setAudio] = useState(defaultValues?.includes(BookFormat.AUDIO) ?? false);
   return (
     <FieldSet className='flex flex-col'>
       <FieldLegend variant='label' className='flex gap-1 items-center'>
@@ -36,6 +49,7 @@ export function FormatsField({ defaultValues }: Readonly<{ defaultValues?: strin
               name='formats'
               value={value}
               defaultChecked={defaultValues?.includes(value)}
+              onCheckedChange={value === BookFormat.AUDIO ? setAudio : undefined}
             />
             <FieldLabel htmlFor={`format-${value}`} className='font-normal'>
               {label}
@@ -43,6 +57,7 @@ export function FormatsField({ defaultValues }: Readonly<{ defaultValues?: strin
           </Field>
         ))}
       </div>
+      {withLength && audio && <AudioLengthField values={audioLength} />}
     </FieldSet>
   );
 }

@@ -37,6 +37,7 @@ const book = (status: ReadingStatus, formats: BookFormat[] = [PHYSICAL], id = "u
   status,
   formats,
   pageCount: null,
+  audioMinutes: null,
   authors: [] as string[],
   coverUrl: null,
   authorSearch: "",
@@ -125,6 +126,33 @@ describe("addBookToLibrary", () => {
     await expect(service.addBookToLibrary(USER, { ...input, formats: [], status: TO_READ })).rejects.toThrow(
       InvalidTransitionError,
     );
+  });
+});
+
+describe("audiobook length when adding", () => {
+  it("stores the length on a new book", async () => {
+    model.createUserBook.mockResolvedValue(book(TO_READ, [BookFormat.AUDIO]));
+    await service.addBookToLibrary(USER, { ...input, formats: [BookFormat.AUDIO], audioMinutes: 750 });
+    expect(model.createUserBook).toHaveBeenCalledWith(expect.objectContaining({ audioMinutes: 750 }), "tx");
+  });
+
+  it("leaves a book already in the library as it is, as with its status and dates", async () => {
+    model.findUserBookByBookId.mockResolvedValue({ ...book(TO_READ, [EBOOK]), audioMinutes: 300 });
+    await service.addBookToLibrary(USER, { ...input, formats: [BookFormat.AUDIO], audioMinutes: 750 });
+    expect(model.createUserBook).not.toHaveBeenCalled();
+    expect(model.updateUserBookState).toHaveBeenCalledWith(
+      USER,
+      "ub-1",
+      { status: TO_READ, formats: [EBOOK, BookFormat.AUDIO] },
+      "tx",
+    );
+  });
+
+  it("passes it on from a manual add", async () => {
+    vi.mocked(findOrCreateManualBook).mockResolvedValue({ id: "book-1" } as never);
+    model.createUserBook.mockResolvedValue(book(TO_READ, [BookFormat.AUDIO]));
+    await service.addManualBook(USER, { title: "T", authors: ["A"] }, [BookFormat.AUDIO], undefined, undefined, 45);
+    expect(model.createUserBook).toHaveBeenCalledWith(expect.objectContaining({ audioMinutes: 45 }), "tx");
   });
 });
 
@@ -442,6 +470,7 @@ describe("listShelfPage", () => {
       authors: ["A"],
       coverUrl: null,
       pageCount: 200,
+      audioMinutes: null,
       readDates: {},
       latestRead: null,
       earlierReads: 0,
@@ -576,8 +605,19 @@ describe("editUserBook", () => {
       authors: ["Ann Lee", "Bo Kim"],
       authorSearch: "|ann lee|bo kim|",
       coverUrl: "https://example.test/mine.jpg",
+      audioMinutes: null,
     });
     expect(reads.updateReadDates).not.toHaveBeenCalled();
+  });
+
+  it("saves an audiobook's length, and clears it when left out", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(TO_READ));
+    await service.editUserBook(USER, "ub-1", { formats: [BookFormat.AUDIO], audioMinutes: 750, dates: {} });
+    expect(saved()).toMatchObject({ audioMinutes: 750 });
+
+    model.updateEditedUserBook.mockClear();
+    await service.editUserBook(USER, "ub-1", { formats: [BookFormat.AUDIO], dates: {} });
+    expect(saved()).toMatchObject({ audioMinutes: null });
   });
 
   it("keeps nothing when the details match the catalog", async () => {

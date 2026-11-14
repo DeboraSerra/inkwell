@@ -126,3 +126,40 @@ describe("manualBookValues", () => {
     expect(manualBookValues(data)).toMatchObject({ title: "x", authors: "", formats: ["EBOOK"] });
   });
 });
+
+describe("parseManualBook audiobook length", () => {
+  const audio = { ...valid, formats: ["AUDIO"] };
+
+  it("turns hours and minutes into minutes for an audiobook", () => {
+    const parsed = parseManualBook(form({ ...audio, audioHours: "12", audioMinutes: "30" }));
+    expect(parsed.success && parsed.data.audioMinutes).toBe(750);
+  });
+
+  it("leaves the length out when both parts are empty", () => {
+    const parsed = parseManualBook(form({ ...audio, audioHours: "", audioMinutes: "" }));
+    expect(parsed.success && parsed.data.audioMinutes).toBeUndefined();
+  });
+
+  it("ignores a length when the book isn't owned as an audiobook", () => {
+    const parsed = parseManualBook(form({ ...valid, formats: ["EBOOK"], audioHours: "999" }));
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.audioMinutes).toBeUndefined();
+  });
+
+  it.each([
+    [{ audioHours: "201" }, "at most 200 hours"],
+    [{ audioHours: "1", audioMinutes: "75" }, "0 to 59"],
+    [{ audioHours: "x" }, "whole hours and minutes"],
+  ])("rejects %j", (fields, message) => {
+    const parsed = parseManualBook(form({ ...audio, ...fields }));
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues[0].message).toContain(message);
+  });
+
+  it("keeps the typed length for a rejected form", () => {
+    expect(manualBookValues(form({ ...audio, audioHours: "1", audioMinutes: "99" }))).toMatchObject({
+      audioHours: "1",
+      audioMinutes: "99",
+    });
+  });
+});

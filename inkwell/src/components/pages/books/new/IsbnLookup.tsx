@@ -125,10 +125,10 @@ function AddPreviewedBook({
       <input type='hidden' name='isbn' value={preview.isbn13} />
       <FieldGroup>
         {inLibrary ? (
-          <FormatsField defaultValues={state.values?.formats} />
+          <FormatsField defaultValues={state.values?.formats} withLength={false} />
         ) : (
           <div className='grid grid-cols-2 gap-5'>
-            <FormatsField defaultValues={state.values?.formats} />
+            <FormatsField defaultValues={state.values?.formats} audioLength={state.values} />
             <StatusField values={state.values} />
           </div>
         )}

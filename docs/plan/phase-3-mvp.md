@@ -440,6 +440,22 @@ Added at the user's request on 2026-11-08, after the extension's store build was
    - **Forms:** in the add form and the edit dialog, a "Length" field with hours and minutes, shown only when "Audiobook" is ticked. It's optional, and validated as a whole number of minutes from 1 to 12,000 (200 hours). Clearing it in the edit dialog removes it, as with page count.
    - **Shelf card:** an audiobook shows its length ("12 h 30 min") where a book shows its pages.
    - **Later:** Phase 6 uses it for audiobook progress ("time remaining") and for minutes-based goals.
+   - **✅ Built (2026-11-14):**
+     - **Schema:** migration `20261114212954_add_user_book_audio_minutes` adds `UserBook.audioMinutes Int?`. It's applied locally, and to Supabase on 2026-11-14 with the user's go-ahead (`prisma migrate deploy`, which reported the schema up to date afterwards).
+     - **Rules:** `library/audio-length.rules.ts` (pure).
+       - `parseAudioLength`: hours and minutes to a total from 1 to 12,000. Either part alone is fine, minutes must be 0 to 59 when hours are given, and both empty means no length.
+       - `formatAudioLength`: "12 h 30 min", "45 min", "3 h".
+       - `splitAudioLength`: the form's text for a stored length.
+     - **Validation:** `audioLengthFields` and `audioLengthFor` in `manual-book.schema.ts`, used by the Manual, ISBN and Edit schemas. The length only counts when Audiobook is ticked. Rejected forms keep what was typed.
+     - **Saving:**
+       - A new book stores the length.
+       - A book already in the library keeps its own, as it keeps its status and dates.
+       - An edit stores the length, or clears it when the field is emptied or Audiobook is unticked.
+     - **UI:** `components/AudioLengthField.tsx` (Hours and Minutes) shows under the format checkboxes while Audiobook is ticked: in `FormatsField`, used by both add tabs, and in the edit dialog, where it resets each time the dialog opens. It's hidden for an ISBN book already in the library, since only formats are added there.
+     - **One part left empty:** at the user's request, `AudioLengthField` fills the empty part with 0 on submit when the other is filled, so the form shows what's saved. The server already read an empty part as 0. The "app breaks" the user saw was the running dev server's Prisma client, generated before `audioMinutes` existed (`Unknown argument audioMinutes`), not the empty part. Restarting the dev server fixes it.
+     - **Card:** the length follows the headphones icon ("12 h 30 min"). The plan said "where a book shows its pages", but the card shows format icons rather than pages.
+     - **Verified:** typecheck, lint, 728 tests and the build. Tests cover the rules, all three schemas, the service (create, re-add, edit and clear) and the controller passing the length on. In the browser, on a temporary page: the field appears with Audiobook, sends its values, and disappears when unticked.
+     - **Not verified:** a real save signed in, and the card.
 10. **Add another read directly,** for a book read before, or read again, without moving it back to Reading and then to Finished just to record the dates.
     - **Where:**
       - The edit dialog gets a **Reads** section listing every read, newest first. Each shows its outcome and dates, for example "Finished · 5 Oct 2025 – 12 Nov 2025", or "Finished · 2019" for a year alone.

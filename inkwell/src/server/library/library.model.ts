@@ -36,7 +36,7 @@ export function findUserBookWithCatalog(userId: string, userBookId: string, db: 
 // Returns null when the user already has this book. Uses ON CONFLICT rather
 // than catching a unique-key error, which would abort a surrounding transaction.
 export async function createUserBook(
-  data: { userId: string; bookId: string; source: UserBookSource } & ReadingState,
+  data: { userId: string; bookId: string; source: UserBookSource; audioMinutes?: number | null } & ReadingState,
   db: Db = prisma,
 ) {
   const created = await db.userBook.createManyAndReturn({
@@ -129,6 +129,7 @@ export function updateEditedUserBook(
     authors: string[];
     authorSearch: string;
     coverUrl: string | null;
+    audioMinutes: number | null;
   },
   db: Db = prisma,
 ) {

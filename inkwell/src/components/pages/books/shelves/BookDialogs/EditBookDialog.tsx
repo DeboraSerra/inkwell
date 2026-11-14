@@ -2,7 +2,9 @@
 
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import type { ShelfBook } from "@/server/library/library.service";
-import { type SubmitEvent, useId, useTransition } from "react";
+import { splitAudioLength } from "@/server/library/audio-length.rules";
+import { type SubmitEvent, useEffect, useId, useState, useTransition } from "react";
+import { AudioLengthField } from "../../../../AudioLengthField";
 import { BookDialog } from ".";
 import { StatusField } from "../../../../StatusField";
 import { TextField } from "../../../../TextField";
@@ -36,6 +38,14 @@ export function EditBookDialog({
 }>) {
   const [isPending, startTransition] = useTransition();
   const formId = useId();
+  // The length shows only while Audiobook is ticked; untick it and the stored
+  // length is removed on save.
+  const ownsAudio = book.formats.includes(BookFormat.AUDIO);
+  const [audio, setAudio] = useState(ownsAudio);
+  // The checkboxes start over each time the dialog opens, so this does too.
+  useEffect(() => {
+    if (open) setAudio(ownsAudio);
+  }, [open, ownsAudio]);
 
   // Not a form action: React resets those, which would lose what was typed when
   // the server rejects it.
@@ -74,6 +84,7 @@ export function EditBookDialog({
                       name='formats'
                       value={format}
                       defaultChecked={book.formats.includes(format)}
+                      onCheckedChange={format === BookFormat.AUDIO ? setAudio : undefined}
                     />
                     <FieldLabel
                       htmlFor={`format-${format}`}
@@ -84,6 +95,7 @@ export function EditBookDialog({
                   </Field>
                 ))}
               </div>
+              {audio && <AudioLengthField values={splitAudioLength(book.audioMinutes)} />}
             </FieldSet>
             <StatusField
               values={{ status: formStatus(book.status), ...book.readDates }}

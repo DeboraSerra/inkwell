@@ -205,6 +205,9 @@ model UserBook {
   pageCount    Int?
   authors      String[]
   coverUrl     String?
+  // An audiobook's length in minutes, per reader: providers don't give it and
+  // editions differ. Null when unknown or not owned as an audiobook.
+  audioMinutes Int?
   // Search text for `authors`; see authorSearchText.
   authorSearch String         @default("")
   source       UserBookSource

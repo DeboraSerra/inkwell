@@ -125,6 +125,7 @@ describe("removing and editing a book", () => {
       status: "TO_READ",
       formats: [],
       pageCount: 310,
+      audioMinutes: 750,
       authors: [],
       authorSearch: "",
       coverUrl: null,

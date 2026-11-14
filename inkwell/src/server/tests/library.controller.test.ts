@@ -53,17 +53,28 @@ describe("addManualBook", () => {
       ["PHYSICAL"],
       undefined,
       { started: undefined, ended: undefined },
+      undefined,
     );
+  });
+
+  it("passes an audiobook's length", async () => {
+    service.addManualBook.mockResolvedValue(added(ReadingStatus.TO_READ, true));
+    await addManualBook({}, form({ ...valid, formats: "AUDIO", audioHours: "1", audioMinutes: "5" }));
+    expect(service.addManualBook).toHaveBeenCalledWith("user-1", expect.anything(), ["AUDIO"], undefined, expect.anything(), 65);
   });
 
   it("passes the chosen status and names its list", async () => {
     service.addManualBook.mockResolvedValue(added(ReadingStatus.FINISHED, true));
     const state = await addManualBook({}, form({ title: "x", authors: "y", status: "FINISHED" }));
     expect(state.message).toContain("to Finished");
-    expect(service.addManualBook).toHaveBeenCalledWith("user-1", { title: "x", authors: ["y"] }, [], "FINISHED", {
-      started: undefined,
-      ended: undefined,
-    });
+    expect(service.addManualBook).toHaveBeenCalledWith(
+      "user-1",
+      { title: "x", authors: ["y"] },
+      [],
+      "FINISHED",
+      { started: undefined, ended: undefined },
+      undefined,
+    );
   });
 
   it("keeps the chosen status on a rejected form", async () => {

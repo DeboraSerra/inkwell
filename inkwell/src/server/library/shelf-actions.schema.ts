@@ -3,6 +3,8 @@
 import { z } from "zod";
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import {
+  audioLengthFields,
+  audioLengthFor,
   coverUrlField,
   optional,
   pageCountField,
@@ -39,6 +41,7 @@ const editBookSchema = z
     authors: optional(typedAuthorsField),
     coverUrl: coverUrlField,
     ...readDateFields,
+    ...audioLengthFields,
   })
   .transform((data, ctx) => {
     const { dates, error } = parseReadDates(data.status, data);
@@ -46,8 +49,14 @@ const editBookSchema = z
       ctx.addIssue({ code: "custom", message: error ?? "Those dates aren't valid." });
       return z.NEVER;
     }
+    // Left empty, or no longer an audiobook, the stored length is removed.
+    const length = audioLengthFor(data.formats, data);
+    if (length.error) {
+      ctx.addIssue({ code: "custom", message: length.error });
+      return z.NEVER;
+    }
     const { userBookId, formats, status, pageCount, authors, coverUrl } = data;
-    return { userBookId, formats, status, pageCount, authors, coverUrl, dates };
+    return { userBookId, formats, status, pageCount, authors, coverUrl, dates, audioMinutes: length.minutes };
   });
 
 export function parseEditBook(userBookId: string, formData: FormData) {

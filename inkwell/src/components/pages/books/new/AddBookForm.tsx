@@ -128,7 +128,7 @@ export default function AddBookForm({ defaultIsbn }: Readonly<{ defaultIsbn?: st
         />
 
         <div className='grid grid-cols-2 gap-5'>
-          <FormatsField defaultValues={values?.formats} />
+          <FormatsField defaultValues={values?.formats} audioLength={values} />
 
           <StatusField values={values} />
         </div>
