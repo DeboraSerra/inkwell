@@ -301,7 +301,7 @@ Added at the user's request on 2026-11-08, after the extension's store build was
    - **✅ Done (2026-11-14):**
      - `background.js` gets `requestInkwell`, used by both the account lookup and the batches, so all three failure messages are shared. It runs before the content script is injected, and passes `{ account: { email, site } }` or `{ error }` with `start-import`. `site` is the app URL's host, such as `localhost:3000`.
      - A reply from `/api/me` with no email counts as an error.
-     - On a wrong page, the page error still shows first, since it reads nothing.
+     - The account check comes before the wrong-page check. It used to come after, and the user saw that a click on a wrong page gave no connection error, while the right page did. A connection problem now shows on any page.
      - **Tested** with the real `background.js` in Node and a stand-in for Chrome: a wrong token against the real dev server (401), an unreachable address, a 500, a missing email, and an accepted token on localhost and on an `https` site. Each failure has the same wording for the lookup and for a batch.
      - **Tested** with the real `app.js` on a fake content page in the browser, using a stand-in for Chrome and a fake Amazon address: the dialog's first line names the account and site; an email containing HTML shows as text; a token error stops with the message, a red badge and no batch sent; an unreachable site during a batch keeps its wording; a normal import still sends both rows.
      - **Not tested:** in real Chrome. That comes with the release step (item 11).
@@ -313,6 +313,13 @@ Added at the user's request on 2026-11-08, after the extension's store build was
    - **Fields:** labelled App URL and API token fields, each with a hint. The token hint links to `<App URL>/settings`, where tokens are created, opening in a new tab.
    - **Result message:** styled for success and failure, announced to screen readers (`role="status"`), with "Connected as <email>" shown prominently after a successful test.
    - **Basics:** visible focus states, and readable at the narrow width Chrome sometimes uses for options pages.
+   - **✅ Done (2026-11-14):**
+     - **Page:** `options.html` has the logo (`icons/icon-128.png` at 48 px, already in the store build), the name, and a short tagline. The form sits on a card in Inkwell's cream and navy, with a gold button and links in dark mode. All the CSS is inline, with no build step and no fonts loaded.
+     - **Fields:** the App URL field has a hint. The token hint links to Settings, and the link follows the address as it's typed: an invalid address falls back to the default one.
+     - **Result:** green for success and red for a failure. It's always in the page as `role="status"`, and hidden while empty, so screen readers announce what's put in it. Success shows "Connected as", then the email in large type. A 401, an unreachable site, another error status and a reply with no email each have their own message. The button reads "Testing…" while it checks.
+     - **Small additions:** a bad URL puts focus back on the field. In dark mode, a faint outline keeps the navy logo visible on the navy page.
+     - **Checked** on a copy of the page in the browser with a stand-in for Chrome's storage: a real 401 from the dev server; a stubbed success, in light and dark; a bad URL at 320 px wide, with no sideways scroll; the gold keyboard focus ring; and the settings link for a typed, an invalid and the default address.
+     - **Not checked:** in real Chrome's options window. That comes with the release step (item 11).
 4. **Add a copy button for a new API token** on `/settings` (`components/pages/settings/CreateTokenForm.tsx`, on the site). The token is shown only once, and today it has to be selected by hand.
    - **Button:** a shadcn `Button` with lucide's `Copy` icon next to the token, labelled "Copy token" for screen readers. It copies with `navigator.clipboard.writeText`.
    - **Feedback:** the icon turns into a check reading "Copied" for a couple of seconds, plus a toast.

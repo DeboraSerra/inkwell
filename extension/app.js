@@ -209,13 +209,14 @@
   // `lookup` is the background script's account check: { account } or { error }.
   const runImport = async (lookup) => {
     if (running) return;
-    if (!(globalThis.location.hostname.startsWith("www.amazon.") && globalThis.location.pathname.includes(EXPECTED_URL))) {
-      showResult("error", "Open the Books or Docs tab of Manage Your Content, then click the extension again.");
-      return;
-    }
-    // Stops before anything on the page is read.
+    // First, so a connection problem shows on any page, not only on Amazon's,
+    // and stops before anything on the page is read.
     if (!lookup.account) {
       showResult("error", lookup.error ?? "Inkwell's account couldn't be checked. Click the extension again.");
+      return;
+    }
+    if (!(globalThis.location.hostname.startsWith("www.amazon.") && globalThis.location.pathname.includes(EXPECTED_URL))) {
+      showResult("error", "Open the Books or Docs tab of Manage Your Content, then click the extension again.");
       return;
     }
     running = true;
