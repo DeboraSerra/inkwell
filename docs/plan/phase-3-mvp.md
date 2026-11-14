@@ -325,6 +325,12 @@ Added at the user's request on 2026-11-08, after the extension's store build was
    - **Feedback:** the icon turns into a check reading "Copied" for a couple of seconds, plus a toast.
    - **If the clipboard isn't available** (it needs a secure context, which localhost and https are but a plain-http LAN address isn't): select the token's text instead and say "Press ⌘C to copy", so it can still be copied.
    - **Never log the token,** and don't keep it anywhere beyond the component's state, as now.
+   - **✅ Built (2026-11-14):**
+     - **Component:** a `NewToken` component in `CreateTokenForm.tsx` shows the token with an outline icon button (lucide `Copy`, `aria-label="Copy token"`). After copying, the button reads "Copied" with a check for 2 seconds, and a "Token copied." toast appears.
+     - **Fallback:** without `navigator.clipboard`, or if writing to it fails, the token's text is selected and a live message says "Press ⌘C to copy it", or Ctrl+C off Apple devices.
+     - **Each new token** remounts the component, so it never starts as "Copied". The token stays only in the action's state and this component.
+     - **Verified:** typecheck, lint, tests and build.
+     - **Not verified:** clicking it in the browser. `/settings` needs a signed-in session, and the pane isn't signed in.
 5. **Let the reader choose how many books a shelf page shows**, with a default of 10 on phones and 30 on desktop (`/books/shelves`, today a fixed 30).
    - **Control:** a "Books per page" select from shadcn, which isn't installed yet (`npx shadcn add select`), offering **10, 20, 30 and 50**. It goes in the filter bar (`ShelfFilterBar`), next to search and the format filters, or by the pagination if that reads better.
    - **Where the choice lives,** most specific first:
