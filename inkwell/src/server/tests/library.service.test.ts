@@ -257,6 +257,29 @@ describe("updateStatus: the read history table", () => {
     );
   });
 
+  it.each([
+    [WISHLIST, []],
+    [TO_READ, [EBOOK]],
+    [FINISHED, [EBOOK]],
+  ] as const)("%s → DNF adds a DNF read and leaves earlier reads", async (from, formats) => {
+    await change(from, DNF, [...formats]);
+    expect(reads.createReads).toHaveBeenCalledWith([{ userBookId: "ub-1", endedAt: AT, outcome: "DNF" }], "tx");
+    expect(reads.closeReads).not.toHaveBeenCalled();
+    expect(reads.deleteOpenReads).not.toHaveBeenCalled();
+    expect(model.updateUserBookState).toHaveBeenCalledWith(USER, "ub-1", { status: DNF, formats }, "tx");
+  });
+
+  it("a single move to DNF records today as the end date", async () => {
+    vi.useFakeTimers({ now: AT, toFake: ["Date"] });
+    try {
+      model.findUserBook.mockResolvedValue(book(TO_READ, [EBOOK]));
+      await service.updateStatus(USER, "ub-1", DNF);
+      expect(reads.createReads).toHaveBeenCalledWith([{ userBookId: "ub-1", endedAt: AT, outcome: "DNF" }], "tx");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("Reading → TBR discards only the current read", async () => {
     await change(READING, TO_READ);
     expect(reads.deleteOpenReads).toHaveBeenCalledWith(USER, ["ub-1"], "tx");
@@ -281,8 +304,8 @@ describe("updateStatus: the read history table", () => {
     await expect(service.updateStatus(USER, "missing", READING)).rejects.toThrow(NotFoundError);
   });
 
-  it("rejects an invalid change without writing", async () => {
-    await expect(change(TO_READ, DNF)).rejects.toThrow(InvalidTransitionError);
+  it("rejects an invalid change without writing, naming the lists", async () => {
+    await expect(change(DNF, FINISHED)).rejects.toThrow("A book on DNF can't move to Finished.");
     expect(model.updateUserBookState).not.toHaveBeenCalled();
     expect(reads.createReads).not.toHaveBeenCalled();
   });
@@ -315,9 +338,28 @@ describe("updateStatuses", () => {
     expect(model.updateUserBookStatuses).toHaveBeenCalledWith(USER, result.moved, FINISHED, "tx");
   });
 
+  it("moves books to DNF with no dates, keeping earlier reads", async () => {
+    model.findUserBooks.mockResolvedValue([
+      book(TO_READ, [EBOOK], "tbr"),
+      book(WISHLIST, [], "wish"),
+      book(FINISHED, [EBOOK], "done"),
+      book(READING, [EBOOK], "reading"),
+    ]);
+    reads.findChangeableReads.mockResolvedValue([read("open", null, "reading")]);
+    const { moved, skipped } = await service.updateStatuses(USER, ["tbr", "wish", "done", "reading"], DNF);
+    expect(moved).toEqual(["tbr", "wish", "done", "reading"]);
+    expect(skipped).toEqual([]);
+    expect(reads.createReads).toHaveBeenCalledWith(
+      ["tbr", "wish", "done"].map((userBookId) => ({ userBookId, endedAt: null, outcome: "DNF" })),
+      "tx",
+    );
+    expect(reads.closeReads).toHaveBeenCalledWith(USER, ["open"], "DNF", null, "tx");
+    expect(reads.deleteOpenReads).not.toHaveBeenCalled();
+  });
+
   it("skips a move that doesn't fit the book", async () => {
-    model.findUserBooks.mockResolvedValue([book(TO_READ, [EBOOK], "a")]);
-    const { moved, skipped } = await service.updateStatuses(USER, ["a"], DNF);
+    model.findUserBooks.mockResolvedValue([book(DNF, [EBOOK], "a")]);
+    const { moved, skipped } = await service.updateStatuses(USER, ["a"], FINISHED);
     expect(moved).toEqual([]);
     expect(skipped).toHaveLength(1);
     expect(model.updateUserBookStatuses).not.toHaveBeenCalled();
@@ -390,7 +432,18 @@ describe("listShelfPage", () => {
   it("returns plain books for a page of 30", async () => {
     showing(65);
     const { books, page, pageCount } = await service.listShelfPage(USER, { status: TO_READ }, 2);
-    expect(books[0]).toEqual({ id: "b1", status: TO_READ, formats: [EBOOK], title: "Tb1", authors: ["A"], coverUrl: null, pageCount: 200, readDates: {} });
+    expect(books[0]).toEqual({
+      id: "b1",
+      status: TO_READ,
+      formats: [EBOOK],
+      title: "Tb1",
+      authors: ["A"],
+      coverUrl: null,
+      pageCount: 200,
+      readDates: {},
+      latestRead: null,
+      earlierReads: 0,
+    });
     expect([page, pageCount]).toEqual([2, 3]);
     expect(model.listUserBooks).toHaveBeenCalledWith(
       USER,
@@ -408,6 +461,49 @@ describe("listShelfPage", () => {
     showing(total);
     await expect(service.listShelfPage(USER, {}, 99)).resolves.toMatchObject({ page, pageCount });
     expect(model.listUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining({ skip: (page - 1) * 30 }));
+  });
+
+  it.each([
+    [10, 2, 10, 10, 7],
+    [20, 2, 20, 20, 4],
+    [50, 2, 50, 50, 2],
+  ])("at %i per page, page %i skips %i, takes %i, and 65 books make %i pages", async (size, page, skip, take, pageCount) => {
+    showing(65);
+    await expect(service.listShelfPage(USER, {}, page, size)).resolves.toMatchObject({ page, pageCount, pageSize: size, firstIndex: skip + 1 });
+    expect(model.listUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining({ skip, take }));
+  });
+
+  it("shows the last page when a larger size leaves fewer pages", async () => {
+    showing(65);
+    await expect(service.listShelfPage(USER, {}, 7, 50)).resolves.toMatchObject({ page: 2, pageCount: 2, firstIndex: 51 });
+  });
+
+  it.each([15, 25, 1000, Number.NaN])("uses 30 for a size that isn't offered (%s)", async (size) => {
+    showing(65);
+    await expect(service.listShelfPage(USER, {}, 1, size)).resolves.toMatchObject({ pageSize: 30, pageCount: 3 });
+    expect(model.listUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining({ take: 30 }));
+  });
+
+  it("gives the latest read's known dates and counts the earlier reads", async () => {
+    const started = new Date("2025-10-05T00:00:00Z");
+    const ended = new Date("2025-11-01T00:00:00Z");
+    const stored = (startedAt: Date | null, endedAt: Date | null) => ({
+      startedAt,
+      startedAtPrecision: "DAY",
+      endedAt,
+      endedAtPrecision: "MONTH",
+    });
+    model.countUserBooks.mockResolvedValue(2);
+    model.listUserBooks.mockResolvedValue([
+      { ...row("reread"), readThroughs: [stored(started, ended), stored(null, null), stored(null, ended)] },
+      { ...row("undated"), readThroughs: [stored(null, null)] },
+    ] as never);
+    const { books } = await service.listShelfPage(USER, {});
+    expect(books[0]).toMatchObject({
+      latestRead: { started: { date: started, precision: "DAY" }, ended: { date: ended, precision: "MONTH" } },
+      earlierReads: 2,
+    });
+    expect(books[1]).toMatchObject({ latestRead: {}, earlierReads: 0 });
   });
 
   it("reports which books of the total the page shows", async () => {

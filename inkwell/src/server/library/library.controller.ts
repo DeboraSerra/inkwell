@@ -3,6 +3,8 @@
 // Server actions for the library. Everything exported here is a public
 // endpoint, so each one authenticates and validates its own input.
 import { revalidatePath } from "next/cache";
+import { cookies, headers } from "next/headers";
+import { userAgent } from "next/server";
 import type { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { requireUser } from "@/server/auth/auth.guard";
 import { DomainError } from "@/server/errors";
@@ -18,7 +20,9 @@ import {
   parseMoveBook,
   removeBookSchema,
   removeBooksSchema,
+  shelfParamsSchema,
 } from "./shelf-actions.schema";
+import { PAGE_SIZE_COOKIE, parsePageSize, parseShelfFilters, resolvePageSize } from "./shelf-filters";
 import { LIST_NAMES } from "./status.rules";
 
 const SHELVES_PATH = "/books/shelves";
@@ -144,6 +148,48 @@ export async function changeBookFormats(userBookId: string, formats: BookFormat[
     if (error instanceof DomainError) return { error: error.message };
     throw error;
   }
+}
+
+export type LoadShelfResult = {
+  error?: string;
+  shelf?: Awaited<ReturnType<typeof libraryService.listShelfPage>>;
+};
+
+// One page of a shelf, for the app-wide books context. The filters are parsed
+// again here, since the query string comes from the client. The page size is
+// the URL's, then the reader's remembered choice, then 10 on phones and 30
+// elsewhere, decided here so a first visit on a phone never loads 30.
+export async function loadShelf(params: unknown): Promise<LoadShelfResult> {
+  const user = await requireUser();
+  const parsed = shelfParamsSchema.safeParse(params);
+  if (!parsed.success) return { error: INVALID_REQUEST };
+  const { status, formats, search, page, perPage } = parseShelfFilters(parsed.data);
+  const pageSize = resolvePageSize({
+    url: perPage,
+    cookie: (await cookies()).get(PAGE_SIZE_COOKIE)?.value,
+    isPhone: userAgent({ headers: await headers() }).device.type === "mobile",
+  });
+  const shelf = await libraryService.listShelfPage(user.id, { status, formats, search }, page, pageSize);
+  return { shelf };
+}
+
+const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
+
+// Remembers the reader's books-per-page choice for every shelf and later
+// visits. It's a display preference, not personal data, and only the server
+// reads it.
+export async function rememberShelfPageSize(size: unknown): Promise<{ error?: string }> {
+  await requireUser();
+  const pageSize = parsePageSize(size);
+  if (!pageSize) return { error: INVALID_REQUEST };
+  (await cookies()).set(PAGE_SIZE_COOKIE, String(pageSize), {
+    path: "/",
+    maxAge: ONE_YEAR_SECONDS,
+    sameSite: "lax",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+  });
+  return {};
 }
 
 export async function moveBooks(

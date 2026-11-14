@@ -1,30 +1,37 @@
+"use client";
+
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShelfBook } from "@/server/library/library.service";
-import {
-  ShelfFilters,
-  shelfHref,
-  SHELVES,
-} from "@/server/library/shelf-filters";
+import { shelfHref, SHELVES } from "@/server/library/shelf-filters";
 import Link from "next/link";
+import { useBooksContext } from "../../context";
 import { BooksShelf } from "./BookShelf";
-import { ShelfFilterBar } from "./ShelfFilterBar";
+import { ShelfFilterBar } from "./BookShelf/ShelfFilterBar";
 
-export const BooksShelves = ({
-  filters,
-  shelf,
-}: {
-  filters: ShelfFilters;
-  shelf: {
-    books: ShelfBook[];
-    page: number;
-    pageCount: number;
-    total: number;
-    firstIndex: number;
-  };
-}) => {
+const PLACEHOLDERS = ["one", "two", "three", "four", "five", "six"];
+
+// Until the first load finishes.
+const ShelfLoading = () => (
+  <ul
+    className='grid grid-cols-1 gap-3 md:grid-cols-2'
+    aria-busy='true'
+    aria-label='Loading your books'
+  >
+    {PLACEHOLDERS.map((placeholder) => (
+      <li key={placeholder} className='flex gap-3 rounded-lg border p-3'>
+        <Skeleton className='h-24 w-16' />
+        <div className='flex flex-1 flex-col gap-2'>
+          <Skeleton className='h-4 w-3/4' />
+          <Skeleton className='h-3 w-1/2' />
+        </div>
+      </li>
+    ))}
+  </ul>
+);
+
+export const BooksShelves = () => {
+  const { filters, shelf } = useBooksContext();
   const { formats, search } = filters;
-
-  const { books, page, pageCount, total, firstIndex } = shelf;
 
   return (
     <div className='flex flex-col gap-4'>
@@ -40,7 +47,7 @@ export const BooksShelves = ({
               value={it.slug}
               nativeButton={false}
               render={
-                <Link href={shelfHref({ shelf: it.slug, formats, search })} />
+                <Link href={shelfHref({ shelf: it.slug, formats, search, perPage: filters.perPage })} />
               }
             >
               {it.label}
@@ -50,15 +57,11 @@ export const BooksShelves = ({
         <ShelfFilterBar filters={filters} />
         <TabsContent value={filters.shelf}>
           {/* A new key clears the selection when the shelf or page changes. */}
-          <BooksShelf
-            key={shelfHref({ ...filters, page })}
-            filters={filters}
-            books={books}
-            page={page}
-            pageCount={pageCount}
-            total={total}
-            firstIndex={firstIndex}
-          />
+          {shelf ? (
+            <BooksShelf key={shelfHref({ ...filters, page: shelf.page })} />
+          ) : (
+            <ShelfLoading />
+          )}
         </TabsContent>
       </Tabs>
     </div>

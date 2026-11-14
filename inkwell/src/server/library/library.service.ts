@@ -22,11 +22,14 @@ import {
   readChangeFor,
 } from "./status.rules";
 import { type ReadDates, toDateValues, toEditedReadFields, toReadFields } from "./partial-date.rules";
+import type { ShelfRead } from "./read-label.rules";
+import { type PageSize, parsePageSize } from "./shelf-filters";
 
 // Every function takes the signed-in user's id first.
 
+const DEFAULT_SHELF_PAGE_SIZE: PageSize = 30;
+
 const DEFAULT_PAGE_SIZE = 50;
-const SHELF_PAGE_SIZE = 30;
 const MAX_PAGE_SIZE = 100;
 const MAX_BULK_BOOKS = 30;
 
@@ -301,6 +304,22 @@ const latestReadValues = (read?: {
       }
     : {};
 
+type StoredRead = {
+  startedAt: Date | null;
+  startedAtPrecision: DatePrecision;
+  endedAt: Date | null;
+  endedAtPrecision: DatePrecision;
+};
+
+// Only the dates that are known, each with how much of it is known.
+const toShelfRead = (read?: StoredRead): ShelfRead | null =>
+  read
+    ? {
+        ...(read.startedAt && { started: { date: read.startedAt, precision: read.startedAtPrecision } }),
+        ...(read.endedAt && { ended: { date: read.endedAt, precision: read.endedAtPrecision } }),
+      }
+    : null;
+
 // Authors, cover and pages are this reader's if they set them, or else the catalog's.
 export type ShelfBook = {
   id: string;
@@ -312,32 +331,40 @@ export type ShelfBook = {
   pageCount: number | null;
   // The latest read's dates, as the edit form's text.
   readDates: Record<string, string>;
+  // The latest read's dates, for the card to show at their precision.
+  latestRead: ShelfRead | null;
+  // How many reads there are besides the latest one.
+  earlierReads: number;
 };
 
 // One page of a shelf, in the plain shape the page and client components share.
 // A page past the end shows the last one, which happens when moving books away
-// empties the page being viewed.
+// empties the page being viewed. Only the allowed page sizes are used.
 export async function listShelfPage(
   userId: string,
   filters: Pick<UserBookFilters, "status" | "formats" | "search">,
   requestedPage = 1,
+  requestedSize: number = DEFAULT_SHELF_PAGE_SIZE,
 ) {
+  const pageSize = parsePageSize(requestedSize) ?? DEFAULT_SHELF_PAGE_SIZE;
   const total = await libraryModel.countUserBooks(userId, toUserBookFilter(filters));
-  const pageCount = Math.max(Math.ceil(total / SHELF_PAGE_SIZE), 1);
+  const pageCount = Math.max(Math.ceil(total / pageSize), 1);
   const page = Math.min(Math.max(requestedPage, 1), pageCount);
-  const skip = (page - 1) * SHELF_PAGE_SIZE;
-  const rows = await listUserBooks(userId, { ...filters, take: SHELF_PAGE_SIZE, skip });
+  const skip = (page - 1) * pageSize;
+  const rows = await listUserBooks(userId, { ...filters, take: pageSize, skip });
   const books: ShelfBook[] = rows.map(({ id, status, formats, pageCount, authors, coverUrl, readThroughs, book }) => ({
     id,
     status,
     formats,
     pageCount: pageCount ?? book.pageCount,
     readDates: latestReadValues(readThroughs.at(0)),
+    latestRead: toShelfRead(readThroughs.at(0)),
+    earlierReads: Math.max(readThroughs.length - 1, 0),
     title: book.title,
     authors: authors.length ? authors : book.authors,
     coverUrl: coverUrl ?? book.coverUrl,
   }));
-  return { books, page, pageCount, total, firstIndex: skip + 1 };
+  return { books, page, pageCount, pageSize, total, firstIndex: skip + 1 };
 }
 
 // Throws InvalidTransitionError for a change that isn't allowed. `at` lets a

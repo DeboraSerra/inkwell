@@ -192,3 +192,10 @@
   height: 6px;
   border-radius: 12px;
 }
+
+/* Toasts above dialogs, sheets and menus (z-50 in components/ui), so a
+   message about the form in an open dialog can be read. Set here rather than
+   in the vendored toast.tsx; outside any layer, so it wins over z-50. */
+[data-slot="toast-viewport"] {
+  z-index: 60;
+}

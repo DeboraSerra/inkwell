@@ -2,24 +2,271 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
     <title>Inkwell Kindle import</title>
+    <!-- The 48 px icon keeps the tab sharp on high-density screens. -->
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="icons/icon-48.png" />
     <style>
-      body { max-width: 420px; margin: 32px auto; padding: 0 16px; font: 14px sans-serif; }
-      label { display: block; margin-top: 16px; font-weight: 600; }
-      input { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px; }
-      button { margin-top: 16px; padding: 8px 16px; }
+      /* Inkwell's colours, from inkwell/src/app/globals.css. A system font
+         stack, since loading Geist would need bundled font files or a looser
+         content security policy. */
+      :root {
+        --background: #f5f2e9;
+        --foreground: #0b1d2d;
+        --card: #fffdf8;
+        --muted-foreground: #4a4a4a;
+        --border: #d9d4c5;
+        --input-border: #bfb8a5;
+        --primary: #0b1d2d;
+        --primary-foreground: #f5f2e9;
+        --link: #825c1e;
+        --ring: #a57b22;
+        --success-background: #e9f3ea;
+        --success-border: #9cc9a5;
+        --success-foreground: #14532d;
+        --error-background: #fbeceb;
+        --error-border: #e6a8a3;
+        --error-foreground: #9b1c1c;
+        color-scheme: light;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --background: #0b1d2d;
+          --foreground: #f5f2e9;
+          --card: #243648;
+          --muted-foreground: #b8c1cc;
+          --border: rgb(255 255 255 / 12%);
+          --input-border: rgb(255 255 255 / 24%);
+          --primary: #d4af37;
+          --primary-foreground: #0b1d2d;
+          --link: #e1c868;
+          --ring: #d4af37;
+          --success-background: rgb(74 222 128 / 10%);
+          --success-border: rgb(74 222 128 / 35%);
+          --success-foreground: #a7f3c0;
+          --error-background: rgb(248 113 113 / 12%);
+          --error-border: rgb(248 113 113 / 40%);
+          --error-foreground: #fecaca;
+          color-scheme: dark;
+        }
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 32px 16px;
+        background: var(--background);
+        color: var(--foreground);
+        font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+
+      .page {
+        max-width: 440px;
+        margin: 0 auto;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 24px;
+      }
+
+      .brand img {
+        flex: none;
+        width: 48px;
+        height: 48px;
+        border-radius: 11px;
+        /* Keeps the navy logo's edge visible on the dark page. */
+        box-shadow: 0 0 0 1px var(--border);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 20px;
+        line-height: 1.25;
+      }
+
+      .tagline {
+        margin: 2px 0 0;
+        color: var(--muted-foreground);
+        font-size: 14px;
+      }
+
+      .card {
+        padding: 20px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--card);
+      }
+
+      .field + .field {
+        margin-top: 18px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 600;
+      }
+
+      input {
+        display: block;
+        width: 100%;
+        padding: 9px 11px;
+        border: 1px solid var(--input-border);
+        border-radius: 8px;
+        background: var(--background);
+        color: var(--foreground);
+        font: inherit;
+      }
+
+      .hint {
+        margin: 6px 0 0;
+        color: var(--muted-foreground);
+        font-size: 13px;
+      }
+
+      a {
+        color: var(--link);
+        text-underline-offset: 2px;
+      }
+
+      button {
+        margin-top: 22px;
+        padding: 9px 18px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--primary);
+        color: var(--primary-foreground);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        opacity: 0.7;
+        cursor: progress;
+      }
+
+      input:focus-visible,
+      button:focus-visible,
+      a:focus-visible {
+        outline: 3px solid var(--ring);
+        outline-offset: 2px;
+      }
+
+      input:focus-visible {
+        border-color: var(--ring);
+      }
+
+      /* Always in the page, so screen readers announce what's put in it. */
+      .result:empty {
+        display: none;
+      }
+
+      .result {
+        margin-top: 18px;
+        padding: 12px 14px;
+        border: 1px solid;
+        border-radius: 8px;
+        overflow-wrap: anywhere;
+      }
+
+      .result p {
+        margin: 0;
+      }
+
+      .result[data-kind="success"] {
+        border-color: var(--success-border);
+        background: var(--success-background);
+        color: var(--success-foreground);
+      }
+
+      .result[data-kind="error"] {
+        border-color: var(--error-border);
+        background: var(--error-background);
+        color: var(--error-foreground);
+      }
+
+      .result-title {
+        font-weight: 600;
+      }
+
+      .result-email {
+        font-size: 17px;
+        font-weight: 700;
+      }
+
+      .result .result-detail {
+        margin-top: 2px;
+        font-size: 14px;
+      }
+
+      @media (max-width: 360px) {
+        body {
+          padding: 20px 12px;
+        }
+
+        .card {
+          padding: 16px;
+        }
+
+        button {
+          width: 100%;
+        }
+      }
     </style>
   </head>
   <body>
-    <h1>Inkwell Kindle import</h1>
-    <form id="form">
-      <label for="appUrl">App URL</label>
-      <input id="appUrl" required />
-      <label for="token">API token</label>
-      <input id="token" type="password" autocomplete="off" placeholder="Create one in Inkwell's settings" required />
-      <button type="submit">Save and test</button>
-    </form>
-    <output id="result"></output>
+    <div class="page">
+      <header class="brand">
+        <img src="icons/icon-128.png" alt="" width="48" height="48" />
+        <div>
+          <h1>Inkwell Kindle import</h1>
+          <p class="tagline">Connect the extension to your Inkwell account.</p>
+        </div>
+      </header>
+
+      <main class="card">
+        <form id="form">
+          <div class="field">
+            <label for="appUrl">App URL</label>
+            <input
+              id="appUrl"
+              inputmode="url"
+              autocomplete="url"
+              spellcheck="false"
+              aria-describedby="appUrlHint"
+              required
+            />
+            <p class="hint" id="appUrlHint">The address of your Inkwell site.</p>
+          </div>
+
+          <div class="field">
+            <label for="token">API token</label>
+            <input id="token" type="password" autocomplete="off" spellcheck="false" aria-describedby="tokenHint" required />
+            <p class="hint" id="tokenHint">
+              Create one in Inkwell's
+              <a id="settingsLink" target="_blank" rel="noopener noreferrer">Settings</a>
+              (opens in a new tab). It's shown only once, so paste it here straight away.
+            </p>
+          </div>
+
+          <button id="save" type="submit">Save and test</button>
+        </form>
+
+        <div class="result" id="result" role="status" aria-live="polite"></div>
+      </main>
+    </div>
     <script src="config.js"></script>
     <script src="options.js"></script>
   </body>

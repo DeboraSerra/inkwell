@@ -13,6 +13,11 @@ import {
 } from "@/server/metadata/sanitize";
 
 describe("cleanText", () => {
+  it("decodes entities once", () => {
+    expect(cleanText("Snow &amp; Ash&nbsp;", 100)).toBe("Snow & Ash");
+    expect(cleanText("Tom &amp;amp; Jerry", 100)).toBe("Tom &amp; Jerry");
+  });
+
   it("collapses whitespace and trims", () => {
     expect(cleanText("  The\n\tHobbit  ", 50)).toBe("The Hobbit");
   });
@@ -44,6 +49,10 @@ describe("cleanAuthors", () => {
 });
 
 describe("stripHtml and cleanDescription", () => {
+  it("decodes a description's entities only once", () => {
+    expect(cleanDescription("<p>A &amp;amp; B &#39;C&#39;</p>")).toBe("A &amp; B 'C'");
+  });
+
   it("removes tags and decodes common entities", () => {
     expect(cleanDescription("<p>Politics &amp; <b>ecology</b></p><br>Next")).toBe("Politics & ecology Next");
   });

@@ -1,0 +1,21 @@
+import type { ShelfBook } from "@/server/library/library.service";
+import type { PageSize } from "@/server/library/shelf-filters";
+
+export interface ShelfType {
+  books: ShelfBook[];
+  page: number;
+  pageCount: number;
+  pageSize: PageSize;
+  total: number;
+  firstIndex: number;
+}
+
+export interface UserType {
+  name: string | null;
+  id: string;
+  email: string;
+  photoUrl: string | null;
+  age: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}

@@ -2,22 +2,33 @@
 import { z } from "zod";
 import type { AmazonBookDetails, AmazonDocDetails } from "@/server/books/book.service";
 import { splitAmazonAuthors } from "@/server/books/dedupe";
+import { decodeEntities } from "@/server/books/text";
 import { authorsField, isHttpsUrl } from "@/server/library/manual-book.schema";
 
 export const MAX_BOOKS_PER_REQUEST = 200;
 
+// Amazon's page text is HTML-encoded a second time ("Snow &amp; Ash"), so it's
+// decoded here, before the dedupe key and author search are computed from it.
+// Decoding only shortens text, so the length limits still hold.
+const titleField = z
+  .string()
+  .max(300)
+  .transform((value) => decodeEntities(value).trim())
+  .pipe(z.string().min(1));
+const amazonAuthors = (value: string) => splitAmazonAuthors(decodeEntities(value));
+
 const scrapedBook = z.object({
   // A wrong ASIN or cover shouldn't lose the book: it's still found by title and author.
   asin: z.string().regex(/^[A-Z0-9]{10}$/).optional().catch(undefined),
-  title: z.string().trim().min(1).max(300),
-  authors: authorsField(splitAmazonAuthors),
+  title: titleField,
+  authors: authorsField(amazonAuthors),
   coverUrl: z.string().max(2000).refine(isHttpsUrl).optional().catch(undefined),
 });
 
 // A personal document often has no author, and its id isn't a catalog identifier.
 const scrapedDoc = z.object({
-  title: z.string().trim().min(1).max(300),
-  authors: authorsField(splitAmazonAuthors).catch([]).default([]),
+  title: titleField,
+  authors: authorsField(amazonAuthors).catch([]).default([]),
   coverUrl: z.string().max(2000).refine(isHttpsUrl).optional().catch(undefined),
 });
 

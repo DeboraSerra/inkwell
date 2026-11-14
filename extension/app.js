@@ -77,10 +77,17 @@
   // { kind, pages }, where pages is null for all of them, or with undefined if
   // cancelled. Docs become private books in Inkwell, so the tab is confirmed by
   // the reader rather than guessed from the address alone.
-  const askForOptions = (guessedKind) =>
+  const askForOptions = (guessedKind, account) =>
     new Promise((resolve) => {
       const form = document.createElement("form");
       form.style.cssText = "display:flex;flex-direction:column;gap:8px;margin:0;";
+
+      // The email comes from the server, so it's only ever set as text.
+      const target = document.createElement("p");
+      target.style.cssText = "margin:0;";
+      const email = document.createElement("strong");
+      email.textContent = account.email;
+      target.append("Importing into ", email, ` on ${account.site}`);
 
       const tabs = document.createElement("fieldset");
       tabs.style.cssText = "display:flex;flex-wrap:wrap;gap:12px;margin:0;padding:0;border:0;";
@@ -132,7 +139,7 @@
         else input.reportValidity();
       });
 
-      form.append(tabs, pagesRow, buttons);
+      form.append(target, tabs, pagesRow, buttons);
       getBanner().replaceChildren(form);
       input.focus();
     });
@@ -199,8 +206,15 @@
     return totals;
   };
 
-  const runImport = async () => {
+  // `lookup` is the background script's account check: { account } or { error }.
+  const runImport = async (lookup) => {
     if (running) return;
+    // First, so a connection problem shows on any page, not only on Amazon's,
+    // and stops before anything on the page is read.
+    if (!lookup.account) {
+      showResult("error", lookup.error ?? "Inkwell's account couldn't be checked. Click the extension again.");
+      return;
+    }
     if (!(globalThis.location.hostname.startsWith("www.amazon.") && globalThis.location.pathname.includes(EXPECTED_URL))) {
       showResult("error", "Open the Books or Docs tab of Manage Your Content, then click the extension again.");
       return;
@@ -209,7 +223,7 @@
     try {
       // Guessed before scraping, while the page is still where the user started.
       const guessedKind = DOCS_PATH.test(globalThis.location.pathname) ? "docs" : "books";
-      const options = await askForOptions(guessedKind);
+      const options = await askForOptions(guessedKind, lookup.account);
       if (options === undefined) return;
       const { kind, pages } = options;
       const books = await scrapePages(pages);
@@ -232,6 +246,6 @@
   };
 
   chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === "start-import") runImport();
+    if (message.type === "start-import") runImport(message);
   });
 }
