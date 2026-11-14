@@ -20,6 +20,12 @@ export const changeStatusSchema = z.object({ userBookId: id, status });
 export const moveBooksSchema = z.object({ userBookIds: z.array(id).min(1).max(200), status });
 export const changeFormatsSchema = z.object({ userBookId: id, formats: z.array(z.enum(BookFormat)).max(3) });
 export const removeBookSchema = z.object({ userBookId: id });
+// The shelf's query string, as the client read it. parseShelfFilters then
+// keeps only known values; this only stops an oversized request.
+export const shelfParamsSchema = z.record(
+  z.string().max(20),
+  z.union([z.string().max(500), z.array(z.string().max(500)).max(10)]),
+);
 // The service enforces the real limit; this only stops an oversized request.
 export const removeBooksSchema = z.object({ userBookIds: z.array(id).min(1).max(200) });
 

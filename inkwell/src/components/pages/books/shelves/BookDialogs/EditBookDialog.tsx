@@ -3,10 +3,10 @@
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import type { ShelfBook } from "@/server/library/library.service";
 import { type SubmitEvent, useTransition } from "react";
-import { StatusField } from "../../../StatusField";
-import { TextField } from "../../../TextField";
-import { Button } from "../../../ui/button";
-import { Checkbox } from "../../../ui/checkbox";
+import { StatusField } from "../../../../StatusField";
+import { TextField } from "../../../../TextField";
+import { Button } from "../../../../ui/button";
+import { Checkbox } from "../../../../ui/checkbox";
 import {
   Dialog,
   DialogClose,
@@ -15,7 +15,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../../ui/dialog";
+} from "../../../../ui/dialog";
 import {
   Field,
   FieldDescription,
@@ -23,8 +23,8 @@ import {
   FieldLabel,
   FieldLegend,
   FieldSet,
-} from "../../../ui/field";
-import { FORMAT_LABELS } from "./formats";
+} from "../../../../ui/field";
+import { FORMAT_LABELS } from "../formats";
 
 // Wishlist and TBR are both "not started", which the status field shows as empty.
 const formStatus = (status: ReadingStatus) =>

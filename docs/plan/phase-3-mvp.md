@@ -342,6 +342,14 @@ Added at the user's request on 2026-11-08, after the extension's store build was
    - **Selection:** "Select first N" offers at most the page size or 30, whichever is smaller, and the selection cap stays 30. Bulk moves and deletes keep the server's 30-book limit, so on a 50-book page only 30 can be selected at once, as now.
    - **Page numbers:** `?page=3` means different books at different sizes. A shared link carries `per`, so it opens the same slice. An out-of-range page already shows the last one.
    - **Unchanged:** the refill after a bulk move and the empty states work at every size.
+   - **In progress (2026-11-14), the user's restructuring first:**
+     - The shelf view is split into `BookShelf`, `SelectedBooksBar` and `BooksPagination`. A shadcn `select` is added, with no logic yet.
+     - **App-wide context, at the user's request:** `components/pages/context` (`BooksContext`, `useBooksContext`, `useLoadedShelf`) wraps the `(app)` layout. It holds the signed-in user, passed in by the layout, and the current shelf, so any page can read both.
+       - A layout never sees the query string, so the books are loaded on the client: the context parses the shelf filters from `useSearchParams` and calls the `loadShelf` server action (`library.controller.ts`, validated by `shelfParamsSchema`) whenever they change.
+       - Another page's query string doesn't reload the shelf. A slower, older answer can't overwrite a newer one.
+       - Mutations call `refresh()`, since `revalidatePath` no longer reaches client state.
+       - **Trade-off, chosen by the user:** books aren't in the first server render, so the shelf shows a skeleton until the first load.
+     - **Verified:** typecheck, tests (including `loadShelf` and `searchParamsRecord`) and the build pass. Not yet checked signed in.
 6. **Show the full title on hover** on the shelf cards (`components/pages/books/shelves/BookCard.tsx`).
    - **Today:** `truncateText` cuts titles and authors at 40 characters and adds "...". The full text isn't on the page at all, so long series titles can't be read without opening a dialog.
    - **Cut with CSS instead:** clamp the title to two lines (`line-clamp-2`) and the authors to one (`line-clamp-1`), and remove `truncateText`. The full text then stays on the page, screen readers read all of it, and the cut follows the card's width instead of a fixed count.

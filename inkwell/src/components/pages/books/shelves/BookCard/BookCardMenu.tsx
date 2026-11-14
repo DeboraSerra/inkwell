@@ -1,7 +1,3 @@
-"use client";
-
-import { BookCover } from "@/components/BookCover";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -13,111 +9,38 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
-import type { ShelfBook } from "@/server/library/library.service";
+import { useBookActions } from "@/hooks/useBookActions";
+import { ShelfBook } from "@/server/library/library.service";
 import { moveTargets } from "@/server/library/shelf-filters";
-import { cn } from "cn";
 import { Edit, EllipsisVertical, Trash } from "lucide-react";
 import { useState } from "react";
-import { FieldLabel } from "../../../ui/field";
-import { DeleteBookDialog } from "./DeleteBookDialog";
-import { EditBookDialog } from "./EditBookDialog";
-import { FORMAT_LABELS } from "./formats";
-import { MoveBookDialog } from "./MoveBookDialog";
+import { DeleteBookDialog } from "../BookDialogs/DeleteBookDialog";
+import { EditBookDialog } from "../BookDialogs/EditBookDialog";
+import { MoveBookDialog } from "../BookDialogs/MoveBookDialog";
+import { FORMAT_LABELS } from "../formats";
 
-const MAX_TITLE_LENGTH = 40;
-
-const truncateText = (text: string) => {
-  if (text.length <= MAX_TITLE_LENGTH) return text;
-  return `${text.slice(0, MAX_TITLE_LENGTH)}...`;
-};
-
-export function BookCard({
-  book,
-  selected,
-  selectDisabled,
-  busy,
-  onSelect,
-  onMove,
-  onFormats,
-  onMoveWithDates,
-  onEdit,
-  onDelete,
-}: Readonly<{
-  book: ShelfBook;
-  selected: boolean;
-  selectDisabled: boolean;
-  busy: boolean;
-  onSelect: (checked: boolean) => void;
-  onMove: (status: ReadingStatus) => void;
-  onFormats: (formats: BookFormat[]) => void;
-  onMoveWithDates: (
-    status: ReadingStatus,
-    formData: FormData,
-  ) => Promise<boolean>;
-  onEdit: (formData: FormData) => Promise<boolean>;
-  onDelete: () => void;
-}>) {
+export const BookCardMenu = ({ book }: { book: ShelfBook }) => {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [movingTo, setMovingTo] = useState<ReadingStatus | null>(null);
-
+  const { busy, move, setFormats, moveWithDates, edit, remove } =
+    useBookActions(book);
   const chooseTarget = (status: ReadingStatus) => {
     if (status === ReadingStatus.READING || status === ReadingStatus.FINISHED)
       setMovingTo(status);
-    else onMove(status);
+    else move(status);
   };
   const targets = moveTargets(book);
 
   const toggleFormat = (format: BookFormat, checked: boolean) =>
-    onFormats(
+    setFormats(
       checked
         ? [...book.formats, format]
         : book.formats.filter((item) => item !== format),
     );
 
   return (
-    <li
-      className={cn(
-        "flex min-w-0 items-start gap-2 rounded-lg border p-3",
-        selected && "border-primary bg-primary/5",
-      )}
-    >
-      <FieldLabel
-        htmlFor={book.id}
-        className='min-w-0 flex-1 items-start gap-3 has-data-checked:border-transparent has-data-checked:bg-transparent dark:has-data-checked:bg-transparent'
-      >
-        <Checkbox
-          aria-label={`Select ${book.title}`}
-          checked={selected}
-          disabled={selectDisabled && !selected}
-          onCheckedChange={onSelect}
-          className='mt-1'
-          id={book.id}
-        />
-        <BookCover src={book.coverUrl} lazy className='h-24 w-16' width={64} height={96} />
-        <span className='flex min-w-0 flex-1 flex-col gap-2'>
-          <span>
-            <span className='block font-medium wrap-break-word'>
-              {truncateText(book.title)}
-            </span>
-            <span className='block text-sm font-normal text-muted-foreground wrap-break-word'>
-              {truncateText(book.authors.join("; "))}
-            </span>
-          </span>
-          {book.formats.length > 0 && (
-            <span className='flex flex-wrap gap-1'>
-              {book.formats.map((format) => (
-                <span
-                  key={format}
-                  className='rounded-full border px-2 py-0.5 text-xs font-normal'
-                >
-                  {FORMAT_LABELS[format]}
-                </span>
-              ))}
-            </span>
-          )}
-        </span>
-      </FieldLabel>
+    <>
       <DropdownMenu>
         <DropdownMenuTrigger
           className='cursor-pointer'
@@ -170,22 +93,22 @@ export function BookCard({
           book={book}
           status={movingTo}
           onClose={() => setMovingTo(null)}
-          onSave={(formData) => onMoveWithDates(movingTo, formData)}
+          onSave={(formData) => moveWithDates(movingTo, formData)}
         />
       )}
       <EditBookDialog
         book={book}
         open={editing}
         onOpenChange={setEditing}
-        onSave={onEdit}
+        onSave={edit}
       />
       <DeleteBookDialog
         heading='Delete this book?'
         description={`“${book.title}” will be removed from your library, along with your formats and read dates. This can’t be undone.`}
         open={deleting}
         onOpenChange={setDeleting}
-        onConfirm={onDelete}
+        onConfirm={remove}
       />
-    </li>
+    </>
   );
-}
+};

@@ -7,7 +7,7 @@ import { BookFormat } from "@/generated/prisma/enums";
 import { type ShelfFilters, shelfHref } from "@/server/library/shelf-filters";
 import { useRouter } from "next/navigation";
 import { type ChangeEvent, type SubmitEvent, useEffect, useRef, useState } from "react";
-import { FORMAT_LABELS } from "./formats";
+import { FORMAT_LABELS } from "../formats";
 
 // How long typing has to pause before the search runs.
 const SEARCH_DELAY_MS = 500;

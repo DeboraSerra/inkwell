@@ -10,7 +10,7 @@ vi.mock("@/server/auth/auth.guard");
 vi.mock("@/server/library/library.service");
 vi.mock("@/server/rate-limit/rate-limit.service");
 
-const { addBookByIsbn, addManualBook, changeBookFormats, lookUpIsbn, changeBookStatus, editBook, moveBooks, moveBookWithDates, removeBook, removeBooks } = await import(
+const { addBookByIsbn, addManualBook, changeBookFormats, loadShelf, lookUpIsbn, changeBookStatus, editBook, moveBooks, moveBookWithDates, removeBook, removeBooks } = await import(
   "@/server/library/library.controller"
 );
 const service = vi.mocked(libraryService);
@@ -346,5 +346,42 @@ describe("add by ISBN", () => {
       const state = await addBookByIsbn({}, form({ isbn: "0441013597" }));
       expect(state.error).toBe("We couldn't find a book with that ISBN.");
     });
+  });
+});
+
+describe("loadShelf", () => {
+  const page = { books: [], page: 2, pageCount: 3, total: 70, firstIndex: 31 };
+
+  it("loads the signed-in user's shelf with the parsed filters", async () => {
+    service.listShelfPage.mockResolvedValue(page);
+    const result = await loadShelf({ shelf: "finished", format: ["EBOOK", "KINDLE"], q: " dune ", page: "2", userId: "x" });
+    expect(result).toEqual({ shelf: page });
+    expect(service.listShelfPage).toHaveBeenCalledWith(
+      "user-1",
+      { status: ReadingStatus.FINISHED, formats: ["EBOOK"], search: "dune" },
+      2,
+    );
+  });
+
+  it("falls back to TBR, page 1, for unknown values", async () => {
+    service.listShelfPage.mockResolvedValue(page);
+    await loadShelf({ shelf: "__proto__", page: "-4" });
+    expect(service.listShelfPage).toHaveBeenCalledWith("user-1", { status: ReadingStatus.TO_READ, formats: [], search: "" }, 1);
+  });
+
+  it.each([
+    ["not an object", "shelf=tbr"],
+    ["a value that isn't text", { shelf: 4 }],
+    ["an oversized value", { q: "x".repeat(501) }],
+    ["too many repeated values", { format: Array.from({ length: 11 }, () => "EBOOK") }],
+  ])("rejects %s without loading", async (_name, params) => {
+    await expect(loadShelf(params)).resolves.toEqual({ error: "That request isn't valid." });
+    expect(service.listShelfPage).not.toHaveBeenCalled();
+  });
+
+  it("needs a signed-in user", async () => {
+    vi.mocked(requireUser).mockRejectedValue(new Error("redirect"));
+    await expect(loadShelf({})).rejects.toThrow("redirect");
+    expect(service.listShelfPage).not.toHaveBeenCalled();
   });
 });

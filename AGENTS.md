@@ -83,6 +83,7 @@ All backend code lives in `inkwell/src/server/`, grouped by **feature module** (
 Other rules:
 
 - **Pages** (Server Components) are presentation. They call `requireUser()` from the guard, then **services for reads**; every **mutation goes through a controller** (server action or route handler). Pages and client components never import models or `@/server/db`.
+- **The app-wide books context** (`components/pages/context`, mounted in the `(app)` layout) is the one exception to "services for reads": it holds the user and loads the current shelf on the client through the `loadShelf` server action. Client components read it with `useBooksContext()`, and call `refresh()` after a change. Client code imports only types from services.
 - **Anything exported from a `"use server"` file is a public endpoint.** Only put server actions in `*.controller.ts`, and make each one authenticate and validate. Shared request helpers belong in the guard, not in a controller.
 - **Errors:** services throw subclasses of `DomainError` (`NotFoundError`, `ValidationError`, `UnauthorizedError`, or module-specific ones such as `InvalidTransitionError extends ValidationError`). Controllers catch `DomainError` and show its message; anything else is a bug and is rethrown.
 - **A new feature** gets a folder in `src/server/<module>/` with `<entity>.model.ts`, `<module>.service.ts`, `<module>.controller.ts` (when it has mutations), `*.rules.ts` for pure logic. Its tests go in `src/server/tests/` (see "Directory layout" below), not in the module folder.

@@ -32,6 +32,17 @@ export type ShelfParams = Record<string, string | string[] | undefined>;
 
 const list = (value: string | string[] | undefined) => [value ?? []].flat();
 
+// A query string in the shape Next gives a page's searchParams: a repeated
+// key becomes a list.
+export function searchParamsRecord(query: URLSearchParams): ShelfParams {
+  const params: ShelfParams = {};
+  for (const key of new Set(query.keys())) {
+    const values = query.getAll(key);
+    params[key] = values.length > 1 ? values : values[0];
+  }
+  return params;
+}
+
 export function parseShelfFilters(params: ShelfParams): ShelfFilters {
   const shelf = SHELVES.find(({ slug }) => slug === list(params.shelf)[0]) ?? SHELVES[0];
   const known = Object.values(BookFormat) as string[];

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moveDateValues, moveTargets, pageLinks, parseShelfFilters, shelfHref } from "@/server/library/shelf-filters";
+import { moveDateValues, moveTargets, searchParamsRecord, pageLinks, parseShelfFilters, shelfHref } from "@/server/library/shelf-filters";
 import { ReadingStatus } from "@/generated/prisma/enums";
 
 describe("parseShelfFilters", () => {
@@ -121,5 +121,23 @@ describe("moveTargets", () => {
 
   it("offers a DNF book only Reading or its not-started list", () => {
     expect(slugs(ReadingStatus.DNF, [])).toEqual(["wishlist", "reading"]);
+  });
+});
+
+describe("searchParamsRecord", () => {
+  it("turns a query string into the shape a page's searchParams has", () => {
+    const params = searchParamsRecord(new URLSearchParams("shelf=dnf&format=EBOOK&format=AUDIO&q=a%26b&page=2"));
+    expect(params).toEqual({ shelf: "dnf", format: ["EBOOK", "AUDIO"], q: "a&b", page: "2" });
+    expect(parseShelfFilters(params)).toMatchObject({ shelf: "dnf", formats: ["EBOOK", "AUDIO"], search: "a&b", page: 2 });
+  });
+
+  it("round-trips shelfHref", () => {
+    const filters = { shelf: "finished", formats: ["PHYSICAL" as const], search: "tolkien", page: 3 };
+    const query = new URL(shelfHref(filters), "http://local").searchParams;
+    expect(parseShelfFilters(searchParamsRecord(query))).toMatchObject(filters);
+  });
+
+  it("is empty for an empty query", () => {
+    expect(searchParamsRecord(new URLSearchParams(""))).toEqual({});
   });
 });

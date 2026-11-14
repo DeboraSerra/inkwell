@@ -18,7 +18,9 @@ import {
   parseMoveBook,
   removeBookSchema,
   removeBooksSchema,
+  shelfParamsSchema,
 } from "./shelf-actions.schema";
+import { parseShelfFilters } from "./shelf-filters";
 import { LIST_NAMES } from "./status.rules";
 
 const SHELVES_PATH = "/books/shelves";
@@ -144,6 +146,22 @@ export async function changeBookFormats(userBookId: string, formats: BookFormat[
     if (error instanceof DomainError) return { error: error.message };
     throw error;
   }
+}
+
+export type LoadShelfResult = {
+  error?: string;
+  shelf?: Awaited<ReturnType<typeof libraryService.listShelfPage>>;
+};
+
+// One page of a shelf, for the app-wide books context. The filters are parsed
+// again here, since the query string comes from the client.
+export async function loadShelf(params: unknown): Promise<LoadShelfResult> {
+  const user = await requireUser();
+  const parsed = shelfParamsSchema.safeParse(params);
+  if (!parsed.success) return { error: INVALID_REQUEST };
+  const { status, formats, search, page } = parseShelfFilters(parsed.data);
+  const shelf = await libraryService.listShelfPage(user.id, { status, formats, search }, page);
+  return { shelf };
 }
 
 export async function moveBooks(
