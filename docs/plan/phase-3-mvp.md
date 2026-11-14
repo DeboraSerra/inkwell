@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: ✅ 3a–3d done; ✅ the DNF, `&amp;` and shelf-search fixes are built (the backfill and a signed-in browser check still need you); ⏭️ next: 3e, then 3f.** 3a to 3d are committed, and the ["Done when"](#done-when) list was checked on 2026-11-08 (see "Checked" under it). The Docs-tab issue found during that check is fixed in the extension, but the fix hasn't been run on the real page yet.
+**Status: ✅ 3a–3d done; ✅ the DNF, `&amp;` and shelf-search fixes are built and the backfill is run locally and on Supabase (a signed-in browser check still needs you); ⏭️ next: 3e, then 3f.** 3a to 3d are committed, and the ["Done when"](#done-when) list was checked on 2026-11-08 (see "Checked" under it). The Docs-tab issue found during that check is fixed in the extension, but the fix hasn't been run on the real page yet.
 
 Goal: add books manually or through the Chrome extension, move them between lists, and browse them with filters.
 
@@ -253,7 +253,8 @@ The encoded text also reaches `dedupeKey` as an extra word "amp". So "Snow & Ash
 - **Providers:** `cleanText` decodes, so Open Library and Google titles, subtitles and authors are decoded once. `stripHtml` uses `decodeEntities`. `cleanDescription` no longer goes through `cleanText`, so a description isn't decoded twice.
 - **Backfill:** `prisma/backfill-decode-entities.ts`, with `--dry-run`. It only touches rows whose text changes when decoded. It decodes `Book.title`, `subtitle` and `authors`, recomputes `dedupeKey` and `authorSearch`, and decodes `UserBook.authors` and its `authorSearch`.
   - A dry run on the local database lists exactly the 5 titles above and 0 library entries, and writes nothing.
-  - **Still to do, with your go-ahead:** run it without `--dry-run` on the local database, then on Supabase, before the next Amazon re-import. Then run it again to check that it changes nothing.
+  - **Run on the local database on 2026-11-14,** with the user's go-ahead. It fixed the 5 titles, and their dedupe keys now read "and" in place of "amp" (for example `snow and ash|shaver`). No title still contains `&amp;`, no dedupe key is shared, and a second run changed nothing.
+  - **Run on Supabase on 2026-11-14,** with the user's go-ahead, after they checked the local result. Its library is larger, so it fixed 41 books, not 5: 40 with `&amp;` and one with `&#34;` ("Burn After Reading: A "Steamy" …"). No library entries changed. Afterwards none of its 1,290 books holds an entity, no dedupe key is shared, and a second run changed nothing.
 - **Verified:** tests (each entity, decimal and hex, decoding once, unknown and invalid entities, hostile input, the import schema on both tabs with a hand-typed copy getting the same dedupe key, `stripHtml` and `cleanDescription`), typecheck, lint and build.
 
 ## Fix: searching a shelf jumps back to TBR (do first, with the other fixes)
@@ -281,6 +282,12 @@ Reported by the user on 2026-11-08: searching for an author on the Finished shel
 - **Code:** in `ShelfFilterBar.tsx`, `submitSearch` calls `preventDefault()`. The form has `action="/books/shelves"` and `method="get"`, with hidden `shelf` and `format` inputs. The input's `onChange` navigates without `q` when the box is emptied while a search is active (blank or spaces only counts as empty).
 - **Verified:** typecheck, lint and build.
 - **Not verified:** the browser checks above. They need a signed-in session on the dev server.
+- **Then, at the user's request: search as you type.** The Search button is gone. The search runs 700 ms after typing stops (`SEARCH_DELAY_MS`), and at once on Enter or when the box is emptied.
+  - The box is now controlled. Its own searches don't reset what's being typed meanwhile, and a search changed from outside (Back, a link) shows in the box.
+  - Searches use `router.replace`, so Back doesn't step through every pause in typing. Format filters still use `push`, and include text that's typed but not searched yet.
+  - A pending search runs on the shelf and filters showing when it fires.
+  - Without JavaScript, Enter still submits the form, with the hidden fields.
+  - Verified: typecheck, lint, tests and build. Not checked in the browser by me; the user tests it signed in.
 
 ## 3e — Polish before Phase 4c (after the fixes)
 

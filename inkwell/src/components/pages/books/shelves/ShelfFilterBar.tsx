@@ -1,36 +1,74 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { BookFormat } from "@/generated/prisma/enums";
 import { type ShelfFilters, shelfHref } from "@/server/library/shelf-filters";
 import { useRouter } from "next/navigation";
-import type { ChangeEvent, SubmitEvent } from "react";
+import { type ChangeEvent, type SubmitEvent, useEffect, useRef, useState } from "react";
 import { FORMAT_LABELS } from "./formats";
+
+// How long typing has to pause before the search runs.
+const SEARCH_DELAY_MS = 500;
 
 export function ShelfFilterBar({ filters }: Readonly<{ filters: ShelfFilters }>) {
   const router = useRouter();
   const { shelf, formats, search } = filters;
+  const [text, setText] = useState(search);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // The search this box last asked for, so its own navigation doesn't reset
+  // what's being typed meanwhile.
+  const requested = useRef(search);
 
   const toggleFormat = (format: BookFormat, checked: boolean) => {
     const next = checked ? [...formats, format] : formats.filter((item) => item !== format);
-    router.push(shelfHref({ shelf, formats: next, search }));
+    // Includes what's typed but not searched yet.
+    requested.current = text.trim();
+    router.push(shelfHref({ shelf, formats: next, search: requested.current }));
   };
 
-  // The form also works without JavaScript, through its hidden fields; this
-  // stops that native submission so only the client navigation happens.
-  const submitSearch = (event: SubmitEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const q = new FormData(event.currentTarget).get("q");
-    router.push(shelfHref({ shelf, formats, search: typeof q === "string" ? q.trim() : "" }));
+  // A search changed from outside (back and forward, a link) shows in the box.
+  useEffect(() => {
+    if (search !== requested.current) {
+      requested.current = search;
+      setText(search);
+    }
+  }, [search]);
+
+  // A pending search runs on the shelf and filters showing when it fires, not
+  // the ones it was typed on.
+  const current = useRef({ shelf, formats });
+  useEffect(() => {
+    current.current = { shelf, formats };
+  }, [shelf, formats]);
+
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  // Replaces the history entry, so Back doesn't step through every pause in typing.
+  const runSearch = (value: string) => {
+    clearTimeout(timer.current);
+    const next = value.trim();
+    if (next === requested.current) return;
+    requested.current = next;
+    router.replace(shelfHref({ ...current.current, search: next }));
   };
 
   // Emptying the box in any way (its ✕, Escape, deleting the text) shows the
-  // whole shelf again. Not the "search" event, which Firefox doesn't fire.
-  const clearSearch = (event: ChangeEvent<HTMLInputElement>) => {
-    if (search && !event.currentTarget.value.trim()) router.push(shelfHref({ shelf, formats, search: "" }));
+  // whole shelf at once. Not the "search" event, which Firefox doesn't fire.
+  const changeText = (event: ChangeEvent<HTMLInputElement>) => {
+    const { value } = event.currentTarget;
+    setText(value);
+    clearTimeout(timer.current);
+    if (value.trim()) timer.current = setTimeout(() => runSearch(value), SEARCH_DELAY_MS);
+    else runSearch("");
+  };
+
+  // Enter searches without waiting. The form also works without JavaScript,
+  // through its hidden fields; this stops that native submission.
+  const submitSearch = (event: SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    runSearch(text);
   };
 
   return (
@@ -42,15 +80,13 @@ export function ShelfFilterBar({ filters }: Readonly<{ filters: ShelfFilters }>)
             <input key={format} type='hidden' name='format' value={format} />
           ))}
           <Input
-            key={search}
             name='q'
             type='search'
             aria-label='Search by title or author'
-            placeholder='Title or author'
-            defaultValue={search}
-            onChange={clearSearch}
+            placeholder='Search by title or author'
+            value={text}
+            onChange={changeText}
           />
-          <Button type="submit">Search</Button>
         </form>
       </search>
 

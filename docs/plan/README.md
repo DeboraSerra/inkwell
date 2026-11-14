@@ -32,7 +32,7 @@
    - 3d — Browse, filter and move books ✅ done, at `/books/shelves`
    - **Fix: moving to DNF ✅ built:** Wishlist, TBR and Finished books can now move to DNF; not yet clicked through signed in
    - **Fix: searching a shelf jumps back to TBR ✅ built:** search keeps the shelf and filters, and clearing the box removes `?q=`; browser check still to do signed in
-   - **Fix: `&amp;` in imported titles ✅ built:** imports decode entities; the backfill for the 5 affected titles is written and dry-run, and needs your go-ahead to run
+   - **Fix: `&amp;` in imported titles ✅ built:** imports decode entities; the backfill fixed 5 titles locally and 41 on Supabase
    - **3e — Polish, before 4c:** show the account an import goes to, give the options page a favicon, redesign the options page, add a copy button for new API tokens, add a books-per-page select (default 10 on phones, 30 on desktop), show the full title on hover, move to the next date part automatically, show read dates on shelf cards, add an audiobook length, add a past read without moving the book
    - **3f — Purchase dates, after 3e:** save Amazon's acquired date as `UserBook.acquiredAt`, editable for hand-added books, filterable and sortable on the shelves
 4. [Phase 4 — Search and ISBN](phase-4-adding-books.md) in progress; 4c follows 3e and 3f
