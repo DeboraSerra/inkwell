@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: in progress.** 4a and 4b are done and committed. ✅ 4c is done (2026-11-15), checked by the user; its synopsis follow-up is built. ⏭️ Next is 4d. Phase 3 closed on 2026-11-15 ([phase-3-mvp.md](phase-3-mvp.md#closed-2026-11-15)). Phase 4 was started at the user's request before Phase 3's "Done when" list was checked.
+**Status: in progress.** 4a and 4b are done and committed. ✅ 4c is done (2026-11-15), checked by the user; its synopsis follow-up is built. ✅ 4d is built; its real-phone check is still to do before Phase 4 closes. Phase 3 closed on 2026-11-15 ([phase-3-mvp.md](phase-3-mvp.md#closed-2026-11-15)). Phase 4 was started at the user's request before Phase 3's "Done when" list was checked.
 
 Goal: add a book without typing its details. Search by title or author, type an ISBN, or photograph the barcode, then confirm, pick formats and add. The manual form stays as the last resort.
 
@@ -316,7 +316,7 @@ Asked by the user, who added `book` and `canEdit` props to `AddBookForm`. The sa
   - The card's cover, year, source and "Already in your library · View the shelf" moved into the form's new `header` slot (`PreviewHeader` in `BookPreview.tsx`). The ISBN and Search tabs no longer render the card. The user had already removed it from Search.
 - **Not checked yet:** the forms in the browser, signed in.
 
-## 4d — Scan the barcode
+## 4d — Scan the barcode ✅ built (2026-11-15); real-phone check still to do
 
 A book's barcode is an EAN-13 starting with 978 or 979, which is its ISBN-13. Scanning only produces an ISBN and hands it to the ISBN tab (4b).
 
@@ -336,6 +336,42 @@ A book's barcode is an EAN-13 starting with 978 or 979, which is its ISBN-13. Sc
    - No barcode found shows "Couldn't read a barcode. Try again closer, in good light, or type the ISBN."
 4. **Then:** the ISBN fills the ISBN tab's field and the lookup runs straight away. "Scan another" is offered after an add.
 5. **Verify** on a real iPhone and a real Android phone, with a clean barcode, a curved spine-side barcode, a worn one, and a book with the price add-on.
+
+### 4d outcome (2026-11-15)
+
+- **Dependency:** `barcode-detector` **3.2.3**, pinned exactly. 3.2.4 came out the same day, too new under the two-week rule, and a caret range would have picked it up. It brings `zxing-wasm` 3.1.6 (2026-10-19). Both are MIT. The reader WASM is 947 KB, loaded only when a scan starts.
+  - `npm audit` now reports 7 findings, not 6. The new one is `fast-xml-parser` (low), through `firebase-admin` → `@google-cloud/storage`, not through this package. Flagged to the user; nothing changed.
+- **Serving the WASM from the app:** `scripts/copy-zxing-wasm.mjs` copies `zxing_reader.wasm` to `public/vendor/zxing-wasm/<version>/`. It runs from `postinstall` and `build`, and `/public/vendor/` is gitignored. The scanner points `prepareZXingModule`'s `locateFile` there. Checked: the dev server serves it (200, `application/wasm`) without a sign-in.
+- **Reading the photo (`components/pages/books/new/barcode-scan.ts`):** the photo goes onto a canvas scaled to at most 1,600 px on the long side. It's read with the browser's own `BarcodeDetector` when that supports `ean_13`, and otherwise with `barcode-detector/ponyfill`, imported dynamically at the first scan and cached. Nothing is uploaded.
+- **The rule (`books/barcode.rules.ts`, `readBookBarcode`):** it takes the first 13 digits of each run of 13 or more, so a 2- or 5-digit price add-on is ignored, whether reported separately or joined to the code. It accepts only a valid 978/979 ISBN-13. Any other valid EAN-13 gives "That isn't a book barcode."; nothing usable gives "Couldn't read a barcode. Try again closer, in good light, or type the ISBN." `books/isbn.ts` gains `isValidEan13`.
+- **UI:** `ScanBarcodeButton.tsx`, beside "Look up" on the ISBN tab, uses `<input type="file" accept="image/*" capture="environment">`. A read ISBN fills the field and is looked up straight away. After an add from a scan, the button reads "Scan another". Errors show under the field.
+- **Types:** `BookBarcodeResult` (`types/books.type.tsx`) and `BarcodeReader` (`types/ui.type.ts`), per the types rule.
+- **Tests:** `barcode.rules.test.ts` covers books, both prefixes, every add-on shape, a product code, a mixed photo and misses. `isbn.test.ts` covers `isValidEan13`. A one-off Node check confirmed `zxing-wasm` 3.1.6 reads a generated EAN-13 back as `9780441013593`.
+- **Still to do by the user:**
+  - Step 5: scan on a real iPhone and a real Android phone (clean, curved, worn, with an add-on). Neither the camera nor the signed-in flow could be checked here.
+  - Decide what to do about the new `fast-xml-parser` audit finding.
+
+### 4d follow-up: live scanning ⏭️ not started
+
+Asked by the user on 2026-11-15, replacing the "Later" item. Point the camera at a book and its ISBN is read from the video, with no photo to take. It's quicker for several books, and it's the only way to use a laptop's webcam, which a file input can't open.
+
+1. **Where:** a "Scan live" button beside "Scan barcode" on the ISBN tab, shown only where `navigator.mediaDevices.getUserMedia` exists. HTTPS or localhost is required.
+   - "Scan barcode" (the photo) stays: it needs no permission and works with poor connections or older phones.
+2. **The viewfinder:** a dialog with the rear camera's video (`facingMode: "environment"`, falling back to any camera on a laptop), a frame showing where to hold the barcode, and Cancel.
+   - Closing it, finding a book, or leaving the page stops every camera track, so the camera light goes off.
+   - Nothing is recorded or uploaded; frames are read in the browser and dropped.
+3. **Reading:** the same reader as the photo (`barcode-scan.ts`: the browser's `BarcodeDetector`, or `barcode-detector` with the app-served WASM) and the same rule (`readBookBarcode`).
+   - About 5 frames a second, each scaled down like a photo, with only one read in flight at a time, so a slow phone doesn't pile up work.
+   - A frame with no barcode, or a product barcode, just keeps scanning. Only a book's ISBN stops it. "That isn't a book barcode." shows as a hint in the dialog after a product code is seen.
+   - **Stops on a book:** the dialog closes, the ISBN fills the field, and the lookup runs, exactly as a scanned photo does. "Scan another" opens the live view again after an add.
+4. **Permission and errors:** the browser asks for the camera the first time.
+   - **Refused:** "Inkwell can't use the camera. Allow it in your browser's settings, or take a photo instead."
+   - **No camera found, or it's busy:** "No camera is available. Take a photo or type the ISBN."
+   - Each error leaves the photo button and the ISBN field working.
+5. **Tests:** the frame loop's pure parts (throttling, keep scanning on a miss or a product code, stop on a book), and the error messages per `getUserMedia` error (`NotAllowedError`, `NotFoundError`, `NotReadableError`).
+6. **Verify:** on a real iPhone (Safari) and a real Android phone (Chrome), and on a laptop webcam. Check a clean barcode, a curved one, a worn one, and one with a price add-on, and that the camera light goes off after each way of closing.
+
+**Done when:** pointing a phone or laptop camera at a book's barcode fills in the ISBN and finds the book without taking a photo, and the camera always turns off afterwards.
 
 ## Env vars
 
@@ -359,7 +395,7 @@ Made with the user on 2026-11-08:
 | Search language | All languages, no filter |
 | Matching by title and author | Fill the blank ISBN on the matched catalog book, never overwrite (4b) |
 | Barcode library | `barcode-detector` (on `zxing-wasm`), not `@zxing/browser` (4d) |
-| Live scanning | Photo only for now; live scanning moves to "Later" |
+| Live scanning | Photo first (4d); live scanning added as a 4d follow-up on 2026-11-15, at the user's request |
 | Rate limiting | Per user, now, counted in Postgres (4a, step 7) |
 
 ## Done when
@@ -377,7 +413,6 @@ Made with the user on 2026-11-08:
 
 ## Later
 
-- Live scanning: a camera viewfinder (`getUserMedia`) that reads barcodes continuously, quicker for several books. Needs a camera permission and HTTPS.
 - Scan several books in a row into a queue, then set formats for all of them at once.
 - Choose a specific edition (cover, language, page count) of a work.
 - Let the extension use `/api/books/search` to fill in ISBNs for imported ebooks.

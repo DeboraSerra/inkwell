@@ -150,3 +150,8 @@ export type CatalogBlanks = {
   openLibraryId?: string;
   googleBooksId?: string;
 };
+
+// Barcode scanning
+
+// What a scanned photo gave: a book's ISBN-13, or the message to show.
+export type BookBarcodeResult = { isbn13: string; error?: undefined } | { isbn13?: undefined; error: string };

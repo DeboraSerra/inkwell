@@ -15,6 +15,7 @@ import {
 } from "react";
 import { AddPreviewedBook } from "./BookPreview";
 import { applyIsbnFormat } from "./isbn-input";
+import { ScanBarcodeButton } from "./ScanBarcodeButton";
 import type { IsbnLookupResult } from "@/types/library.type";
 
 export default function IsbnLookup({
@@ -22,20 +23,34 @@ export default function IsbnLookup({
 }: Readonly<{ onFillByHand: (isbn13: string) => void }>) {
   const [result, setResult] = useState<IsbnLookupResult | null>(null);
   const [isLooking, startLookup] = useTransition();
+  // Whether the last book came from a scan, so the button offers another.
+  const [scanned, setScanned] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = (event: SubmitEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const isbn = inputRef.current?.value ?? "";
+  const lookUp = (isbn: string) =>
     startLookup(async () => {
       setResult(await lookUpIsbn(isbn));
     });
+
+  const handleSubmit = (event: SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setScanned(false);
+    lookUp(inputRef.current?.value ?? "");
+  };
+
+  // A scanned ISBN fills the field and is looked up straight away.
+  const handleScanned = (isbn13: string) => {
+    if (inputRef.current) inputRef.current.value = formatIsbn(isbn13);
+    setScanned(true);
+    setResult(null);
+    lookUp(isbn13);
   };
 
   // A changed ISBN makes the shown book stale.
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     applyIsbnFormat(event.target);
     setResult(null);
+    setScanned(false);
   };
 
   // Ready for the next book straight away.
@@ -70,6 +85,11 @@ export default function IsbnLookup({
           <Button type='submit' disabled={isLooking}>
             {isLooking ? <Loader className='spin-in' /> : "Look up"}
           </Button>
+          <ScanBarcodeButton
+            label={scanned && !result ? "Scan another" : "Scan barcode"}
+            onIsbn={handleScanned}
+            onError={(error) => setResult({ error })}
+          />
         </div>
         <FieldError>{result?.error}</FieldError>
       </form>

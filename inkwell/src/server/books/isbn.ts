@@ -49,6 +49,12 @@ const isbn13CheckDigit = (first12: string) => {
   return String((10 - (sum % 10)) % 10);
 };
 
+// Any EAN-13 barcode, a book's or a product's: 13 digits whose last is the
+// check digit. A book's starts with 978 or 979 (isValidIsbn13).
+export function isValidEan13(code: string) {
+  return /^\d{13}$/.test(code) && isbn13CheckDigit(code.slice(0, 12)) === code[12];
+}
+
 export function isValidIsbn13(isbn: string) {
   const digits = cleanIsbn(isbn);
   if (!/^97[89]\d{10}$/.test(digits)) return false;

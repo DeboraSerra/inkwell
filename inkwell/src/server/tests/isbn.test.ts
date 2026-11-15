@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanIsbn, formatIsbn, isbn10To13, isValidIsbn10, isValidIsbn13, toIsbn13 } from "@/server/books/isbn";
+import { cleanIsbn, formatIsbn, isbn10To13, isValidEan13, isValidIsbn10, isValidIsbn13, toIsbn13 } from "@/server/books/isbn";
 
 describe("cleanIsbn", () => {
   it("removes hyphens and spaces and uppercases X", () => {
@@ -89,5 +89,15 @@ describe("toIsbn13", () => {
     expect(toIsbn13("978-0-261-10221-7")).toBe("9780261102217");
     expect(toIsbn13("0261102214")).toBe("9780261102217");
     expect(toIsbn13("not an isbn")).toBeNull();
+  });
+});
+
+describe("isValidEan13", () => {
+  it.each(["9780441013593", "4006381333931", "0000000000000"])("accepts %s", (code) => {
+    expect(isValidEan13(code)).toBe(true);
+  });
+
+  it.each(["9780441013594", "978044101359", "97804410135930", "978-0441013593", "abcdefghijklm"])("refuses %s", (code) => {
+    expect(isValidEan13(code)).toBe(false);
   });
 });

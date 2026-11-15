@@ -53,3 +53,7 @@ export type ShelfSelectionValue = {
 };
 
 export type SignInMode = "signIn" | "signUp" | "reset";
+
+// The part of the Barcode Detection API the scanner uses, whether the
+// browser's own or the `barcode-detector` package's.
+export type BarcodeReader = { detect(image: HTMLCanvasElement): Promise<{ rawValue: string }[]> };
