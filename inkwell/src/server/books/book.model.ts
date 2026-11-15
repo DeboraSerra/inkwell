@@ -27,6 +27,15 @@ export function findBookByDedupeKey(dedupeKey: string, db: Db = prisma) {
   return db.book.findFirst({ where: { dedupeKey, ownerId: null }, orderBy: { createdAt: "asc" } });
 }
 
+// A book already in this reader's library with this key: their own private
+// copy first, then the oldest shared one. Never another user's private book.
+export function findLibraryBookByDedupeKey(userId: string, dedupeKey: string, db: Db = prisma) {
+  return db.book.findFirst({
+    where: { dedupeKey, OR: [{ ownerId: null }, { ownerId: userId }], userBooks: { some: { userId } } },
+    orderBy: [{ ownerId: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+  });
+}
+
 export function findOwnedBookByDedupeKey(ownerId: string, dedupeKey: string, db: Db = prisma) {
   return db.book.findFirst({ where: { dedupeKey, ownerId }, orderBy: { createdAt: "asc" } });
 }

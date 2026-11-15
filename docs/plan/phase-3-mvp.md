@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: ⏭️ next: the Docs re-import duplicates fix (✅ a year alone now shows in full), then 3g, an "Owned" shelf (see the sections before "Done when"), then closing Phase 3. ✅ 3a–3f built; ✅ the DNF, `&amp;` and shelf-search fixes are built and the backfill is run locally and on Supabase (a signed-in browser check still needs you); ⏭️ next: 3e, then 3f.** 3a to 3d are committed, and the ["Done when"](#done-when) list was checked on 2026-11-08 (see "Checked" under it). The Docs-tab issue found during that check is fixed in the extension, but the fix hasn't been run on the real page yet.
+**Status: ⏭️ next: 3g (✅ the Docs re-import fix is built and the Supabase duplicates are merged; ✅ a year alone now shows in full), an "Owned" shelf (see the sections before "Done when"), then closing Phase 3. ✅ 3a–3f built; ✅ the DNF, `&amp;` and shelf-search fixes are built and the backfill is run locally and on Supabase (a signed-in browser check still needs you); ⏭️ next: 3e, then 3f.** 3a to 3d are committed, and the ["Done when"](#done-when) list was checked on 2026-11-08 (see "Checked" under it). The Docs-tab issue found during that check is fixed in the extension, but the fix hasn't been run on the real page yet.
 
 Goal: add books manually or through the Chrome extension, move them between lists, and browse them with filters.
 
@@ -668,7 +668,7 @@ So the purchase date gets its own column.
 - A book added by hand can have an acquired date, including just a year.
 - The shelves can be sorted by purchase date, either way round (the year filter was dropped at the user's request).
 
-## Fix: re-importing Docs duplicates documents (do first, before closing Phase 3)
+## Fix: re-importing Docs duplicates documents ✅ done
 
 Reported by the user on 2026-11-14: running the extension again on the Docs tab added a second copy of documents already in the library, on TBR, including ones already moved to Finished.
 
@@ -695,6 +695,25 @@ Reported by the user on 2026-11-14: running the extension again on the Docs tab 
    - An import run twice on the same Docs page adds nothing the second time.
 
 **Done when:** re-running the extension on the Docs tab adds no copies, and the 88 duplicates are merged into the originals, with the original shelves and reads kept.
+
+### Outcome (2026-11-15)
+
+- **✅ Match the reader's library first:** `findOrCreateAmazonDoc` now tries `findLibraryBookByDedupeKey(userId, dedupeKey)` (`books/book.model.ts`), which only matches books already in this reader's library, shared or their own private copy, private first, then the oldest. It then falls back to the owner's private books, then creates a private one. A shared book that only other readers have never matches, so new documents stay private.
+- **✅ Merge script:** `prisma/merge-duplicate-docs.ts [--dry-run]`. The user chose to **point the kept entry at the private copy**. The pairing and merge logic is pure, in `imports/duplicate-docs.rules.ts`. For each reader and dedupe key, the original is the entry on a shared book with no ASIN, and the copy is the entry on that reader's private book. For each pair, in one transaction:
+  - The copy's entry is deleted.
+  - The original's entry keeps its status, reads and `addedAt`, gains the copy's formats (Wishlist → TBR if that gives it a first format), keeps the earlier purchase date, and moves to the private book.
+  - The shared book is deleted if nobody else has it in their library.
+  - Each write checks that the row hasn't changed since the plan was read, and throws if it has.
+  - It skips (and reports) a key with more than one copy on either side, or a copy with reads of its own. Books with an ASIN and other users' books are ignored. A second run finds nothing, because a merged pair is no longer a pair.
+- **✅ Tests:**
+  - `book.service.test.ts`: library match first, then own documents, never the shared catalog; a second run reuses the first run's document.
+  - `book.model.test.ts`: the new lookup is scoped to this reader's library and excludes other users' private books.
+  - `duplicate-docs.rules.test.ts`: kept status and reads, formats, purchase dates, every skip, per-reader pairing, and a second run changing nothing.
+  - `imports.service.test.ts`: a Docs page imported twice adds nothing the second time.
+- **Deviation:** the script is tested through its pure rules (with a simulated second run), not on throwaway database rows.
+- **Run locally:** a dry run on the local database found 0 pairs, so there was nothing to merge there.
+- **Supabase:** the user merged the duplicates by hand on 2026-11-15, so the script wasn't run there. It stays in `prisma/` for any copies found later; a dry run should now find none.
+- **Still to do by the user:** deploy the app, then re-run the extension on the Docs tab and check that nothing is added.
 
 ## Change: a year alone shows in full ✅ (with the Docs fix, before closing Phase 3)
 

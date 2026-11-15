@@ -109,12 +109,27 @@ describe("findOrCreateAmazonBook", () => {
 describe("findOrCreateAmazonDoc", () => {
   const doc = { title: "My Notes", authors: [] };
 
-  it("only looks among the owner's own documents", async () => {
+  it("reuses a book already in the reader's library, shared or private", async () => {
+    model.findLibraryBookByDedupeKey.mockResolvedValue(existing);
+    await expect(service.findOrCreateAmazonDoc("user-1", doc, TX)).resolves.toBe(existing);
+    expect(model.findLibraryBookByDedupeKey).toHaveBeenCalledWith("user-1", "my notes|", TX);
+    expect(model.createBook).not.toHaveBeenCalled();
+  });
+
+  it("then looks among the owner's own documents, never the shared catalog", async () => {
     model.findOwnedBookByDedupeKey.mockResolvedValue(existing);
     await expect(service.findOrCreateAmazonDoc("user-1", doc, TX)).resolves.toBe(existing);
     expect(model.findOwnedBookByDedupeKey).toHaveBeenCalledWith("user-1", "my notes|", TX);
     expect(model.findBookByDedupeKey).not.toHaveBeenCalled();
     expect(model.createBook).not.toHaveBeenCalled();
+  });
+
+  it("finds on a second run the document the first run created", async () => {
+    model.createBook.mockResolvedValue(existing);
+    await service.findOrCreateAmazonDoc("user-1", doc, TX);
+    model.findLibraryBookByDedupeKey.mockResolvedValue(existing);
+    await expect(service.findOrCreateAmazonDoc("user-1", doc, TX)).resolves.toBe(existing);
+    expect(model.createBook).toHaveBeenCalledTimes(1);
   });
 
   it("creates a book owned by the user, without an ASIN", async () => {

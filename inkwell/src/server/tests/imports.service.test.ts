@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { findOrCreateAmazonBook } from "@/server/books/book.service";
+import { findOrCreateAmazonBook, findOrCreateAmazonDoc } from "@/server/books/book.service";
 import { addBookToLibrary } from "@/server/library/library.service";
 
 vi.mock("@/server/books/book.service");
@@ -41,5 +41,19 @@ describe("purchase dates", () => {
     await importAmazonBooks("user-1", [{ ...book("x"), acquired }]);
     expect(findOrCreateAmazonBook).toHaveBeenCalledWith({ title: "x", authors: ["A"] }, "tx");
     expect(addBookToLibrary).toHaveBeenCalledWith("user-1", expect.objectContaining({ acquired }), "tx");
+  });
+});
+
+describe("importAmazonDocs", () => {
+  it("adds nothing when the same Docs page is imported twice", async () => {
+    const { importAmazonDocs } = await import("@/server/imports/imports.service");
+    vi.mocked(findOrCreateAmazonDoc).mockResolvedValue({ id: "doc-1" } as never);
+    vi.mocked(addBookToLibrary)
+      .mockResolvedValueOnce({ created: true } as never)
+      .mockResolvedValueOnce({ created: false } as never);
+    await expect(importAmazonDocs("user-1", [book("notes")])).resolves.toEqual({ created: 1, existing: 0 });
+    await expect(importAmazonDocs("user-1", [book("notes")])).resolves.toEqual({ created: 0, existing: 1 });
+    expect(findOrCreateAmazonDoc).toHaveBeenNthCalledWith(2, "user-1", { title: "notes", authors: ["A"] }, "tx");
+    expect(vi.mocked(addBookToLibrary).mock.calls.map((call) => call[1].bookId)).toEqual(["doc-1", "doc-1"]);
   });
 });
