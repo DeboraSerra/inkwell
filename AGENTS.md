@@ -76,6 +76,7 @@ See `docs/plan/README.md` for live status. At the time of writing:
 3. **Don't commit, push, create branches, or open PRs unless the user asks.** Work on the current branch and leave changes uncommitted; the user reviews and commits. Don't stage files either.
 4. **Verify before you report.** From `inkwell/`, run `npx tsc --noEmit`, `npm run lint`, `npm test` and `npm run build`. If a change is visible in the app, also run it (the root `.claude/launch.json` defines an `inkwell` dev server) and check the affected routes. Report failures honestly, with the output.
 5. **Ask before doing anything destructive.** Resetting or dropping the database, deleting migrations, or deleting user data all need explicit confirmation. `prisma migrate reset` refuses to run for AI agents without consent; never fake that consent.
+6. **The user's own edits come first: build on them, never undo them.** Before changing a file, check what the user changed in it (`git diff`, and any notice that a file changed on disk). Treat what they wrote or removed as the spec, and build your change on top of it. Never revert, re-add or replace their code with your own unless they authorize it for that change: not to match the plan, not to make your change easier, not because you think yours is better. Something they removed stays removed, in every place it appeared. If their change conflicts with the task or looks like a problem, keep it and say so in one line, or ask; then update the plan to match what they chose.
 
 ## Backend architecture (model / service / controller)
 
