@@ -1261,6 +1261,37 @@ describe("add by ISBN", () => {
       expect(model.createUserBook).not.toHaveBeenCalled();
     });
 
+    it("keeps no reader details when the form sent back what the preview showed", async () => {
+      vi.mocked(lookupById).mockResolvedValue({ ...noIsbn, authors: ["SenLinYu"], pageCount: 1040 });
+      // The catalog book is blank; the preview filled it from the record.
+      vi.mocked(findOrCreateMetadataBook).mockResolvedValue(catalogBook({ authors: [], pageCount: null, coverUrl: null }));
+      await service.addBookFromProvider(USER, ref, {
+        formats: [],
+        authors: ["SenLinYu"],
+        pageCount: 1040,
+        coverUrl: metadata.coverUrl,
+      });
+      expect(model.createUserBook).toHaveBeenCalledWith(
+        expect.objectContaining({ authors: [], authorSearch: "", pageCount: null, coverUrl: null }),
+        "tx",
+      );
+    });
+
+    it("keeps the reader's own authors, pages and cover where they changed them", async () => {
+      vi.mocked(lookupById).mockResolvedValue(noIsbn);
+      vi.mocked(findOrCreateMetadataBook).mockResolvedValue(catalogBook());
+      await service.addBookFromProvider(USER, ref, {
+        formats: [],
+        authors: ["F. Herbert"],
+        pageCount: 412,
+        coverUrl: "https://example.com/mine.jpg",
+      });
+      expect(model.createUserBook).toHaveBeenCalledWith(
+        expect.objectContaining({ authors: ["F. Herbert"], pageCount: 412, coverUrl: "https://example.com/mine.jpg" }),
+        "tx",
+      );
+    });
+
     it("refuses a record the provider no longer has, before touching the library", async () => {
       vi.mocked(lookupById).mockResolvedValue(null);
       await expect(service.addBookFromProvider(USER, ref, { formats: [] })).rejects.toThrow(NotFoundError);

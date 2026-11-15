@@ -13,7 +13,7 @@ import { authorSearchText, dedupeKey, normalizeAuthor, normalizeAuthorName, norm
 import { transaction, type Tx } from "@/server/db";
 import { NotFoundError, ValidationError } from "@/server/errors";
 import { lookupById, lookupIsbn, searchBooks } from "@/server/metadata/metadata.service";
-import type { BookMetadata, MetadataSourceName } from "@/server/metadata/metadata.types";
+import type { BookMetadata } from "@/server/metadata/metadata.types";
 import * as libraryModel from "./library.model";
 import * as readModel from "./read-through.model";
 import {
@@ -25,7 +25,7 @@ import {
   readChangeFor,
 } from "./status.rules";
 import { type PartialDate, type ReadDates, toDateValues, toEditedReadFields, toReadFields } from "./partial-date.rules";
-import type { ShelfRead } from "./read-label.rules";
+import type { IsbnPreview, IsbnPreviewResult, ProviderRef, SearchResult, ShelfBook, ShelfRead } from "@/types/books.type";
 import { sortByLastFinished, sortReads } from "./read-order.rules";
 import { type PageSize, parsePageSize, type ShelfSort } from "./shelf-filters";
 
@@ -131,7 +131,37 @@ export type AddBookInput = {
   pastReads?: PastRead[];
   // When the reader got the book, if known.
   acquired?: PartialDate;
+  // The reader's own authors, pages and cover, already reduced to what
+  // differs from the catalog (readerDetails).
+  details?: ReaderDetails;
 };
+
+export type ReaderDetails = { authors: string[]; authorSearch: string; pageCount: number | null; coverUrl: string | null };
+
+type ShownDetails = { authors: string[]; pageCount: number | null; coverUrl: string | null };
+
+// Only real differences from what the reader was shown are kept as theirs, so
+// later catalog fixes still reach the book. Empty means the catalog's.
+export function readerDetails(
+  edit: { authors?: string[]; pageCount?: number; coverUrl?: string },
+  shown: ShownDetails,
+): ReaderDetails {
+  const authors = edit.authors && !sameList(edit.authors, shown.authors) ? edit.authors : [];
+  return {
+    authors,
+    authorSearch: authorSearchText(authors),
+    pageCount: edit.pageCount === undefined || edit.pageCount === shown.pageCount ? null : edit.pageCount,
+    coverUrl: edit.coverUrl === undefined || edit.coverUrl === shown.coverUrl ? null : edit.coverUrl,
+  };
+}
+
+// What a looked-up book's preview showed: the catalog's details, with its
+// blanks filled from the provider's record (see previewLookup).
+const shownDetails = (book: ShownDetails, metadata?: BookMetadata): ShownDetails => ({
+  authors: book.authors.length ? book.authors : (metadata?.authors ?? []),
+  pageCount: book.pageCount ?? metadata?.pageCount ?? null,
+  coverUrl: book.coverUrl || metadata?.coverUrl || null,
+});
 
 // The earliest known date is when the book became the reader's, so a later
 // date (another format bought since) never replaces an earlier one.
@@ -170,14 +200,14 @@ function addFormats(
 // A book already in the library keeps its length, as it keeps its status and
 // dates: adding again only adds formats.
 export async function addBookToLibrary(userId: string, input: AddBookInput, outerTx?: Tx) {
-  const { bookId, formats, source, status, at, dates, audioMinutes, pastReads, acquired } = input;
+  const { bookId, formats, source, status, at, dates, audioMinutes, pastReads, acquired, details } = input;
   const existing = await libraryModel.findUserBookByBookId(userId, bookId, outerTx);
   if (existing) return { userBook: await addFormats(userId, bookId, formats, outerTx, acquired), created: false };
 
   const { readChange, ...state } = initialState(formats, status);
   const created = await inTransaction(outerTx, async (tx) => {
     const userBook = await libraryModel.createUserBook(
-      { userId, bookId, source, audioMinutes, ...(acquired && acquiredFields(acquired)), ...state },
+      { userId, bookId, source, audioMinutes, ...(acquired && acquiredFields(acquired)), ...details, ...state },
       tx,
     );
     if (userBook) {
@@ -217,27 +247,6 @@ export function addManualBook(
     return { ...added, book };
   });
 }
-
-// A provider's record, for a search result added without an ISBN.
-export type ProviderRef = { source: MetadataSourceName; sourceId: string };
-
-export type IsbnPreview = {
-  // Missing for a search result with no ISBN, which is added by `ref` instead.
-  isbn13?: string;
-  ref?: ProviderRef;
-  title: string;
-  subtitle?: string;
-  authors: string[];
-  coverUrl?: string;
-  pageCount?: number;
-  publishedYear?: number;
-  // Where the details shown come from.
-  from: "CATALOG" | "OPEN_LIBRARY" | "GOOGLE_BOOKS";
-  // The reader's copy, when the book is already in their library.
-  inLibrary?: { status: ReadingStatus; formats: BookFormat[] };
-};
-
-export type IsbnPreviewResult = { found: true; preview: IsbnPreview } | { found: false; isbn13: string };
 
 type FoundLookup = Exclude<Awaited<ReturnType<typeof lookupIsbn>>, { found: "none" }>;
 
@@ -297,17 +306,6 @@ export async function previewSearchResult(userId: string, ref: ProviderRef) {
   return { ...(await previewLookup(userId, { found: "provider", metadata })), ref };
 }
 
-export type SearchResult = ProviderRef & {
-  title: string;
-  subtitle?: string;
-  authors: string[];
-  coverUrl?: string;
-  publishedYear?: number;
-  isbn13?: string;
-  // The list it's on, when the reader already has it.
-  inLibrary?: ReadingStatus;
-};
-
 // Searches the providers and marks the results the reader already has, by
 // ISBN or by title and authors, in one query. Private books only ever match
 // their owner's own library, which is the only one looked at here.
@@ -344,6 +342,11 @@ export type LookupChoices = {
   pastReads?: PastRead[];
   acquired?: PartialDate;
   source?: typeof UserBookSource.ISBN | typeof UserBookSource.SEARCH;
+  // The reader's own details, from the add form; kept only where they differ
+  // from what the preview showed.
+  authors?: string[];
+  pageCount?: number;
+  coverUrl?: string;
 };
 
 // Adds a book by ISBN. The book's details always come from the server's own
@@ -356,10 +359,12 @@ export async function addBookByIsbn(userId: string, isbn: string, choices: Looku
   if (lookup.found === "none") throw new NotFoundError("We couldn't find a book with that ISBN.");
 
   const added = await transaction(async (tx) => {
+    const metadata = lookup.found === "provider" ? lookup.metadata : undefined;
     const book = lookup.found === "catalog" ? lookup.book : await findOrCreateMetadataBook(lookup.metadata, tx);
+    const details = readerDetails(choices, shownDetails(book, metadata));
     const result = await addBookToLibrary(
       userId,
-      { bookId: book.id, formats, source, status, at: null, dates, audioMinutes, pastReads, acquired },
+      { bookId: book.id, formats, source, status, at: null, dates, audioMinutes, pastReads, acquired, details },
       tx,
     );
     return { ...result, book };
@@ -382,9 +387,21 @@ export async function addBookFromProvider(userId: string, ref: ProviderRef, choi
 
   const added = await transaction(async (tx) => {
     const book = await findOrCreateMetadataBook(metadata, tx);
+    const details = readerDetails(choices, shownDetails(book, metadata));
     const result = await addBookToLibrary(
       userId,
-      { bookId: book.id, formats, source: UserBookSource.SEARCH, status, at: null, dates, audioMinutes, pastReads, acquired },
+      {
+        bookId: book.id,
+        formats,
+        source: UserBookSource.SEARCH,
+        status,
+        at: null,
+        dates,
+        audioMinutes,
+        pastReads,
+        acquired,
+        details,
+      },
       tx,
     );
     return { ...result, book };
@@ -490,29 +507,6 @@ const toShelfRead = (read?: StoredRead): ShelfRead | null =>
       }
     : null;
 
-// Authors, cover and pages are this reader's if they set them, or else the catalog's.
-export type ShelfBook = {
-  id: string;
-  title: string;
-  authors: string[];
-  coverUrl: string | null;
-  status: ReadingStatus;
-  formats: BookFormat[];
-  pageCount: number | null;
-  // An audiobook's length in minutes, or null.
-  audioMinutes: number | null;
-  // The latest read's dates, as the edit form's text.
-  readDates: Record<string, string>;
-  // The latest read's dates, for the card to show at their precision.
-  latestRead: ShelfRead | null;
-  // How many reads there are besides the latest one.
-  earlierReads: number;
-  // The earlier finished reads, most recent first, as the edit form's text.
-  pastReads: { id: string; values: Record<string, string> }[];
-  // When the reader got the book, as the edit form's text.
-  acquiredValues: Record<string, string>;
-};
-
 // Loads these books in full, in the order given.
 async function findInOrder(userId: string, ids: string[]) {
   const found = await libraryModel.findUserBooksWithCatalog(userId, ids);
@@ -562,6 +556,8 @@ export async function listShelfPage(
         .map((read) => ({ id: read.id, values: latestReadValues(read) })),
       acquiredValues: toDateValues("acquired", row.acquiredAt, row.acquiredAtPrecision),
       title: book.title,
+      subtitle: book.subtitle ?? undefined,
+      isbn13: book.isbn13 ?? undefined,
       authors: authors.length ? authors : book.authors,
       coverUrl: coverUrl ?? book.coverUrl,
     };
@@ -733,18 +729,13 @@ export function editUserBook(userId: string, userBookId: string, edit: BookEdit)
     const change = readChangeFor(owned, status);
     const actedOn = await applyReadChanges(userId, [{ userBookId, change }], null, tx);
     // Only real differences are kept, so later catalog fixes still reach this book.
-    const { book } = current;
-    const authors = edit.authors && !sameList(edit.authors, book.authors) ? edit.authors : [];
     const updated = await libraryModel.updateEditedUserBook(
       userId,
       userBookId,
       {
         status,
         formats: owned.formats,
-        pageCount: edit.pageCount === book.pageCount ? null : (edit.pageCount ?? null),
-        authors,
-        authorSearch: authorSearchText(authors),
-        coverUrl: edit.coverUrl === book.coverUrl ? null : (edit.coverUrl ?? null),
+        ...readerDetails(edit, current.book),
         audioMinutes: edit.audioMinutes ?? null,
         ...acquiredFields(edit.acquired),
       },

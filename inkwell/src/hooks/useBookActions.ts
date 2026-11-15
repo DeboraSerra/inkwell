@@ -11,7 +11,7 @@ import {
   moveBookWithDates,
   removeBook,
 } from "@/server/library/library.controller";
-import type { ShelfBook } from "@/server/library/library.service";
+import type { ShelfBook } from "@/types/books.type";
 import { LIST_NAMES } from "@/server/library/status.rules";
 import { useTransition } from "react";
 import { useShelfSelection } from "../components/pages/books/shelves/BookShelf/ShelfSelection";

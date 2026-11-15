@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "./ui/field";
 import { Input } from "./ui/input";
 
@@ -11,6 +11,7 @@ import { Input } from "./ui/input";
 export function AudioLengthField({
   values,
 }: Readonly<{ values?: { audioHours?: string; audioMinutes?: string } }>) {
+  const uid = useId();
   const hoursRef = useRef<HTMLInputElement>(null);
   const minutesRef = useRef<HTMLInputElement>(null);
 
@@ -37,12 +38,12 @@ export function AudioLengthField({
       <FieldLegend variant='label'>Length</FieldLegend>
       <div className='flex items-end gap-2'>
         <Field className='w-20'>
-          <FieldLabel htmlFor='audioHours' className='font-normal'>
+          <FieldLabel htmlFor={`${uid}-audioHours`} className='font-normal'>
             Hours
           </FieldLabel>
           <Input
             ref={hoursRef}
-            id='audioHours'
+            id={`${uid}-audioHours`}
             name='audioHours'
             inputMode='numeric'
             autoComplete='off'
@@ -55,12 +56,12 @@ export function AudioLengthField({
           />
         </Field>
         <Field className='w-20'>
-          <FieldLabel htmlFor='audioMinutes' className='font-normal'>
+          <FieldLabel htmlFor={`${uid}-audioMinutes`} className='font-normal'>
             Minutes
           </FieldLabel>
           <Input
             ref={minutesRef}
-            id='audioMinutes'
+            id={`${uid}-audioMinutes`}
             name='audioMinutes'
             inputMode='numeric'
             autoComplete='off'

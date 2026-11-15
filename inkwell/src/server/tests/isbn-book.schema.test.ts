@@ -46,3 +46,24 @@ describe("parseSearchBook", () => {
     expect(parseSearchBook(form(fields)).success).toBe(false);
   });
 });
+
+describe("the reader's own details on a looked-up add", () => {
+  it("reads authors, pages and cover from the ISBN and Search forms", () => {
+    const fields = { formats: ["EBOOK"], authors: "Ann; Bo ", pageCount: "320", coverUrl: "https://example.com/c.jpg" };
+    const byIsbn = parseIsbnBook(form({ isbn: "9780261103344", ...fields }));
+    const bySearch = parseSearchBook(form({ source: "GOOGLE_BOOKS", sourceId: "g1", ...fields }));
+    for (const parsed of [byIsbn, bySearch]) {
+      expect(parsed.success && parsed.data).toMatchObject({
+        authors: ["Ann", "Bo"],
+        pageCount: 320,
+        coverUrl: "https://example.com/c.jpg",
+      });
+    }
+  });
+
+  it("leaves them out when empty, and refuses a cover that isn't https", () => {
+    const parsed = parseIsbnBook(form({ isbn: "9780261103344", authors: "", pageCount: "", coverUrl: "" }));
+    expect(parsed.success && parsed.data).toMatchObject({ authors: undefined, pageCount: undefined, coverUrl: undefined });
+    expect(parseIsbnBook(form({ isbn: "9780261103344", coverUrl: "http://example.com/c.jpg" })).success).toBe(false);
+  });
+});

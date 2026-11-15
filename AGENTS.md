@@ -37,6 +37,7 @@ Key files in `inkwell/`:
 | `src/server/library/` | Per-user library: `status.rules.ts` (statuses, formats and read changes; pure), `library.model.ts`, `read-through.model.ts`, `library.service.ts`, `library.controller.ts`, `manual-book.schema.ts` (zod) |
 | `src/server/metadata/` | Book details from Open Library and Google Books (Phase 4a): `metadata.service.ts` (`lookupIsbn`, `searchBooks`, `lookupById`), one `*.provider.ts` per source, `sanitize.ts` (pure cleaners for untrusted fields), `http.ts` (timeout, size cap, day-long cache) |
 | `src/server/rate-limit/` | Per-user request limits counted in Postgres: `consumeRateLimit` throws `RateLimitError` (HTTP 429) |
+| `src/types/books.type.tsx` | Book types shared by the server and the components: `ShelfBook`, `ShelfRead`, `IsbnPreview`, `IsbnPreviewResult`, `ProviderRef`, `SearchResult`, `BookFormBook`, `BookFormResult`. Import them from here, not from services. |
 | `prisma/schema.prisma`, `prisma/migrations/` | Database schema and migrations |
 | `prisma/seed.ts`, `assets/lists/` | Idempotent seed for the curated genres and tropes |
 | `prisma/load-env.ts` | Loads `.env.local`, then `.env`, for the Prisma CLI and the seed |

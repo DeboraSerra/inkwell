@@ -1,6 +1,6 @@
 "use client";
 
-import { type ChangeEvent, type ClipboardEvent, type KeyboardEvent, useRef } from "react";
+import { type ChangeEvent, type ClipboardEvent, type KeyboardEvent, useId, useRef } from "react";
 import {
   cleanPart,
   DATE_PARTS,
@@ -37,6 +37,8 @@ export function PartialDateField({
   legend: string;
   values?: Record<string, string | string[] | undefined>;
 }>) {
+  // Unique per form: the add page keeps several forms mounted at once.
+  const uid = useId();
   const inputs = useRef<Partial<Record<DatePart, HTMLInputElement | null>>>({});
   // Each part's text before the latest change, to tell typing one more
   // character at the end apart from editing the middle or replacing a
@@ -101,8 +103,9 @@ export function PartialDateField({
       <FieldLegend variant='label'>{legend}</FieldLegend>
       <div className='flex gap-2'>
         {PARTS.map(({ part, suffix, label, placeholder, width }) => {
-          const id = `${name}${suffix}`;
-          const value = values?.[id];
+          const field = `${name}${suffix}`;
+          const id = `${uid}-${field}`;
+          const value = values?.[field];
           return (
             <Field key={id} className={width}>
               <FieldLabel htmlFor={id} className='font-normal'>
@@ -114,7 +117,7 @@ export function PartialDateField({
                   if (input && previous.current[part] === undefined) previous.current[part] = input.value;
                 }}
                 id={id}
-                name={id}
+                name={field}
                 inputMode='numeric'
                 autoComplete='off'
                 data-1p-ignore

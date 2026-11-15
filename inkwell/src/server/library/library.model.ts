@@ -56,6 +56,11 @@ export async function createUserBook(
     audioMinutes?: number | null;
     acquiredAt?: Date | null;
     acquiredAtPrecision?: DatePrecision;
+    // The reader's own details, when they differ from the catalog's.
+    authors?: string[];
+    authorSearch?: string;
+    pageCount?: number | null;
+    coverUrl?: string | null;
   } & ReadingState,
   db: Db = prisma,
 ) {

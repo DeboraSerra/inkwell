@@ -1,4 +1,4 @@
-import type { ShelfBook } from "@/server/library/library.service";
+import type { ShelfBook } from "./books.type";
 import type { PageSize } from "@/server/library/shelf-filters";
 
 export interface ShelfType {

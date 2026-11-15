@@ -7,7 +7,7 @@ import {
   startsNewRead,
 } from "@/server/library/status.rules";
 import { Info, PlusCircle } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { PartialDateField } from "./PartialDateField";
 import { Button } from "./ui/button";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "./ui/field";
@@ -82,6 +82,8 @@ export function StatusField({
   current?: ReadingState;
   pastReads?: { id: string; values: Record<string, string> }[];
 }>) {
+  // Unique per form: the add page keeps several forms mounted at once.
+  const uid = useId();
   const [status, setStatus] = useState(values?.status ?? "");
   const [sets, setSets] = useState<PastReadSet[]>(() => initialPastReads(values, pastReads));
   const addSet = () =>
@@ -104,7 +106,7 @@ export function StatusField({
       <FieldSet>
         <FieldLegend
           variant='label'
-          id='status-legend'
+          id={`${uid}-status-legend`}
           className='flex gap-1 items-center'
         >
           <span>Status</span>
@@ -123,15 +125,15 @@ export function StatusField({
         </FieldLegend>
         <RadioGroup
           name='status'
-          aria-labelledby='status-legend'
+          aria-labelledby={`${uid}-status-legend`}
           value={status}
           onValueChange={(value) => setStatus(String(value))}
           className='flex flex-col gap-x-5 gap-y-2'
         >
           {STATUS.map(({ value, label, info }) => (
             <Field key={value} orientation='horizontal' className='w-fit'>
-              <RadioGroupItem id={`status-${value}`} value={value} />
-              <FieldLabel htmlFor={`status-${value}`} className='font-normal'>
+              <RadioGroupItem id={`${uid}-status-${value}`} value={value} />
+              <FieldLabel htmlFor={`${uid}-status-${value}`} className='font-normal'>
                 {label}
               </FieldLabel>
               {info && (

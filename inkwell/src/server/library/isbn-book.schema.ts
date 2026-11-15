@@ -7,13 +7,17 @@ import {
   acquiredFields,
   audioLengthFields,
   audioLengthFor,
+  coverUrlField,
   manualBookValues,
+  optional,
+  pageCountField,
   parseAcquired,
   parsePastReads,
   parseReadDates,
   pastReadsField,
   readDateFields,
   readStatusField,
+  typedAuthorsField,
 } from "./manual-book.schema";
 
 export const isbnField = z
@@ -31,6 +35,11 @@ const choiceFields = {
   ...audioLengthFields,
   ...acquiredFields,
   pastReads: pastReadsField,
+  // The reader's own details, as the edit dialog takes them; empty means the
+  // catalog's. The book itself still comes from the server's lookup.
+  authors: optional(typedAuthorsField),
+  pageCount: pageCountField,
+  coverUrl: coverUrlField,
 };
 type ChoiceInput = z.infer<z.ZodObject<typeof choiceFields>>;
 

@@ -8,10 +8,7 @@ import {
   addSearchBook,
   previewSearchResult,
 } from "@/server/library/library.controller";
-import type {
-  IsbnPreview,
-  SearchResult,
-} from "@/server/library/library.service";
+import type { IsbnPreview, SearchResult } from "@/types/books.type";
 import { LIST_NAMES } from "@/server/library/status.rules";
 import { ArrowLeft, Loader } from "lucide-react";
 import {
@@ -22,7 +19,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { AddPreviewedBook, BookPreview } from "./BookPreview";
+import { AddPreviewedBook } from "./BookPreview";
 
 const DEBOUNCE_MS = 400;
 const MIN_QUERY_LENGTH = 3;
@@ -169,7 +166,7 @@ export default function SearchLookup({
       <search>
       <form
         onSubmit={(event) => event.preventDefault()}
-        className='flex max-w-150 flex-col gap-3'
+        className='flex max-w-200 flex-col gap-3'
       >
         <TextField
           ref={inputRef}
@@ -198,7 +195,6 @@ export default function SearchLookup({
           >
             <ArrowLeft /> Back to results
           </Button>
-          <BookPreview preview={preview} />
           <AddPreviewedBook
             preview={preview}
             action={addSearchBook}

@@ -11,6 +11,7 @@ import { DomainError } from "@/server/errors";
 import { consumeRateLimit } from "@/server/rate-limit/rate-limit.service";
 import { isbnField, parseIsbnBook, parseSearchBook, searchResultSchema } from "./isbn-book.schema";
 import * as libraryService from "./library.service";
+import type { IsbnPreview } from "@/types/books.type";
 import { type ManualBookValues, manualBookValues, parseManualBook } from "./manual-book.schema";
 import {
   changeFormatsSchema,
@@ -71,7 +72,7 @@ export async function addManualBook(
 }
 
 export type IsbnLookupResult = {
-  preview?: libraryService.IsbnPreview;
+  preview?: IsbnPreview;
   // The cleaned ISBN-13, so the manual form can start from it.
   notFound?: { isbn13: string };
   error?: string;
@@ -123,7 +124,7 @@ export async function addBookByIsbn(
   }
 }
 
-export type SearchPreviewResult = { preview?: libraryService.IsbnPreview; error?: string };
+export type SearchPreviewResult = { preview?: IsbnPreview; error?: string };
 
 // Opens a search result for adding. Counts as a lookup, since it may call a
 // provider again.

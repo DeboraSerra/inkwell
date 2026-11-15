@@ -17,6 +17,7 @@ export function TextField({
   ref,
   onChange,
   autoComplete,
+  disabled = false
 }: Readonly<{
   name: string;
   label: string;
@@ -32,6 +33,7 @@ export function TextField({
   ref?: Ref<HTMLInputElement>;
   onChange?: ChangeEventHandler<HTMLInputElement>;
   autoComplete?: string;
+  disabled?: boolean
 }>) {
   const hintId = `${id}-hint`;
   return (
@@ -62,6 +64,7 @@ export function TextField({
         autoComplete={autoComplete}
         onChange={onChange}
         aria-describedby={hint ? hintId : undefined}
+        disabled={disabled}
       />
       {hint && <FieldDescription id={hintId}>{hint}</FieldDescription>}
     </Field>

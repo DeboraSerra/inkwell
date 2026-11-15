@@ -287,7 +287,34 @@ Asked by the user on 2026-11-15. The reader has just picked an exact provider re
   - **Tests:**
     - The rule: the *Alchemised* case, nothing overwritten, private books, ids by source.
     - The model's update filter, `fillMissingDetails`, the two adds calling it, and the preview.
-  - **For the user's book:** adding *Alchemised* again by search fills in SenLinYu and the page count and year, and keeps everything else.
+  - **For the user's book:** adding *Alchemised* again by search fills in SenLinYu and the page count and year, and keeps everything else. **✅ Checked by the user on 2026-11-15.**
+
+### Change: one book form for adding and editing ✅ built (2026-11-15, not yet checked signed in)
+
+Asked by the user, who added `book` and `canEdit` props to `AddBookForm`. The same form now serves the Manual, ISBN and Search tabs and the shelf's edit dialog.
+
+- **`AddBookForm`:**
+  - `book` fills every field (`bookFormValues`: title, subtitle, authors, ISBN, pages, cover, formats, status, read dates, audiobook length, acquired date).
+  - `canEdit` false locks the catalog's title, subtitle and ISBN, and drops the required-field check. Authors, pages and cover stay editable as the reader's own.
+  - `submit` saves it from the submit handler, not as a form action, so a rejected save keeps what was typed and a successful add remounts it empty.
+  - `hidden` adds the ISBN or the search record.
+  - `editing` passes the book to `StatusField` for its reads.
+  - `formId` lets a dialog's own button submit.
+  - `addFormatsOnly` is the "already in your library" mode.
+  - `onDone` and `onPendingChange` report back.
+- **ISBN and Search tabs:** `AddPreviewedBook` (`BookPreview.tsx`) now renders `AddBookForm` from the preview, with `canEdit={false}`. The preview card above it is unchanged.
+- **Edit dialog:** `EditBookDialog` renders `AddBookForm` with the shelf book, `canEdit={false}` and `editing`, mounted only while open. `ShelfBook` gains the catalog's `subtitle` and `isbn13`, shown locked.
+- **Server:** `parseIsbnBook` and `parseSearchBook` accept `authors`, `pageCount` and `coverUrl`.
+  - `addBookByIsbn` and `addBookFromProvider` store them as the reader's own only where they differ from what the preview showed: the catalog's details, with blanks filled from the record.
+  - `readerDetails` is shared with `editUserBook`, which already kept only differences.
+  - `createUserBook` takes these details.
+- **Ids:** `FormatsField`, `StatusField`, `AudioLengthField`, `PartialDateField` and the form's text fields now use `useId`. The add page keeps three forms mounted, which had duplicate ids, so a label could tick another tab's checkbox.
+- **Tests:** the reader's details on an add (kept only when changed), and the ISBN and Search schemas reading them.
+- **Then (2026-11-15), asked by the user: the preview card is gone.**
+  - The user saw the ISBN tab looking as before after a lookup: probably a book already in their library, whose form showed only the format checkboxes and the acquired date.
+  - The form now always shows every field. For a book already in the library (`addFormatsOnly`), all details are locked, the status is hidden, and only formats and the acquired date can be added.
+  - The card's cover, year, source and "Already in your library · View the shelf" moved into the form's new `header` slot (`PreviewHeader` in `BookPreview.tsx`). The ISBN and Search tabs no longer render the card. The user had already removed it from Search.
+- **Not checked yet:** the forms in the browser, signed in.
 
 ## 4d — Scan the barcode
 

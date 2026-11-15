@@ -17,7 +17,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { AddPreviewedBook, BookPreview } from "./BookPreview";
+import { AddPreviewedBook } from "./BookPreview";
 import { applyIsbnFormat } from "./isbn-input";
 
 export default function IsbnLookup({
@@ -79,7 +79,6 @@ export default function IsbnLookup({
 
       {result?.preview && (
         <div className='flex flex-col gap-6'>
-          <BookPreview preview={result.preview} />
           <AddPreviewedBook preview={result.preview} action={addBookByIsbn} onAdded={handleAdded} />
         </div>
       )}

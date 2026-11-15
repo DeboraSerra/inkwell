@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { useBookActions } from "@/hooks/useBookActions";
-import type { ShelfBook } from "@/server/library/library.service";
+import type { ShelfBook } from "@/types/books.type";
 import { moveTargets } from "@/server/library/shelf-filters";
 import { Edit, EllipsisVertical, Trash } from "lucide-react";
 import { useState } from "react";

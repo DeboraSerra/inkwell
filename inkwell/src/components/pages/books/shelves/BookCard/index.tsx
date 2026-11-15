@@ -2,7 +2,7 @@
 
 import { BookCover } from "@/components/BookCover";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { ShelfBook } from "@/server/library/library.service";
+import type { ShelfBook } from "@/types/books.type";
 import { readDatesLabel } from "@/server/library/read-label.rules";
 import { cn } from "cn";
 import { FieldLabel } from "../../../../ui/field";

@@ -2,11 +2,9 @@
 // it's unit-tested without a browser, and shared with client components.
 import { DatePrecision, ReadingStatus } from "@/generated/prisma/enums";
 import type { PartialDate } from "./partial-date.rules";
+import type { ShelfRead } from "@/types/books.type";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-// A shelf book's latest read, with only the dates that are known.
-export type ShelfRead = { started?: PartialDate; ended?: PartialDate };
 
 // "2024", "Oct 24" or "5 Oct 25": never a day or month that isn't known. A
 // year alone is shown in full, since two digits on their own read like a day.
