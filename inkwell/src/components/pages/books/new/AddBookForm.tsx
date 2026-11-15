@@ -116,6 +116,9 @@ export default function AddBookForm({
   const [missing, setMissing] = useState<string[]>([]);
   // Whether a format is ticked, reported by FormatsField.
   const [owned, setOwned] = useState(Boolean(book?.formats?.length));
+  // The cover field is uncontrolled, so what's typed is kept here for the
+  // cover shown next to it.
+  const [coverUrl, setCoverUrl] = useState(values?.coverUrl ?? "");
   const required = canEdit && !addFormatsOnly ? REQUIRED_FIELDS : [];
   // The catalog's title, subtitle and ISBN; and for a book already in the
   // library, the reader's details too, which adding again doesn't change.
@@ -150,7 +153,10 @@ export default function AddBookForm({
       if (!result.ok) return;
       if (result.message) toast.add({ description: result.message });
       // A new add starts empty; an edit closes instead.
-      if (!editing) setSubmission((count) => count + 1);
+      if (!editing) {
+        setSubmission((count) => count + 1);
+        setCoverUrl(values?.coverUrl ?? "");
+      }
       onDone?.();
     });
   };
@@ -160,6 +166,9 @@ export default function AddBookForm({
     setMissing((current) => current.filter((field) => field !== name));
     if (name === "isbn" && event.target instanceof HTMLInputElement) {
       applyIsbnFormat(event.target);
+    }
+    if (name === "coverUrl" && event.target instanceof HTMLInputElement) {
+      setCoverUrl(event.target.value.trim());
     }
   };
 
@@ -208,8 +217,7 @@ export default function AddBookForm({
         {header}
         <div className='flex gap-3'>
           <BookCover
-            src={values?.coverUrl}
-            lazy
+            src={coverUrl}
             width={100}
             height={160}
           />
