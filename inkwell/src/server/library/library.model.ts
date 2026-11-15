@@ -21,6 +21,19 @@ export function findUserBookByBookId(userId: string, bookId: string, db: Db = pr
   return db.userBook.findUnique({ where: { userId_bookId: { userId, bookId } } });
 }
 
+// This user's books matching any of these ISBNs or dedupe keys, for marking
+// search results already in their library.
+export function findUserBooksMatching(
+  userId: string,
+  { isbn13s, dedupeKeys }: { isbn13s: string[]; dedupeKeys: string[] },
+  db: Db = prisma,
+) {
+  return db.userBook.findMany({
+    where: { userId, book: { OR: [{ isbn13: { in: isbn13s } }, { dedupeKey: { in: dedupeKeys } }] } },
+    select: { status: true, book: { select: { isbn13: true, dedupeKey: true } } },
+  });
+}
+
 export function findUserBook(userId: string, userBookId: string, db: Db = prisma) {
   return db.userBook.findFirst({ where: { id: userBookId, userId } });
 }

@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: ⏭️ next: closing Phase 3. ✅ 3a–3g and every fix are built, and the user finished every signed-in, Chrome, deploy, upload and re-import check on 2026-11-15. ✅ Since then, Docs imports reuse a matching shared catalog book (see "Change: documents reuse the shared catalog"); that still needs a deploy.** 3a to 3d are committed, and the ["Done when"](#done-when) list was checked on 2026-11-08 (see "Checked" under it).
+**Status: ✅ closed on 2026-11-15.** 3a–3g and every fix and change are built. The user checked the signed-in, Chrome, deploy, upload and re-import steps on 2026-11-15. See ["Closed"](#closed-2026-11-15) under "Done when". One deploy is still owed: the latest Docs change ("Change: documents reuse the shared catalog").
 
 Goal: add books manually or through the Chrome extension, move them between lists, and browse them with filters.
 
@@ -717,7 +717,7 @@ Reported by the user on 2026-11-14: running the extension again on the Docs tab 
 - **Supabase:** the user merged the duplicates by hand on 2026-11-15, so the script wasn't run there. It stays in `prisma/` for any copies found later; a dry run should now find none.
 - **✅ Checked by the user on 2026-11-15:** deployed, and a Docs re-import added nothing.
 
-## Change: documents reuse the shared catalog ✅ built (2026-11-15)
+## Change: documents reuse the shared catalog ✅ done (2026-11-15)
 
 Decided by the user on 2026-11-15, after the Docs fix. It answers the open Nov 1 question and replaces the "never match another user's shared books here" line in the fix above.
 
@@ -728,7 +728,7 @@ Decided by the user on 2026-11-15, after the Docs fix. It answers the open Nov 1
 - **Tests (`book.service.test.ts`):** a catalog match is used rather than creating a book; the reader's own documents come before the catalog; the three lookups run in order; a book is created only when nothing matches.
 - **Still to do by the user:** deploy.
 
-## Change: a year alone shows in full ✅ (with the Docs fix, before closing Phase 3)
+## Change: a year alone shows in full ✅ done
 
 Asked by the user on 2026-11-14. On shelf cards, a date known only to the year shows two digits ("24"), which reads like a day.
 
@@ -745,7 +745,7 @@ Asked by the user on 2026-11-14. On shelf cards, a date known only to the year s
 - **✅ Tests:** `read-label.rules.test.ts` covers "2024" and "2000", Reading, Finished and DNF ("Started 2019", "Stopped 2024") with a year alone, both range shapes, and the unchanged month and day cases.
 - **Deviations:** none. Not checked in the browser: there's no signed-in session for the dev server, and the label comes straight from the tested rule.
 
-## 3g — An "Owned" shelf ✅ built (after the fixes above, before closing Phase 3)
+## 3g — An "Owned" shelf ✅ done
 
 Asked by the user on 2026-11-14: a shelf with every book owned in at least one format, whatever its status: not started (TBR), Reading, Finished or DNF. Wishlist books aren't owned by definition, so they never appear.
 
@@ -826,3 +826,20 @@ The user ran six steps by hand, signed in. The local database was then read, wit
 - Also fixed: a malformed closing tag in `extension/options.html` (`<output/>` instead of `</output>`).
 
 **Also found:** 80 of the 230 Amazon catalog books have no ASIN, so a re-import can only match them by title and author. They're probably from before ASIN capture.
+
+### Closed (2026-11-15)
+
+| Done when | Result |
+|---|---|
+| The phase's own list, above | ✅ Checked on 2026-11-08 (see "Checked"). Nothing since has changed that behaviour, and each item stays covered by tests. |
+| Every list on the five shelves, plus Owned, with format filters and search | ✅ The Owned tab was checked by the user, signed in. |
+| DNF moves, shelf search, `&amp;` fixes | ✅ Checked signed in by the user. The backfill was run locally and on Supabase on 2026-11-14. |
+| 3e polish (items 1–11) | ✅ Built. The user checked the copy button and books per page, retook the screenshot and uploaded the extension. Books per page also offers 5, beyond the 10, 20, 30 and 50 the list names. |
+| 3f purchase dates | ✅ The user deployed, tried and uploaded 2.3.0, and re-imported the library. |
+| Docs re-import duplicates | ✅ The 88 pairs were merged by hand on Supabase, and a Docs re-import added nothing. |
+| A year alone in full, 3g Owned shelf, default sorts per shelf | ✅ Built and checked by the user. |
+| Checks | ✅ On closing: `tsc`, lint (one known warning, `<img>` in `BookCover.tsx`), 869 tests, and the build all pass. |
+
+**Carried over:**
+- **Deploy owed:** "Change: documents reuse the shared catalog" is built but not yet deployed.
+- **Note, not a task:** 80 Amazon catalog books have no ASIN, so they only match by title and author.

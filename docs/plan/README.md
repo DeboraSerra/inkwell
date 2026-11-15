@@ -26,7 +26,7 @@
    - [2a — Catalog](phase-2-data-model.md#phase-2a--catalog)
    - [2b — Library](phase-2-data-model.md#phase-2b--library)
    - [2c — Shelves](phase-2-data-model.md#phase-2c--shelves)
-3. **[Phase 3 — MVP: add books and browse them](phase-3-mvp.md) ✅ 3a–3g and the fixes built and checked by the user (2026-11-15); ⏭️ next: close Phase 3**
+3. [Phase 3 — MVP: add books and browse them](phase-3-mvp.md) ✅ closed on 2026-11-15 (the Docs catalog change still needs a deploy)
    - 3a — Rework the model (formats, status as the list, read history) ✅ implemented
    - 3b — Add books manually ✅ implemented
    - 3c — Add books through the extension ✅ done, run on Amazon
@@ -40,10 +40,10 @@
    - **Change: a year alone shows in full ✅ (2026-11-15):** on shelf cards, a year-only date shows "2024", not "24"; dates with a month or day keep the two-digit year
    - **Change: documents reuse the shared catalog ✅ built (2026-11-15):** a Docs import uses a matching shared book; only an unmatched document becomes private
    - **3g — An "Owned" shelf ✅ done:** a tab with every book owned in any format, across TBR, Reading, Finished and DNF; a view of status and formats, not a sixth list
-4. [Phase 4 — Search and ISBN](phase-4-adding-books.md) in progress; 4c follows 3e and 3f
+4. **[Phase 4 — Search and ISBN](phase-4-adding-books.md) in progress; ⏭️ next: 4d**
    - 4a — Metadata providers (Open Library, Google Books) ✅ done, plus the per-user rate limit
    - 4b — Add by ISBN ✅ done, at `/books/new`
-   - 4c — Search by title or author
+   - 4c — Search by title or author ✅ built, at `/books/new` (Search tab); not yet checked signed in (follow-up ⏭️: save the synopsis when adding by search or ISBN)
    - 4d — Scan the barcode
 5. [Phase 5 — AI enrichment (Claude API)](phase-5-ai-enrichment.md)
 6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)

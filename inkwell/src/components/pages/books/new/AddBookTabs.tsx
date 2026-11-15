@@ -5,11 +5,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatIsbn } from "@/server/books/isbn";
 import AddBookForm from "./AddBookForm";
 import IsbnLookup from "./IsbnLookup";
+import SearchLookup from "./SearchLookup";
 
-type Tab = "isbn" | "manual";
+type Tab = "search" | "isbn" | "manual";
 
 export function AddBookTabs() {
-  const [tab, setTab] = useState<Tab>("isbn");
+  const [tab, setTab] = useState<Tab>("search");
   // An ISBN the lookup couldn't find, carried into the manual form. The count
   // remounts the form so a second "Fill in by hand" applies too.
   const [prefill, setPrefill] = useState({ isbn: "", count: 0 });
@@ -22,10 +23,14 @@ export function AddBookTabs() {
   return (
     <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className='gap-6'>
       <TabsList variant="line">
+        <TabsTrigger value='search'>Search</TabsTrigger>
         <TabsTrigger value='isbn'>ISBN</TabsTrigger>
         <TabsTrigger value='manual'>Manual</TabsTrigger>
       </TabsList>
       {/* Kept mounted, so switching tabs doesn't lose what's typed. */}
+      <TabsContent value='search' keepMounted>
+        <SearchLookup onFillByHand={() => fillByHand("")} />
+      </TabsContent>
       <TabsContent value='isbn' keepMounted>
         <IsbnLookup onFillByHand={fillByHand} />
       </TabsContent>

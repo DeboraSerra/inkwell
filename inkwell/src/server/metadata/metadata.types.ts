@@ -22,5 +22,8 @@ export type BookMetadata = {
 // timeout or bad status throws, and the service treats both as a miss.
 export type MetadataProvider = {
   lookupIsbn(isbn13: string): Promise<BookMetadata | null>;
+  // The record a search result came from, by its sourceId, for adding a
+  // result that has no ISBN. The id is untrusted and checked by the provider.
+  lookupId(sourceId: string): Promise<BookMetadata | null>;
   search(query: string, limit: number): Promise<BookMetadata[]>;
 };

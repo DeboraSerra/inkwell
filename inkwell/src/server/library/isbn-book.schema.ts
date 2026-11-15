@@ -22,61 +22,94 @@ export const isbnField = z
   .min(1, "Enter an ISBN.")
   .max(30, "That ISBN is too long.");
 
-const isbnBookSchema = z
-  .object({
-    isbn: isbnField,
-    formats: z.array(z.enum(BookFormat, "Choose a valid format.")),
-    status: readStatusField,
-    ...readDateFields,
-    ...audioLengthFields,
-    ...acquiredFields,
-    pastReads: pastReadsField,
-  })
-  .transform((data, ctx) => {
-    const {
-      startedDay,
-      startedMonth,
-      startedYear,
-      endedDay,
-      endedMonth,
-      endedYear,
-      audioHours,
-      audioMinutes,
-      acquiredDay,
-      acquiredMonth,
-      acquiredYear,
-      pastReads: pastReadText,
-      ...choices
-    } = data;
-    const { dates, error } = parseReadDates(choices.status, {
-      startedDay,
-      startedMonth,
-      startedYear,
-      endedDay,
-      endedMonth,
-      endedYear,
-    });
-    if (!dates) {
-      ctx.addIssue({ code: "custom", message: error ?? "Those dates aren't valid." });
-      return z.NEVER;
-    }
-    const length = audioLengthFor(choices.formats, { audioHours, audioMinutes });
-    if (length.error) {
-      ctx.addIssue({ code: "custom", message: length.error });
-      return z.NEVER;
-    }
-    const past = parsePastReads(choices.status, pastReadText);
-    if (!past.pastReads) {
-      ctx.addIssue({ code: "custom", message: past.error ?? "Those dates aren't valid." });
-      return z.NEVER;
-    }
-    const { acquired, error: acquiredError } = parseAcquired(choices.formats, { acquiredDay, acquiredMonth, acquiredYear });
-    if (acquiredError) {
-      ctx.addIssue({ code: "custom", message: acquiredError });
-      return z.NEVER;
-    }
-    return { ...choices, dates, audioMinutes: length.minutes, pastReads: past.pastReads, acquired };
+// The reader's choices when adding a looked-up book: formats, list, dates,
+// length and purchase date. Shared by the ISBN and search forms.
+const choiceFields = {
+  formats: z.array(z.enum(BookFormat, "Choose a valid format.")),
+  status: readStatusField,
+  ...readDateFields,
+  ...audioLengthFields,
+  ...acquiredFields,
+  pastReads: pastReadsField,
+};
+type ChoiceInput = z.infer<z.ZodObject<typeof choiceFields>>;
+
+function toChoices<T extends ChoiceInput>(data: T, ctx: z.RefinementCtx) {
+  const {
+    startedDay,
+    startedMonth,
+    startedYear,
+    endedDay,
+    endedMonth,
+    endedYear,
+    audioHours,
+    audioMinutes,
+    acquiredDay,
+    acquiredMonth,
+    acquiredYear,
+    pastReads: pastReadText,
+    ...choices
+  } = data;
+  const { dates, error } = parseReadDates(choices.status, {
+    startedDay,
+    startedMonth,
+    startedYear,
+    endedDay,
+    endedMonth,
+    endedYear,
   });
+  if (!dates) {
+    ctx.addIssue({ code: "custom", message: error ?? "Those dates aren't valid." });
+    return z.NEVER;
+  }
+  const length = audioLengthFor(choices.formats, { audioHours, audioMinutes });
+  if (length.error) {
+    ctx.addIssue({ code: "custom", message: length.error });
+    return z.NEVER;
+  }
+  const past = parsePastReads(choices.status, pastReadText);
+  if (!past.pastReads) {
+    ctx.addIssue({ code: "custom", message: past.error ?? "Those dates aren't valid." });
+    return z.NEVER;
+  }
+  const { acquired, error: acquiredError } = parseAcquired(choices.formats, { acquiredDay, acquiredMonth, acquiredYear });
+  if (acquiredError) {
+    ctx.addIssue({ code: "custom", message: acquiredError });
+    return z.NEVER;
+  }
+  return { ...choices, dates, audioMinutes: length.minutes, pastReads: past.pastReads, acquired };
+}
+
+const isbnBookSchema = z.object({ isbn: isbnField, ...choiceFields }).transform(toChoices);
+
+// A provider and its record id, as a search result carries them. The id is
+// only a lookup key, checked again by the provider.
+export const providerRefFields = {
+  source: z.enum(["OPEN_LIBRARY", "GOOGLE_BOOKS"], "Choose a search result."),
+  sourceId: z.string("Choose a search result.").regex(/^[\w-]{1,64}$/, "Choose a search result."),
+};
+
+export const searchResultSchema = z.object({
+  ...providerRefFields,
+  isbn13: z.string().regex(/^\d{13}$/).optional(),
+});
+
+// A search result is added by its ISBN when the preview had one, or else by
+// its provider record.
+const searchBookSchema = z
+  .object({ ...providerRefFields, isbn: isbnField.optional(), ...choiceFields })
+  .transform(toChoices);
+
+export function parseSearchBook(formData: FormData) {
+  const isbn = formData.get("isbn");
+  return searchBookSchema.safeParse({
+    ...manualBookValues(formData),
+    formats: formData.getAll("formats"),
+    source: formData.get("source"),
+    sourceId: formData.get("sourceId"),
+    isbn: typeof isbn === "string" && isbn ? isbn : undefined,
+  });
+}
 
 export function parseIsbnBook(formData: FormData) {
   return isbnBookSchema.safeParse({

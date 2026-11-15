@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { googleBooks, parseIsbnResponse, parseVolumes } from "@/server/metadata/google-books.provider";
+import { googleBooks, parseVolume, parseIsbnResponse, parseVolumes } from "@/server/metadata/google-books.provider";
 
 const fixture = (name: string): unknown =>
   JSON.parse(readFileSync(new URL(`./fixtures/metadata/${name}`, import.meta.url), "utf8"));
@@ -86,5 +86,31 @@ describe("requests", () => {
     const error = await googleBooks.lookupIsbn(DUNE).catch((e: unknown) => e);
     expect(String(error)).toContain("status 429");
     expect(String(error)).not.toContain("secret-key");
+  });
+});
+
+describe("lookupId", () => {
+  const volume = (fixture("google-books-isbn.json") as { items: unknown[] }).items[1];
+
+  it("reads a single volume", () => {
+    expect(parseVolume(volume)).toMatchObject({ source: "GOOGLE_BOOKS", title: expect.any(String) });
+    expect(parseVolume({ id: "x" })).toBeNull();
+  });
+
+  it("asks for the volume by id, with the key when configured", async () => {
+    vi.stubEnv("GOOGLE_BOOKS_API_KEY", "test-key");
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(volume)));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(googleBooks.lookupId("zyTCAlFPjgYC")).resolves.toMatchObject({ source: "GOOGLE_BOOKS" });
+    expect(String(fetchMock.mock.calls[0]?.[0 as never])).toBe(
+      "https://www.googleapis.com/books/v1/volumes/zyTCAlFPjgYC?key=test-key",
+    );
+  });
+
+  it.each(["", "../volumes", "a/b", "a?b", "x".repeat(65)])("refuses %j without a request", async (id) => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(googleBooks.lookupId(id)).resolves.toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

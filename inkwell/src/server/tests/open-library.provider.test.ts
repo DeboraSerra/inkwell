@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ProviderError } from "@/server/metadata/http";
-import { openLibrary, parseIsbnResponse, parseSearchResponse } from "@/server/metadata/open-library.provider";
+import { openLibrary, parseIsbnResponse, parseSearchResponse, searchQueryForId } from "@/server/metadata/open-library.provider";
 
 const fixture = (name: string): unknown =>
   JSON.parse(readFileSync(new URL(`./fixtures/metadata/${name}`, import.meta.url), "utf8"));
@@ -145,5 +145,112 @@ describe("requests", () => {
   it("refuses an oversized response", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(`"${"a".repeat(1_000_001)}"`)));
     await expect(openLibrary.lookupIsbn(DUNE)).rejects.toThrow("too large");
+  });
+});
+
+describe("lookupId", () => {
+  it.each([
+    ["OL45W", "key:/works/OL45W"],
+    ["OL123M", "edition_key:OL123M"],
+  ])("finds %s through search", (id, query) => {
+    expect(searchQueryForId(id)).toBe(query);
+  });
+
+  it.each(["", "OL45", "OL45A", "ol45w", "OL45W OR x", "../OL45W", "OL1234567890123W"])(
+    "refuses %j without a request",
+    async (id) => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      expect(searchQueryForId(id)).toBeNull();
+      await expect(openLibrary.lookupId(id)).resolves.toBeNull();
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it("asks for one record by its key and reads it like a search result", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(fixture("open-library-search.json"))));
+    vi.stubGlobal("fetch", fetchMock);
+    const book = await openLibrary.lookupId("OL45W");
+    expect(String(fetchMock.mock.calls[0]?.[0 as never])).toContain("q=key%3A%2Fworks%2FOL45W");
+    expect(String(fetchMock.mock.calls[0]?.[0 as never])).toContain("limit=1");
+    expect(book).toMatchObject({ source: "OPEN_LIBRARY" });
+  });
+
+  it("is null when nothing has that key", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ docs: [] }))));
+    await expect(openLibrary.lookupId("OL45W")).resolves.toBeNull();
+  });
+});
+
+// Shaped like the live answer for "the midnight library": the work's ISBN list
+// starts with a Turkish edition, and `editions` holds the English one.
+describe("parseSearchResponse with a matched edition", () => {
+  const work = (editions: unknown) => ({
+    docs: [
+      {
+        key: "/works/OL20965973W",
+        title: "The Midnight Library",
+        author_name: ["Matt Haig"],
+        isbn: ["9786051981833", "9781101949443"],
+        cover_i: 111,
+        number_of_pages_median: 304,
+        first_publish_year: 2020,
+        editions,
+      },
+    ],
+  });
+  const english = {
+    key: "/books/OL61174737M",
+    title: "The Midnight Library",
+    cover_i: 15164860,
+    isbn: ["0525559477", "9781101949443"],
+  };
+
+  it("uses the edition the search matched: its key, ISBN and cover", () => {
+    const [book] = parseSearchResponse(work({ docs: [english] }), 10);
+    expect(book).toEqual({
+      source: "OPEN_LIBRARY",
+      sourceId: "OL61174737M",
+      title: "The Midnight Library",
+      subtitle: undefined,
+      authors: ["Matt Haig"],
+      isbn13: "9781101949443",
+      coverUrl: "https://covers.openlibrary.org/b/id/15164860-M.jpg",
+      pageCount: 304,
+      publishedYear: 2020,
+    });
+  });
+
+  it("converts the edition's ISBN-10 when it has no ISBN-13", () => {
+    const [book] = parseSearchResponse(work({ docs: [{ ...english, isbn: ["0525559477"] }] }), 10);
+    expect(book.isbn13).toBe("9780525559474");
+  });
+
+  it("never takes another edition's ISBN when the matched one has none", () => {
+    const [book] = parseSearchResponse(work({ docs: [{ ...english, isbn: [] }] }), 10);
+    expect(book.isbn13).toBeUndefined();
+    expect(book.sourceId).toBe("OL61174737M");
+  });
+
+  it("keeps the work's cover when the edition has none", () => {
+    const [book] = parseSearchResponse(work({ docs: [{ ...english, cover_i: undefined }] }), 10);
+    expect(book.coverUrl).toBe("https://covers.openlibrary.org/b/id/111-M.jpg");
+  });
+
+  it.each([
+    ["no editions field", undefined],
+    ["an empty one", { docs: [] }],
+    ["a malformed one", "nonsense"],
+  ])("falls back to the work with %s", (_label, editions) => {
+    const [book] = parseSearchResponse(work(editions), 10);
+    expect(book).toMatchObject({ sourceId: "OL20965973W", isbn13: "9786051981833" });
+  });
+
+  it("asks for the matched edition's fields", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ docs: [] })));
+    vi.stubGlobal("fetch", fetchMock);
+    await openLibrary.search("the midnight library", 10);
+    const fields = new URL(String(fetchMock.mock.calls[0]?.[0 as never])).searchParams.get("fields") ?? "";
+    expect(fields.split(",")).toEqual(expect.arrayContaining(["editions", "editions.key", "editions.isbn", "editions.cover_i"]));
   });
 });

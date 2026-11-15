@@ -7,10 +7,11 @@ import {
   findOrCreateMetadataBook,
   type ManualBookDetails,
 } from "@/server/books/book.service";
-import { authorSearchText, normalizeAuthor, normalizeAuthorName, normalizeTitle } from "@/server/books/dedupe";
+import { authorSearchText, dedupeKey, normalizeAuthor, normalizeAuthorName, normalizeTitle } from "@/server/books/dedupe";
 import { transaction, type Tx } from "@/server/db";
 import { NotFoundError, ValidationError } from "@/server/errors";
-import { lookupIsbn } from "@/server/metadata/metadata.service";
+import { lookupById, lookupIsbn, searchBooks } from "@/server/metadata/metadata.service";
+import type { BookMetadata, MetadataSourceName } from "@/server/metadata/metadata.types";
 import * as libraryModel from "./library.model";
 import * as readModel from "./read-through.model";
 import {
@@ -215,8 +216,13 @@ export function addManualBook(
   });
 }
 
+// A provider's record, for a search result added without an ISBN.
+export type ProviderRef = { source: MetadataSourceName; sourceId: string };
+
 export type IsbnPreview = {
-  isbn13: string;
+  // Missing for a search result with no ISBN, which is added by `ref` instead.
+  isbn13?: string;
+  ref?: ProviderRef;
   title: string;
   subtitle?: string;
   authors: string[];
@@ -231,14 +237,13 @@ export type IsbnPreview = {
 
 export type IsbnPreviewResult = { found: true; preview: IsbnPreview } | { found: false; isbn13: string };
 
-// What adding this ISBN would add. A provider's book that matches a catalog
+type FoundLookup = Exclude<Awaited<ReturnType<typeof lookupIsbn>>, { found: "none" }>;
+
+// What adding this book would add. A provider's book that matches a catalog
 // book by title and author shows the catalog's details, since adding reuses
 // that book unchanged; and a book already in the library shows the reader's
 // own cover, authors and pages first.
-export async function previewIsbn(userId: string, isbn: string): Promise<IsbnPreviewResult> {
-  const lookup = await lookupIsbn(isbn);
-  if (lookup.found === "none") return { found: false, isbn13: lookup.isbn13 };
-
+async function previewLookup(userId: string, lookup: FoundLookup): Promise<IsbnPreview> {
   const metadata = lookup.found === "provider" ? lookup.metadata : null;
   const match = lookup.found === "catalog" ? lookup.book : await findExistingBook(lookup.metadata);
   const catalog = match && !match.ownerId ? match : null;
@@ -253,27 +258,84 @@ export async function previewIsbn(userId: string, isbn: string): Promise<IsbnPre
         pageCount: catalog.pageCount ?? undefined,
         publishedYear: catalog.publishedYear ?? undefined,
       }
-    : metadata;
-  if (!details) return { found: false, isbn13: parseIsbnFrom(lookup) };
+    : // A catalog lookup always has a shared book, so only a provider's gets here.
+      (metadata as BookMetadata);
 
   return {
-    found: true,
-    preview: {
-      isbn13: parseIsbnFrom(lookup),
-      title: details.title,
-      subtitle: details.subtitle,
-      authors: userBook?.authors.length ? userBook.authors : details.authors,
-      coverUrl: userBook?.coverUrl ?? details.coverUrl,
-      pageCount: userBook?.pageCount ?? details.pageCount,
-      publishedYear: details.publishedYear,
-      from: catalog ? "CATALOG" : (metadata?.source ?? "CATALOG"),
-      inLibrary: userBook ? { status: userBook.status, formats: userBook.formats } : undefined,
-    },
+    isbn13: (catalog?.isbn13 ?? metadata?.isbn13) || undefined,
+    title: details.title,
+    subtitle: details.subtitle,
+    authors: userBook?.authors.length ? userBook.authors : details.authors,
+    coverUrl: userBook?.coverUrl ?? details.coverUrl,
+    pageCount: userBook?.pageCount ?? details.pageCount,
+    publishedYear: details.publishedYear,
+    from: catalog ? "CATALOG" : (metadata?.source ?? "CATALOG"),
+    inLibrary: userBook ? { status: userBook.status, formats: userBook.formats } : undefined,
   };
 }
 
-const parseIsbnFrom = (lookup: Exclude<Awaited<ReturnType<typeof lookupIsbn>>, { found: "none" }>) =>
-  (lookup.found === "catalog" ? lookup.book.isbn13 : lookup.metadata.isbn13) ?? "";
+export async function previewIsbn(userId: string, isbn: string): Promise<IsbnPreviewResult> {
+  const lookup = await lookupIsbn(isbn);
+  if (lookup.found === "none") return { found: false, isbn13: lookup.isbn13 };
+  const preview = await previewLookup(userId, lookup);
+  // The ISBN asked for, even when the matched catalog book has none yet.
+  const isbn13 = (lookup.found === "catalog" ? lookup.book.isbn13 : lookup.metadata.isbn13) ?? "";
+  return { found: true, preview: { ...preview, isbn13 } };
+}
+
+// A search result, shown the way an ISBN lookup is. One with an ISBN is looked
+// up by it, for the edition's own details; one without, or whose ISBN no
+// provider knows, by its provider record, which adding then uses too. The
+// preview always keeps the result's ref, which the search form sends back.
+export async function previewSearchResult(userId: string, ref: ProviderRef, isbn13?: string) {
+  if (isbn13) {
+    const byIsbn = await previewIsbn(userId, isbn13);
+    if (byIsbn.found) return { ...byIsbn.preview, ref };
+  }
+  const metadata = await lookupById(ref.source, ref.sourceId);
+  if (!metadata) throw new NotFoundError("That book is no longer available. Try searching again.");
+  const preview = await previewLookup(userId, { found: "provider", metadata });
+  return { ...preview, isbn13: undefined, ref };
+}
+
+export type SearchResult = ProviderRef & {
+  title: string;
+  subtitle?: string;
+  authors: string[];
+  coverUrl?: string;
+  publishedYear?: number;
+  isbn13?: string;
+  // The list it's on, when the reader already has it.
+  inLibrary?: ReadingStatus;
+};
+
+// Searches the providers and marks the results the reader already has, by
+// ISBN or by title and authors, in one query. Private books only ever match
+// their owner's own library, which is the only one looked at here.
+export async function searchForLibrary(userId: string, query: string): Promise<SearchResult[]> {
+  const results = await searchBooks(query);
+  if (results.length === 0) return [];
+  const keys = results.map((result) => dedupeKey(result.title, result.authors));
+  const isbns = results.flatMap((result) => result.isbn13 ?? []);
+  const owned = await libraryModel.findUserBooksMatching(userId, { isbn13s: isbns, dedupeKeys: keys });
+
+  return results.map((result, index) => {
+    const mine = owned.find(
+      ({ book }) => (result.isbn13 && book.isbn13 === result.isbn13) || book.dedupeKey === keys[index],
+    );
+    return {
+      source: result.source,
+      sourceId: result.sourceId,
+      title: result.title,
+      subtitle: result.subtitle,
+      authors: result.authors,
+      coverUrl: result.coverUrl,
+      publishedYear: result.publishedYear,
+      isbn13: result.isbn13,
+      inLibrary: mine?.status,
+    };
+  });
+}
 
 export type LookupChoices = {
   formats: BookFormat[];
@@ -304,6 +366,27 @@ export async function addBookByIsbn(userId: string, isbn: string, choices: Looku
     return { ...result, book };
   });
   if (lookup.found === "provider") await fillMissingIsbn(added.book, lookup.metadata);
+  return added;
+}
+
+// Adds a search result with no ISBN by its provider record, looked up again
+// here so the catalog only holds what the provider said. It dedupes like any
+// provider book: by ISBN if the record has one, then by title and authors.
+export async function addBookFromProvider(userId: string, ref: ProviderRef, choices: LookupChoices) {
+  const { formats, status, dates, audioMinutes, pastReads, acquired } = choices;
+  const metadata = await lookupById(ref.source, ref.sourceId);
+  if (!metadata) throw new NotFoundError("That book is no longer available. Try searching again.");
+
+  const added = await transaction(async (tx) => {
+    const book = await findOrCreateMetadataBook(metadata, tx);
+    const result = await addBookToLibrary(
+      userId,
+      { bookId: book.id, formats, source: UserBookSource.SEARCH, status, at: null, dates, audioMinutes, pastReads, acquired },
+      tx,
+    );
+    return { ...result, book };
+  });
+  await fillMissingIsbn(added.book, metadata);
   return added;
 }
 

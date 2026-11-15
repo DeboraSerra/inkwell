@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: in progress.** 4a and 4b are done and committed. Next is 4c, after Phase 3e (polish) and 3f (purchase dates), both in [phase-3-mvp.md](phase-3-mvp.md#3e--polish-before-phase-4c-after-the-fixes). It was started at the user's request before Phase 3's "Done when" list ([phase-3-mvp.md](phase-3-mvp.md#done-when)) was checked.
+**Status: in progress.** 4a and 4b are done and committed. ✅ 4c is built (2026-11-15) and needs a signed-in check. ⏭️ Next is 4d. Phase 3 closed on 2026-11-15 ([phase-3-mvp.md](phase-3-mvp.md#closed-2026-11-15)). Phase 4 was started at the user's request before Phase 3's "Done when" list was checked.
 
 Goal: add a book without typing its details. Search by title or author, type an ISBN, or photograph the barcode, then confirm, pick formats and add. The manual form stays as the last resort.
 
@@ -175,7 +175,7 @@ A new module, `src/server/metadata/`, that turns an ISBN or a search query into 
   - The tabs, preview cards and ISBN formatting in the browser through a temporary render, since removed, on desktop and at phone width.
 - **Not verified:** a signed-in click-through of `/books/new`. Auto mode refused a temporary auth bypass for the browser test, so the actions were exercised through the service and unit tests only. Try it once while signed in.
 
-## 4c — Search by title or author
+## 4c — Search by title or author ✅ built (not yet checked signed in)
 
 1. **Endpoint:** `GET /api/books/search?q=…`, a route handler using `getRequestUser`, so the extension could use it later. A `GET` can be cached and cancelled, which suits search-as-you-type better than a server action. It replaces the empty `api/books/route.js`.
 2. **Search tab:**
@@ -187,6 +187,66 @@ A new module, `src/server/metadata/`, that turns an ISBN or a search query into 
    - **With an ISBN:** it goes through `addBookByIsbn`, with source `SEARCH` instead of `ISBN`.
    - **Without an ISBN,** which is common for old books: a sibling, `addBookFromProvider(userId, { source, sourceId, … })`, looks the provider record up again by its id and dedupes by `dedupeKey`.
 4. **Tests:** the route's auth, validation and rate limit (no token is 401, short or long query is 400, past the limit is 429), and the service's no-ISBN path.
+
+### 4c outcome (2026-11-15)
+
+- **Endpoint:** `app/api/books/search/route.ts`. It checks, in order:
+  1. `getRequestUser` → 401;
+  2. `parseQuery` → 400 (empty, under 3 or over 200 characters);
+  3. `consumeRateLimit(BOOK_SEARCH)` → 429 with `Retry-After`;
+  4. `searchForLibrary` → `{ results }`.
+
+  The empty `api/books/route.js` is removed.
+- **Looking a result up again by id:** `MetadataProvider` gains `lookupId(sourceId)`.
+  - Open Library (`OL…W` or `OL…M` only) asks its search API for `key:/works/…` or `edition_key:…`, parsed like a search result. Both queries were checked against the live API.
+  - Google Books fetches `/volumes/{id}`, with the id checked by `cleanSourceId`.
+  - `metadata.service.lookupById(source, sourceId)` asks the result's own provider, then fills cover and page gaps from the other.
+- **Service (`library.service.ts`):**
+  - `searchForLibrary` marks results already in the reader's library by ISBN or dedupe key, in one query (`library.model.findUserBooksMatching`).
+  - `previewSearchResult` previews by ISBN when the result has one, and otherwise by the provider record. It also uses the record when no provider knows the ISBN, and then sets `preview.ref`.
+  - `addBookFromProvider` looks the record up again, dedupes it through `findOrCreateMetadataBook`, and adds it with source `SEARCH`.
+  - `previewIsbn` now shares `previewLookup` with search. `IsbnPreview.isbn13` is optional, and it gains `ref`.
+- **Controller:**
+  - `previewSearchResult` and `addSearchBook` count as ISBN lookups for the rate limit.
+  - `addSearchBook` adds by ISBN when the preview had one (with source `SEARCH`), and otherwise by `source` and `sourceId`.
+  - Validation is in `isbn-book.schema.ts` (`searchResultSchema`, `parseSearchBook`). The reader's choices are now shared through `choiceFields` and `toChoices`.
+- **UI:**
+  - `/books/new` gets a **Search** tab, first and selected by default.
+  - `SearchLookup.tsx` debounces for 400 ms, searches from 3 characters, and aborts the previous request.
+  - Results show cover, title, authors, year, and "In your library · <list>".
+  - There are loading, error and empty states. The empty state has a "Fill in by hand" button.
+  - Choosing a result shows the same preview and add form as the ISBN tab, now shared in `BookPreview.tsx`, with "Back to results". After an add, the search runs again so the result shows as in the library.
+- **Tests:**
+  - `books-search.route.test.ts`: 401, 400 for each bad query, 429, success, and errors.
+  - Providers' `lookupId`, including refused ids that never reach the network.
+  - `lookupById`.
+  - The service's search marking, preview paths and no-ISBN add.
+  - The controller's preview and add, by ISBN and by record, with their validation.
+- **Deviation:** the plan didn't say which tab opens first. Search does, ahead of ISBN and Manual.
+- **Not checked yet:** the tab in the browser, signed in. The running server answers 401 to an unauthenticated search.
+- **Fix (2026-11-15), found by the user:** adding a result that had an ISBN failed with "Choose a search result.". Its preview came from the ISBN lookup and dropped the result's `ref`, so the form sent no `source` or `sourceId`, which the search form requires. `previewSearchResult` now always keeps the `ref`, and adding still uses the ISBN when there is one. The test that had asserted the missing `ref` now expects it. New `parseSearchBook` tests check what the form sends for each kind of preview.
+- **Fix (2026-11-15), found by the user:** choosing *The Midnight Library*, found in English, opened another language's edition with another cover.
+  - **Cause:** Open Library's search returns works. The result took the first ISBN in the work's list, which mixes every edition (here a Turkish one, 978605…), and the preview looked that ISBN up.
+  - **Fix:** the search now asks for `editions`, the edition of each work that best matches the query. A result uses that edition's key, title, ISBN and cover, so it's the English edition (9781101949443, cover 15164860), and the preview's ISBN lookup returns it too. This was checked against the live API.
+  - **When the matched edition has no ISBN:** the result has none, rather than borrowing another edition's, and it's added by its record.
+  - **Only a work with no matched edition** falls back to the work's own fields, as before.
+  - **Tests:** a mixed-language work, ISBN-10 conversion, no ISBN, a missing cover, and the fallbacks.
+
+### 4c follow-up: save the synopsis when adding by search or ISBN ⏭️ not started
+
+Asked by the user on 2026-11-15. The reader has just picked an exact provider record, so this is the most reliable moment to get its synopsis. Saving it now means Phase 5's enrichment and a future book details page find it in the database.
+
+1. **Google Books:** already done. Its records carry `description`, which `findOrCreateMetadataBook` stores in `Book.description`.
+2. **Open Library:**
+   - **Fetch:** neither its search nor its ISBN response has a description, but the work record (`/works/{OL…W}.json`) often does, as a string or as `{ type, value }`. For an edition (`OL…M`, or the edition the ISBN lookup returns), read the edition's `works[0].key` first, which is one more request.
+   - **Provider:** add a provider method such as `fetchDescription(sourceId)`, cleaned with `cleanDescription` and checked with `cleanSourceId` and the `OL…W`/`OL…M` pattern before any request. It goes through `fetchProviderJson`, so it gets the timeout, size cap and day-long cache.
+3. **When:** after the add's transaction, as best-effort, like `fillMissingIsbn`. It fills `Book.description` only when it's empty and the book is shared (`ownerId: null`), and never overwrites. A failed fetch never fails the add.
+4. **Which adds:** `addBookFromProvider` and `addBookByIsbn` (source `SEARCH` or `ISBN`), including an add that reuses an existing catalog book with no description. Amazon imports and manual adds have no provider record, so they're covered by the later fill (Phase 5, "Synopsis for books added without a lookup").
+5. **Tests:**
+   - The provider: a string, an object and a missing description; an edition leading to its work; ids refused before the network.
+   - The service: an empty description gets filled; an existing one is never overwritten; a private book is skipped; a provider failure leaves the add in place.
+
+**Done when:** a book added by search or ISBN from Open Library or Google Books has its synopsis in `Book.description` when the provider has one, without slowing or failing the add.
 
 ## 4d — Scan the barcode
 

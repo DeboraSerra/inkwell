@@ -10,7 +10,7 @@ import { NotFoundError, ValidationError } from "@/server/errors";
 import * as libraryModel from "@/server/library/library.model";
 import * as readThroughModel from "@/server/library/read-through.model";
 import { InvalidTransitionError } from "@/server/library/status.rules";
-import { lookupIsbn } from "@/server/metadata/metadata.service";
+import { lookupById, lookupIsbn, searchBooks } from "@/server/metadata/metadata.service";
 import type { BookMetadata } from "@/server/metadata/metadata.types";
 
 vi.mock("@/server/books/book.service");
@@ -1142,6 +1142,112 @@ describe("add by ISBN", () => {
     it("refuses an ISBN nobody knows, before touching the library", async () => {
       lookup.mockResolvedValue({ found: "none", isbn13: ISBN });
       await expect(service.addBookByIsbn(USER, ISBN, { formats: [] })).rejects.toThrow(NotFoundError);
+      expect(model.findUserBookByBookId).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("searchForLibrary", () => {
+    const old: BookMetadata = { source: "GOOGLE_BOOKS", sourceId: "g1", title: "Old Book", authors: ["Anne Author"] };
+
+    it("marks the results already in the reader's library, by ISBN or by title and authors", async () => {
+      vi.mocked(searchBooks).mockResolvedValue([metadata, old, { ...old, sourceId: "g2", title: "Other" }]);
+      model.findUserBooksMatching.mockResolvedValue([
+        { status: FINISHED, book: { isbn13: ISBN, dedupeKey: "something else|x" } },
+        { status: TO_READ, book: { isbn13: null, dedupeKey: "old book|author" } },
+      ]);
+      const results = await service.searchForLibrary(USER, "dune");
+      expect(model.findUserBooksMatching).toHaveBeenCalledWith(USER, {
+        isbn13s: [ISBN],
+        dedupeKeys: ["dune|herbert", "old book|author", "other|author"],
+      });
+      expect(results.map((result) => result.inLibrary)).toEqual([FINISHED, TO_READ, undefined]);
+      expect(results[0]).toEqual({
+        source: "OPEN_LIBRARY",
+        sourceId: "OL1M",
+        title: "Dune",
+        subtitle: undefined,
+        authors: ["Frank Herbert"],
+        coverUrl: metadata.coverUrl,
+        publishedYear: 2005,
+        isbn13: ISBN,
+        inLibrary: FINISHED,
+      });
+    });
+
+    it("doesn't query the library when nothing is found", async () => {
+      vi.mocked(searchBooks).mockResolvedValue([]);
+      await expect(service.searchForLibrary(USER, "zzz")).resolves.toEqual([]);
+      expect(model.findUserBooksMatching).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("previewSearchResult", () => {
+    const ref = { source: "OPEN_LIBRARY" as const, sourceId: "OL1W" };
+
+    it("previews a result with an ISBN by that ISBN", async () => {
+      lookup.mockResolvedValue({ found: "provider", metadata });
+      const preview = await service.previewSearchResult(USER, ref, ISBN);
+      // Both, so the add form sends the ISBN and the ref it requires.
+      expect(preview).toMatchObject({ isbn13: ISBN, ref, title: "Dune" });
+      expect(lookupById).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the provider record when no provider knows the ISBN", async () => {
+      lookup.mockResolvedValue({ found: "none", isbn13: ISBN });
+      vi.mocked(lookupById).mockResolvedValue({ ...metadata, isbn13: undefined });
+      const preview = await service.previewSearchResult(USER, ref, ISBN);
+      expect(lookupById).toHaveBeenCalledWith("OPEN_LIBRARY", "OL1W");
+      expect(preview).toMatchObject({ ref, isbn13: undefined, title: "Dune" });
+    });
+
+    it("previews a result without an ISBN by its record, and shows a library match", async () => {
+      vi.mocked(lookupById).mockResolvedValue({ ...metadata, isbn13: undefined });
+      vi.mocked(findExistingBook).mockResolvedValue(catalogBook({ isbn13: null }));
+      model.findUserBookByBookId.mockResolvedValue(book(DNF, [EBOOK]));
+      const preview = await service.previewSearchResult(USER, ref);
+      expect(lookup).not.toHaveBeenCalled();
+      expect(preview).toMatchObject({ ref, from: "CATALOG", inLibrary: { status: DNF, formats: [EBOOK] } });
+    });
+
+    it("says so when the record is gone", async () => {
+      vi.mocked(lookupById).mockResolvedValue(null);
+      await expect(service.previewSearchResult(USER, ref)).rejects.toThrow(NotFoundError);
+    });
+  });
+
+  describe("addBookFromProvider", () => {
+    const ref = { source: "OPEN_LIBRARY" as const, sourceId: "OL1W" };
+    const noIsbn = { ...metadata, isbn13: undefined };
+
+    it("looks the record up again, dedupes it into the catalog, and records the search source", async () => {
+      vi.mocked(lookupById).mockResolvedValue(noIsbn);
+      vi.mocked(findOrCreateMetadataBook).mockResolvedValue(catalogBook({ isbn13: null }));
+      const result = await service.addBookFromProvider(USER, ref, { formats: [PHYSICAL] });
+
+      expect(lookupById).toHaveBeenCalledWith("OPEN_LIBRARY", "OL1W");
+      expect(findOrCreateMetadataBook).toHaveBeenCalledWith(noIsbn, "tx");
+      expect(model.createUserBook).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: USER, bookId: "book-1", source: UserBookSource.SEARCH, status: TO_READ }),
+        "tx",
+      );
+      expect(result.created).toBe(true);
+      expect(fillMissingIsbn).toHaveBeenCalledWith(catalogBook({ isbn13: null }), noIsbn);
+    });
+
+    it("only adds formats when the matched book is already in the library", async () => {
+      vi.mocked(lookupById).mockResolvedValue(noIsbn);
+      vi.mocked(findOrCreateMetadataBook).mockResolvedValue(catalogBook());
+      model.findUserBookByBookId.mockResolvedValue(book(FINISHED, [PHYSICAL]));
+      model.updateUserBookState.mockResolvedValue(book(FINISHED, [PHYSICAL, EBOOK]));
+      const result = await service.addBookFromProvider(USER, ref, { formats: [EBOOK] });
+      expect(result.created).toBe(false);
+      expect(model.createUserBook).not.toHaveBeenCalled();
+    });
+
+    it("refuses a record the provider no longer has, before touching the library", async () => {
+      vi.mocked(lookupById).mockResolvedValue(null);
+      await expect(service.addBookFromProvider(USER, ref, { formats: [] })).rejects.toThrow(NotFoundError);
+      expect(findOrCreateMetadataBook).not.toHaveBeenCalled();
       expect(model.findUserBookByBookId).not.toHaveBeenCalled();
     });
   });

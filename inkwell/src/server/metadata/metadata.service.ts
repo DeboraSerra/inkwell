@@ -4,7 +4,7 @@ import { cleanIsbn, toIsbn13 } from "@/server/books/isbn";
 import { ValidationError } from "@/server/errors";
 import { googleBooks } from "./google-books.provider";
 import { ProviderError } from "./http";
-import type { BookMetadata, MetadataProvider } from "./metadata.types";
+import type { BookMetadata, MetadataProvider, MetadataSourceName } from "./metadata.types";
 import { openLibrary } from "./open-library.provider";
 
 export const SEARCH_LIMIT = 10;
@@ -21,6 +21,10 @@ export type IsbnLookup =
 // Open Library first: it's free, needs no key, and asks only for a user agent.
 // Google Books is the fallback and fills gaps.
 const PROVIDERS: readonly MetadataProvider[] = [openLibrary, googleBooks];
+const BY_SOURCE: Record<MetadataSourceName, MetadataProvider> = {
+  OPEN_LIBRARY: openLibrary,
+  GOOGLE_BOOKS: googleBooks,
+};
 
 // A provider that's down, slow or returns junk counts as a miss, so the next
 // one gets a chance. Anything else is a bug and surfaces.
@@ -94,4 +98,15 @@ export async function searchBooks(query: string): Promise<BookMetadata[]> {
     if (results.length > 0) return results;
   }
   return [];
+}
+
+// A search result again, by where it came from, for adding one with no ISBN.
+// The details come from the provider, never from the request. Null when the
+// provider no longer has it, is down, or the id isn't one of its ids.
+export async function lookupById(source: MetadataSourceName, sourceId: string): Promise<BookMetadata | null> {
+  const provider = BY_SOURCE[source];
+  if (!provider) return null;
+  const metadata = await tryProvider(() => provider.lookupId(sourceId), null);
+  if (!metadata) return null;
+  return fillGaps(metadata, PROVIDERS.filter((other) => other !== provider));
 }

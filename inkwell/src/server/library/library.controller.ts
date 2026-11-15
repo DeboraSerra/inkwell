@@ -9,7 +9,7 @@ import type { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { requireUser } from "@/server/auth/auth.guard";
 import { DomainError } from "@/server/errors";
 import { consumeRateLimit } from "@/server/rate-limit/rate-limit.service";
-import { isbnField, parseIsbnBook } from "./isbn-book.schema";
+import { isbnField, parseIsbnBook, parseSearchBook, searchResultSchema } from "./isbn-book.schema";
 import * as libraryService from "./library.service";
 import { type ManualBookValues, manualBookValues, parseManualBook } from "./manual-book.schema";
 import {
@@ -107,6 +107,55 @@ export async function addBookByIsbn(
   try {
     await consumeRateLimit(user.id, "ISBN_LOOKUP");
     const { book, userBook, created } = await libraryService.addBookByIsbn(user.id, isbn, choices);
+    revalidatePath(SHELVES_PATH);
+    const list = LIST_NAMES[userBook.status];
+    return {
+      message: created
+        ? `Added “${book.title}” to ${list}.`
+        : `“${book.title}” is already in your library, on ${list}. Any new formats were added.`,
+    };
+  } catch (error) {
+    if (error instanceof DomainError) return { error: error.message, values };
+    throw error;
+  }
+}
+
+export type SearchPreviewResult = { preview?: libraryService.IsbnPreview; error?: string };
+
+// Opens a search result for adding. Counts as a lookup, since it may call a
+// provider again.
+export async function previewSearchResult(result: unknown): Promise<SearchPreviewResult> {
+  const user = await requireUser();
+  const parsed = searchResultSchema.safeParse(result);
+  if (!parsed.success) return { error: "Choose a search result." };
+  const { isbn13, ...ref } = parsed.data;
+  try {
+    await consumeRateLimit(user.id, "ISBN_LOOKUP");
+    return { preview: await libraryService.previewSearchResult(user.id, ref, isbn13) };
+  } catch (error) {
+    if (error instanceof DomainError) return { error: error.message };
+    throw error;
+  }
+}
+
+// Adds a search result: by its ISBN when the preview had one, or else by its
+// provider record. Either way it's recorded as found by search.
+export async function addSearchBook(
+  _prev: AddIsbnBookState,
+  formData: FormData,
+): Promise<AddIsbnBookState> {
+  const user = await requireUser();
+  const values = manualBookValues(formData);
+
+  const parsed = parseSearchBook(formData);
+  if (!parsed.success) return { error: parsed.error.issues[0].message, values };
+
+  const { isbn, source, sourceId, ...choices } = parsed.data;
+  try {
+    await consumeRateLimit(user.id, "ISBN_LOOKUP");
+    const { book, userBook, created } = isbn
+      ? await libraryService.addBookByIsbn(user.id, isbn, { ...choices, source: "SEARCH" })
+      : await libraryService.addBookFromProvider(user.id, { source, sourceId }, choices);
     revalidatePath(SHELVES_PATH);
     const list = LIST_NAMES[userBook.status];
     return {

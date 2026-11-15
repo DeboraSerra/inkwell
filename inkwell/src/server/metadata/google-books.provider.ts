@@ -87,10 +87,13 @@ export function parseIsbnResponse(json: unknown, isbn13: string): BookMetadata |
   return parseVolumes(json, 40).find((book) => book.isbn13 === isbn13) ?? null;
 }
 
-const url = (params: Record<string, string>) => {
+const url = (params: Record<string, string>, path = "") => {
   const key = process.env.GOOGLE_BOOKS_API_KEY;
-  return `${BASE}?${new URLSearchParams(key ? { ...params, key } : params)}`;
+  return `${BASE}${path}?${new URLSearchParams(key ? { ...params, key } : params)}`;
 };
+
+// A single volume, as `GET /volumes/{id}` returns it.
+export const parseVolume = (json: unknown) => toMetadata(json);
 
 export const googleBooks: MetadataProvider = {
   async lookupIsbn(isbn13) {
@@ -104,5 +107,12 @@ export const googleBooks: MetadataProvider = {
       url({ q: query, maxResults: String(limit), printType: "books" }),
     );
     return parseVolumes(json, limit);
+  },
+
+  async lookupId(sourceId) {
+    // Volume ids are letters, digits, "_" and "-", so nothing can leave the path.
+    const id = cleanSourceId(sourceId);
+    if (!id) return null;
+    return parseVolume(await fetchProviderJson(PROVIDER, url({}, `/${id}`)));
   },
 };
