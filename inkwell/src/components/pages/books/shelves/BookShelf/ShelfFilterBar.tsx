@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { BookFormat } from "@/generated/prisma/enums";
-import { type ShelfFilters, shelfHref } from "@/server/library/shelf-filters";
+import { shelfHref } from "@/server/library/shelf-filters";
 import { useRouter } from "next/navigation";
 import {
   type ChangeEvent,
@@ -15,6 +15,7 @@ import {
 } from "react";
 import { FORMAT_LABELS } from "../formats";
 import { ShelfOrderControls } from "./ShelfOrderControls";
+import type { ShelfFilters } from "@/types/shelf.type";
 
 // How long typing has to pause before the search runs.
 const SEARCH_DELAY_MS = 500;

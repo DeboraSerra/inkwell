@@ -3,8 +3,8 @@ import * as bookModel from "@/server/books/book.model";
 import { ValidationError } from "@/server/errors";
 import { googleBooks } from "@/server/metadata/google-books.provider";
 import { ProviderError } from "@/server/metadata/http";
-import type { BookMetadata } from "@/server/metadata/metadata.types";
 import { openLibrary } from "@/server/metadata/open-library.provider";
+import type { BookMetadata } from "@/types/metadata.type";
 
 vi.mock("@/server/books/book.model");
 vi.mock("@/server/metadata/open-library.provider");
@@ -163,5 +163,67 @@ describe("searchBooks", () => {
   it.each([["du"], ["   d  "], ["x".repeat(201)]])("rejects the query %j", async (query) => {
     await expect(service.searchBooks(query)).rejects.toThrow(ValidationError);
     expect(ol.search).not.toHaveBeenCalled();
+  });
+});
+
+describe("lookupById", () => {
+  it("asks the result's own provider, then fills gaps from the other", async () => {
+    ol.lookupId.mockResolvedValue({ ...fromOl, coverUrl: undefined });
+    gb.lookupIsbn.mockResolvedValue(fromGb);
+    const book = await service.lookupById("OPEN_LIBRARY", "OL1W");
+    expect(ol.lookupId).toHaveBeenCalledWith("OL1W");
+    expect(gb.lookupId).not.toHaveBeenCalled();
+    expect(book).toMatchObject({ sourceId: "OL1M", coverUrl: fromGb.coverUrl });
+  });
+
+  it("asks Google for a Google result", async () => {
+    gb.lookupId.mockResolvedValue(fromGb);
+    await expect(service.lookupById("GOOGLE_BOOKS", "g1")).resolves.toMatchObject({ sourceId: "g1" });
+    expect(ol.lookupId).not.toHaveBeenCalled();
+  });
+
+  it("is null when the record is gone or the provider is down", async () => {
+    await expect(service.lookupById("OPEN_LIBRARY", "OL1W")).resolves.toBeNull();
+    ol.lookupId.mockRejectedValue(down);
+    await expect(service.lookupById("OPEN_LIBRARY", "OL1W")).resolves.toBeNull();
+  });
+
+  it("is null for a source it doesn't know", async () => {
+    await expect(service.lookupById("AMAZON" as never, "x")).resolves.toBeNull();
+  });
+});
+
+describe("findDescription", () => {
+  it("uses the record's own synopsis without a request", async () => {
+    await expect(service.findDescription({ ...fromGb, description: "From Google" })).resolves.toBe("From Google");
+    expect(ol.fetchDescription).not.toHaveBeenCalled();
+  });
+
+  it("asks Open Library for its record's work", async () => {
+    vi.mocked(ol.fetchDescription as NonNullable<typeof ol.fetchDescription>).mockResolvedValue("Desert planet.");
+    await expect(service.findDescription(fromOl)).resolves.toBe("Desert planet.");
+    expect(ol.fetchDescription).toHaveBeenCalledWith("OL1M");
+  });
+
+  it("has none when Open Library is down", async () => {
+    vi.mocked(ol.fetchDescription as NonNullable<typeof ol.fetchDescription>).mockRejectedValue(down);
+    await expect(service.findDescription(fromOl)).resolves.toBeUndefined();
+  });
+
+  it("has none for a Google record without one", async () => {
+    await expect(service.findDescription({ ...fromGb, description: undefined })).resolves.toBeUndefined();
+  });
+});
+
+describe("findDescriptionByIsbn", () => {
+  it("takes the first provider that knows the ISBN and has a synopsis", async () => {
+    ol.lookupIsbn.mockResolvedValue(fromOl);
+    gb.lookupIsbn.mockResolvedValue(fromGb);
+    await expect(service.findDescriptionByIsbn(DUNE)).resolves.toBe("From Google");
+    expect(model.findBookByIsbn13).not.toHaveBeenCalled();
+  });
+
+  it("has none when nobody knows it", async () => {
+    await expect(service.findDescriptionByIsbn(DUNE)).resolves.toBeUndefined();
   });
 });

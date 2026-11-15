@@ -2,9 +2,7 @@
 
 import { BookCover } from "@/components/BookCover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { BookFormat } from "@/generated/prisma/enums";
-import { formatAudioLength } from "@/server/library/audio-length.rules";
-import type { ShelfBook } from "@/server/library/library.service";
+import type { ShelfBook } from "@/types/books.type";
 import { readDatesLabel } from "@/server/library/read-label.rules";
 import { cn } from "cn";
 import { FieldLabel } from "../../../../ui/field";
@@ -12,10 +10,7 @@ import { useShelfSelection } from "../BookShelf/ShelfSelection";
 import { FORMAT_LABELS } from "../formats";
 import { BookCardMenu } from "./BookCardMenu";
 import { BookTitle } from "./BookTitle";
-
-// Each word with where it starts in the text, a key that stays unique when a
-// word repeats, as "Oct" does in "5 Oct 25 – 12 Oct 25".
-type PositionedWord = { word: string; start: number };
+import type { PositionedWord } from "@/types/ui.type";
 
 function wordsWithPositions(text: string): PositionedWord[] {
   const words: PositionedWord[] = [];
@@ -60,8 +55,23 @@ export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
           width={64}
           height={96}
         />
-        <span className='flex min-w-0 flex-1 flex-col gap-2'>
-          <BookTitle title={book.title} authors={book.authors} />
+        <div className='flex flex-col gap-3 w-full'>
+          <div className='flex gap-3 items-start'>
+            <BookTitle title={book.title} authors={book.authors} />
+            {book.formats.length > 0 && (
+              <span className='flex gap-1'>
+                {book.formats.map((format) => (
+                  <span
+                    key={format}
+                    title={FORMAT_LABELS[format].title}
+                    className='flex items-center gap-1'
+                  >
+                    {FORMAT_LABELS[format].label}
+                  </span>
+                ))}
+              </span>
+            )}
+          </div>
           {readDates && (
             <span className='text-xs font-normal text-muted-foreground flex gap-0.5 items-center border w-fit rounded-full px-1 py-0.5'>
               {wordsWithPositions(readDates).map(({ word, start }) => (
@@ -80,34 +90,7 @@ export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
               )}
             </span>
           )}
-          {book.formats.length > 0 && (
-            <span className='flex flex-wrap gap-1'>
-              {book.formats.map((format) => (
-                <span
-                  key={format}
-                  title={FORMAT_LABELS[format].title}
-                  className='flex items-center gap-1'
-                >
-                  {FORMAT_LABELS[format].label}
-                  {format === BookFormat.AUDIO && book.audioMinutes && (
-                    <span className='flex gap-px'>
-                      {wordsWithPositions(
-                        formatAudioLength(book.audioMinutes),
-                      ).map(({ word, start }) => (
-                        <small
-                          key={start}
-                          className='font-normal text-muted-foreground'
-                        >
-                          {word}
-                        </small>
-                      ))}
-                    </span>
-                  )}
-                </span>
-              ))}
-            </span>
-          )}
-        </span>
+        </div>
       </FieldLabel>
       <BookCardMenu book={book} />
     </li>

@@ -1,9 +1,7 @@
+import type { DatePart, DateParts } from "@/types/dates.type";
 // The decisions behind PartialDateField's Day / Month / Year inputs, kept pure
 // so they can be unit-tested without a browser. Validation of the date itself
 // stays in partial-date.rules.ts.
-
-export type DatePart = "day" | "month" | "year";
-export type DateParts = Partial<Record<DatePart, string>>;
 
 export const DATE_PARTS: readonly DatePart[] = ["day", "month", "year"];
 export const PART_LENGTH: Record<DatePart, number> = { day: 2, month: 2, year: 4 };

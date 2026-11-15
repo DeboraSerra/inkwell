@@ -1,8 +1,9 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
-import type { BookFormat, DatePrecision, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
-import { prisma, type Db } from "@/server/db";
-import type { ReadingState } from "./status.rules";
+import type { DatePrecision, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
+import { prisma } from "@/server/db";
+import type { ReadingState, UserBookFilter, UserBookQuery } from "@/types/library.type";
+import type { Db } from "@/types/server.type";
 
 // Every function takes the user's id and filters by it, so one user can never
 // read or change another user's books.
@@ -19,6 +20,19 @@ const withCatalog = {
 
 export function findUserBookByBookId(userId: string, bookId: string, db: Db = prisma) {
   return db.userBook.findUnique({ where: { userId_bookId: { userId, bookId } } });
+}
+
+// This user's books matching any of these ISBNs or dedupe keys, for marking
+// search results already in their library.
+export function findUserBooksMatching(
+  userId: string,
+  { isbn13s, dedupeKeys }: { isbn13s: string[]; dedupeKeys: string[] },
+  db: Db = prisma,
+) {
+  return db.userBook.findMany({
+    where: { userId, book: { OR: [{ isbn13: { in: isbn13s } }, { dedupeKey: { in: dedupeKeys } }] } },
+    select: { status: true, book: { select: { isbn13: true, dedupeKey: true } } },
+  });
 }
 
 export function findUserBook(userId: string, userBookId: string, db: Db = prisma) {
@@ -43,6 +57,11 @@ export async function createUserBook(
     audioMinutes?: number | null;
     acquiredAt?: Date | null;
     acquiredAtPrecision?: DatePrecision;
+    // The reader's own details, when they differ from the catalog's.
+    authors?: string[];
+    authorSearch?: string;
+    pageCount?: number | null;
+    coverUrl?: string | null;
   } & ReadingState,
   db: Db = prisma,
 ) {
@@ -53,25 +72,10 @@ export async function createUserBook(
   return created.at(0) ?? null;
 }
 
-export type UserBookFilter = {
-  status?: ReadingStatus[];
-  // Owned in any of these formats.
-  formats?: BookFormat[];
-  source?: UserBookSource;
-  // Raw text matched against the title and its normalized form against the
-  // dedupe key. `author` is matched against any author's name, and `surname`
-  // against any author's last word, so "JRR Tolkien" finds "J. R. R. Tolkien".
-  // Authors are searched in the catalog and in the reader's own list.
-  search?: { text: string; normalized: string; author: string; surname: string };
-};
-
-export type UserBookQuery = UserBookFilter & {
-  // By date added (the default, newest first), purchase date or title.
-  sort?: { by: "added" | "acquired" | "title"; direction: "asc" | "desc" };
-  take: number;
-  cursor?: string;
-  skip?: number;
-};
+function formatsWhere({ formats, owned }: UserBookFilter) {
+  if (formats) return { hasSome: formats };
+  return owned ? { isEmpty: false } : undefined;
+}
 
 const userBookWhere = (userId: string, query: UserBookFilter) => {
   const { search } = query;
@@ -84,7 +88,7 @@ const userBookWhere = (userId: string, query: UserBookFilter) => {
   return {
     userId,
     status: query.status ? { in: query.status } : undefined,
-    formats: query.formats ? { hasSome: query.formats } : undefined,
+    formats: formatsWhere(query),
     source: query.source,
     OR: search
       ? [

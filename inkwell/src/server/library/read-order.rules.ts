@@ -1,13 +1,7 @@
+import type { OrderedRead } from "@/types/library.type";
 // Which read is the latest: the most recent by its dates, not the most
 // recently entered, so a 2019 read added today doesn't replace the 2024 one.
 // Pure, so it's unit-tested without a database.
-
-export type OrderedRead = {
-  outcome: string | null;
-  startedAt: Date | null;
-  endedAt: Date | null;
-  createdAt: Date;
-};
 
 const newestFirst = (a: Date | null, b: Date | null) => {
   if (a && b) return b.getTime() - a.getTime();

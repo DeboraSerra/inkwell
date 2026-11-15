@@ -4,14 +4,14 @@
 // endpoint, so each one authenticates and validates its own input.
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
-import { userAgent } from "next/server";
+import { after, userAgent } from "next/server";
 import type { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { requireUser } from "@/server/auth/auth.guard";
 import { DomainError } from "@/server/errors";
 import { consumeRateLimit } from "@/server/rate-limit/rate-limit.service";
-import { isbnField, parseIsbnBook } from "./isbn-book.schema";
+import { isbnField, parseIsbnBook, parseSearchBook, searchResultSchema } from "./isbn-book.schema";
 import * as libraryService from "./library.service";
-import { type ManualBookValues, manualBookValues, parseManualBook } from "./manual-book.schema";
+import { manualBookValues, parseManualBook } from "./manual-book.schema";
 import {
   changeFormatsSchema,
   changeStatusSchema,
@@ -24,16 +24,10 @@ import {
 } from "./shelf-actions.schema";
 import { PAGE_SIZE_COOKIE, parsePageSize, parseShelfFilters, resolvePageSize } from "./shelf-filters";
 import { LIST_NAMES } from "./status.rules";
+import type { AddIsbnBookState, AddManualBookState, BookChangeResult, IsbnLookupResult, LoadShelfResult, SearchPreviewResult } from "@/types/library.type";
 
 const SHELVES_PATH = "/books/shelves";
 const INVALID_REQUEST = "That request isn't valid.";
-
-export type AddManualBookState = {
-  message?: string;
-  error?: string;
-  // What was typed, so a rejected form keeps it.
-  values?: ManualBookValues;
-};
 
 export async function addManualBook(
   _prev: AddManualBookState,
@@ -70,13 +64,6 @@ export async function addManualBook(
   }
 }
 
-export type IsbnLookupResult = {
-  preview?: libraryService.IsbnPreview;
-  // The cleaned ISBN-13, so the manual form can start from it.
-  notFound?: { isbn13: string };
-  error?: string;
-};
-
 export async function lookUpIsbn(isbn: unknown): Promise<IsbnLookupResult> {
   const user = await requireUser();
   const parsed = isbnField.safeParse(isbn);
@@ -91,8 +78,6 @@ export async function lookUpIsbn(isbn: unknown): Promise<IsbnLookupResult> {
   }
 }
 
-export type AddIsbnBookState = AddManualBookState;
-
 export async function addBookByIsbn(
   _prev: AddIsbnBookState,
   formData: FormData,
@@ -106,7 +91,10 @@ export async function addBookByIsbn(
   const { isbn, ...choices } = parsed.data;
   try {
     await consumeRateLimit(user.id, "ISBN_LOOKUP");
-    const { book, userBook, created } = await libraryService.addBookByIsbn(user.id, isbn, choices);
+    const added = await libraryService.addBookByIsbn(user.id, isbn, choices);
+    const { book, userBook, created } = added;
+    // After the response, so a slow provider never delays or fails the add.
+    after(() => libraryService.saveSynopsis(added));
     revalidatePath(SHELVES_PATH);
     const list = LIST_NAMES[userBook.status];
     return {
@@ -120,10 +108,52 @@ export async function addBookByIsbn(
   }
 }
 
-export type BookChangeResult = {
-  error?: string;
-  book?: { id: string; status: ReadingStatus; formats: BookFormat[] };
-};
+// Opens a search result for adding. Counts as a lookup, since it may call a
+// provider again.
+export async function previewSearchResult(result: unknown): Promise<SearchPreviewResult> {
+  const user = await requireUser();
+  const parsed = searchResultSchema.safeParse(result);
+  if (!parsed.success) return { error: "Choose a search result." };
+  try {
+    await consumeRateLimit(user.id, "ISBN_LOOKUP");
+    return { preview: await libraryService.previewSearchResult(user.id, parsed.data) };
+  } catch (error) {
+    if (error instanceof DomainError) return { error: error.message };
+    throw error;
+  }
+}
+
+// Adds a search result by the record the reader picked, recorded as found by
+// search.
+export async function addSearchBook(
+  _prev: AddIsbnBookState,
+  formData: FormData,
+): Promise<AddIsbnBookState> {
+  const user = await requireUser();
+  const values = manualBookValues(formData);
+
+  const parsed = parseSearchBook(formData);
+  if (!parsed.success) return { error: parsed.error.issues[0].message, values };
+
+  const { source, sourceId, ...choices } = parsed.data;
+  try {
+    await consumeRateLimit(user.id, "ISBN_LOOKUP");
+    const added = await libraryService.addBookFromProvider(user.id, { source, sourceId }, choices);
+    const { book, userBook, created } = added;
+    // After the response, so a slow provider never delays or fails the add.
+    after(() => libraryService.saveSynopsis(added));
+    revalidatePath(SHELVES_PATH);
+    const list = LIST_NAMES[userBook.status];
+    return {
+      message: created
+        ? `Added “${book.title}” to ${list}.`
+        : `“${book.title}” is already in your library, on ${list}. Any new formats were added.`,
+    };
+  } catch (error) {
+    if (error instanceof DomainError) return { error: error.message, values };
+    throw error;
+  }
+}
 
 export async function changeBookStatus(userBookId: string, status: ReadingStatus): Promise<BookChangeResult> {
   const user = await requireUser();
@@ -153,11 +183,6 @@ export async function changeBookFormats(userBookId: string, formats: BookFormat[
   }
 }
 
-export type LoadShelfResult = {
-  error?: string;
-  shelf?: Awaited<ReturnType<typeof libraryService.listShelfPage>>;
-};
-
 // One page of a shelf, for the app-wide books context. The filters are parsed
 // again here, since the query string comes from the client. The page size is
 // the URL's, then the reader's remembered choice, then 10 on phones and 30
@@ -166,13 +191,13 @@ export async function loadShelf(params: unknown): Promise<LoadShelfResult> {
   const user = await requireUser();
   const parsed = shelfParamsSchema.safeParse(params);
   if (!parsed.success) return { error: INVALID_REQUEST };
-  const { status, formats, search, page, perPage, sort } = parseShelfFilters(parsed.data);
+  const { status, owned, formats, search, page, perPage, sort } = parseShelfFilters(parsed.data);
   const pageSize = resolvePageSize({
     url: perPage,
     cookie: (await cookies()).get(PAGE_SIZE_COOKIE)?.value,
     isPhone: userAgent({ headers: await headers() }).device.type === "mobile",
   });
-  const shelf = await libraryService.listShelfPage(user.id, { status, formats, search, sort }, page, pageSize);
+  const shelf = await libraryService.listShelfPage(user.id, { status, owned, formats, search, sort }, page, pageSize);
   return { shelf };
 }
 

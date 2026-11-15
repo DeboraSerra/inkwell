@@ -1,15 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
-import {
-  canTransition,
-  changeFormats,
-  initialState,
-  InvalidTransitionError,
-  notStartedStatusFor,
-  type ReadChange,
-  readChangeFor,
-  startsNewRead,
-} from "@/server/library/status.rules";
+import { canTransition, changeFormats, initialState, InvalidTransitionError, notStartedStatusFor, readChangeFor, startsNewRead } from "@/server/library/status.rules";
+import type { ReadChange } from "@/types/library.type";
 
 const { WISHLIST, TO_READ, READING, FINISHED, DNF } = ReadingStatus;
 const { EBOOK, PHYSICAL, AUDIO } = BookFormat;

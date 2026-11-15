@@ -4,7 +4,9 @@ import { z } from "zod";
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { toIsbn13 } from "@/server/books/isbn";
 import { parseAudioLength } from "./audio-length.rules";
-import { isAfter, type PartialDate, parsePartialDate, type ReadDates } from "./partial-date.rules";
+import { isAfter, parsePartialDate } from "./partial-date.rules";
+import type { PartialDate, ReadDates } from "@/types/dates.type";
+import type { ManualBookValues, PastReadInput, ReadDateText } from "@/types/library.type";
 
 const MAX_AUTHORS = 25;
 
@@ -45,8 +47,6 @@ export const readDateFields = {
   endedMonth: z.string().optional(),
   endedYear: z.string().optional(),
 };
-
-type ReadDateText = { [K in keyof typeof readDateFields]?: string };
 
 // Only these statuses have dates, so fields left over from another choice are ignored.
 export function parseReadDates(status: ReadingStatus | undefined, text: ReadDateText): { dates?: ReadDates; error?: string } {
@@ -125,8 +125,6 @@ export function pastReadValues(formData: FormData) {
   }
   return values;
 }
-
-type PastReadInput = { id?: string; dates: ReadDates };
 
 // Only a finished book has past reads. A new set left empty is skipped, so
 // pressing + by mistake adds nothing; an existing read keeps its place even
@@ -215,29 +213,6 @@ const manualBookSchema = z.object({
   }
   return { ...book, dates, audioMinutes: length.minutes, pastReads: past.pastReads, acquired };
 });
-
-export type ManualBookValues = {
-  title?: string;
-  authors?: string;
-  subtitle?: string;
-  coverUrl?: string;
-  pageCount?: string;
-  isbn?: string;
-  formats?: string[];
-  status?: string;
-  startedDay?: string;
-  startedMonth?: string;
-  startedYear?: string;
-  endedDay?: string;
-  endedMonth?: string;
-  endedYear?: string;
-  audioHours?: string;
-  audioMinutes?: string;
-  acquiredDay?: string;
-  acquiredMonth?: string;
-  acquiredYear?: string;
-  pastReads?: Record<string, string>;
-};
 
 const text = (formData: FormData, name: string) => {
   const value = formData.get(name);

@@ -78,6 +78,23 @@ describe("createUserBook", () => {
   });
 });
 
+describe("owned books", () => {
+  it("lists books with any format and no status filter", async () => {
+    await model.listUserBooks(USER, { take: 10, owned: true });
+    expect(calls[0].args.where).toMatchObject({ userId: USER, status: undefined, formats: { isEmpty: false } });
+  });
+
+  it("counts with the same filter", async () => {
+    await model.countUserBooks(USER, { owned: true });
+    expect(calls[0].args.where).toMatchObject({ userId: USER, status: undefined, formats: { isEmpty: false } });
+  });
+
+  it("narrows to the ticked formats, which already means owned", async () => {
+    await model.listUserBooks(USER, { take: 10, owned: true, formats: [BookFormat.AUDIO] });
+    expect(calls[0].args.where).toMatchObject({ formats: { hasSome: ["AUDIO"] } });
+  });
+});
+
 describe("listUserBooks", () => {
   it("matches books owned in any of the formats", async () => {
     await model.listUserBooks(USER, { take: 10, formats: [BookFormat.EBOOK, BookFormat.AUDIO] });

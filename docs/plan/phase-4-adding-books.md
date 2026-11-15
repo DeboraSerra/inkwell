@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: in progress.** 4a and 4b are done and committed. Next is 4c, after Phase 3e (polish) and 3f (purchase dates), both in [phase-3-mvp.md](phase-3-mvp.md#3e--polish-before-phase-4c-after-the-fixes). It was started at the user's request before Phase 3's "Done when" list ([phase-3-mvp.md](phase-3-mvp.md#done-when)) was checked.
+**Status: in progress.** 4a and 4b are done and committed. ✅ 4c is done (2026-11-15), checked by the user; its synopsis follow-up is built. ✅ 4d is built; its real-phone check is still to do before Phase 4 closes. Phase 3 closed on 2026-11-15 ([phase-3-mvp.md](phase-3-mvp.md#closed-2026-11-15)). Phase 4 was started at the user's request before Phase 3's "Done when" list was checked.
 
 Goal: add a book without typing its details. Search by title or author, type an ISBN, or photograph the barcode, then confirm, pick formats and add. The manual form stays as the last resort.
 
@@ -175,7 +175,7 @@ A new module, `src/server/metadata/`, that turns an ISBN or a search query into 
   - The tabs, preview cards and ISBN formatting in the browser through a temporary render, since removed, on desktop and at phone width.
 - **Not verified:** a signed-in click-through of `/books/new`. Auto mode refused a temporary auth bypass for the browser test, so the actions were exercised through the service and unit tests only. Try it once while signed in.
 
-## 4c — Search by title or author
+## 4c — Search by title or author ✅ done (checked by the user)
 
 1. **Endpoint:** `GET /api/books/search?q=…`, a route handler using `getRequestUser`, so the extension could use it later. A `GET` can be cached and cancelled, which suits search-as-you-type better than a server action. It replaces the empty `api/books/route.js`.
 2. **Search tab:**
@@ -188,7 +188,135 @@ A new module, `src/server/metadata/`, that turns an ISBN or a search query into 
    - **Without an ISBN,** which is common for old books: a sibling, `addBookFromProvider(userId, { source, sourceId, … })`, looks the provider record up again by its id and dedupes by `dedupeKey`.
 4. **Tests:** the route's auth, validation and rate limit (no token is 401, short or long query is 400, past the limit is 429), and the service's no-ISBN path.
 
-## 4d — Scan the barcode
+### 4c outcome (2026-11-15)
+
+- **Endpoint:** `app/api/books/search/route.ts`. It checks, in order:
+  1. `getRequestUser` → 401;
+  2. `parseQuery` → 400 (empty, under 3 or over 200 characters);
+  3. `consumeRateLimit(BOOK_SEARCH)` → 429 with `Retry-After`;
+  4. `searchForLibrary` → `{ results }`.
+
+  The empty `api/books/route.js` is removed.
+- **Looking a result up again by id:** `MetadataProvider` gains `lookupId(sourceId)`.
+  - Open Library (`OL…W` or `OL…M` only) asks its search API for `key:/works/…` or `edition_key:…`, parsed like a search result. Both queries were checked against the live API.
+  - Google Books fetches `/volumes/{id}`, with the id checked by `cleanSourceId`.
+  - `metadata.service.lookupById(source, sourceId)` asks the result's own provider, then fills cover and page gaps from the other.
+- **Service (`library.service.ts`):**
+  - `searchForLibrary` marks results already in the reader's library by ISBN or dedupe key, in one query (`library.model.findUserBooksMatching`).
+  - `previewSearchResult` previews by ISBN when the result has one, and otherwise by the provider record. It also uses the record when no provider knows the ISBN, and then sets `preview.ref`.
+  - `addBookFromProvider` looks the record up again, dedupes it through `findOrCreateMetadataBook`, and adds it with source `SEARCH`.
+  - `previewIsbn` now shares `previewLookup` with search. `IsbnPreview.isbn13` is optional, and it gains `ref`.
+- **Controller:**
+  - `previewSearchResult` and `addSearchBook` count as ISBN lookups for the rate limit.
+  - `addSearchBook` adds by ISBN when the preview had one (with source `SEARCH`), and otherwise by `source` and `sourceId`.
+  - Validation is in `isbn-book.schema.ts` (`searchResultSchema`, `parseSearchBook`). The reader's choices are now shared through `choiceFields` and `toChoices`.
+- **UI:**
+  - `/books/new` gets a **Search** tab, first and selected by default.
+  - `SearchLookup.tsx` debounces for 400 ms, searches from 3 characters, and aborts the previous request.
+  - Results show cover, title, authors, year, and "In your library · <list>".
+  - There are loading, error and empty states. The empty state has a "Fill in by hand" button.
+  - Choosing a result shows the same preview and add form as the ISBN tab, now shared in `BookPreview.tsx`, with "Back to results". After an add, the search runs again so the result shows as in the library.
+- **Tests:**
+  - `books-search.route.test.ts`: 401, 400 for each bad query, 429, success, and errors.
+  - Providers' `lookupId`, including refused ids that never reach the network.
+  - `lookupById`.
+  - The service's search marking, preview paths and no-ISBN add.
+  - The controller's preview and add, by ISBN and by record, with their validation.
+- **Deviation:** the plan didn't say which tab opens first. Search does, ahead of ISBN and Manual.
+- **Not checked yet:** the tab in the browser, signed in. The running server answers 401 to an unauthenticated search.
+- **Fix (2026-11-15), found by the user:** adding a result that had an ISBN failed with "Choose a search result.". Its preview came from the ISBN lookup and dropped the result's `ref`, so the form sent no `source` or `sourceId`, which the search form requires. `previewSearchResult` now always keeps the `ref`, and adding still uses the ISBN when there is one. The test that had asserted the missing `ref` now expects it. New `parseSearchBook` tests check what the form sends for each kind of preview.
+- **Fix (2026-11-15), found by the user:** choosing *The Midnight Library*, found in English, opened another language's edition with another cover.
+  - **Cause:** Open Library's search returns works. The result took the first ISBN in the work's list, which mixes every edition (here a Turkish one, 978605…), and the preview looked that ISBN up.
+  - **Fix:** the search now asks for `editions`, the edition of each work that best matches the query. A result uses that edition's key, title, ISBN and cover, so it's the English edition (9781101949443, cover 15164860), and the preview's ISBN lookup returns it too. This was checked against the live API.
+  - **When the matched edition has no ISBN:** the result has none, rather than borrowing another edition's, and it's added by its record.
+  - **Only a work with no matched edition** falls back to the work's own fields, as before.
+  - **Tests:** a mixed-language work, ISBN-10 conversion, no ISBN, a missing cover, and the fallbacks.
+
+### 4c follow-up: save the synopsis when adding by search or ISBN ✅ built (2026-11-15)
+
+Asked by the user on 2026-11-15. The reader has just picked an exact provider record, so this is the most reliable moment to get its synopsis. Saving it now means Phase 5's enrichment and a future book details page find it in the database.
+
+1. **Google Books:** already done. Its records carry `description`, which `findOrCreateMetadataBook` stores in `Book.description`.
+2. **Open Library:**
+   - **Fetch:** neither its search nor its ISBN response has a description, but the work record (`/works/{OL…W}.json`) often does, as a string or as `{ type, value }`. For an edition (`OL…M`, or the edition the ISBN lookup returns), read the edition's `works[0].key` first, which is one more request.
+   - **Provider:** add a provider method such as `fetchDescription(sourceId)`, cleaned with `cleanDescription` and checked with `cleanSourceId` and the `OL…W`/`OL…M` pattern before any request. It goes through `fetchProviderJson`, so it gets the timeout, size cap and day-long cache.
+3. **When:** after the add's transaction, as best-effort, like `fillMissingIsbn`. It fills `Book.description` only when it's empty and the book is shared (`ownerId: null`), and never overwrites. A failed fetch never fails the add.
+4. **Which adds:** `addBookFromProvider` and `addBookByIsbn` (source `SEARCH` or `ISBN`), including an add that reuses an existing catalog book with no description. Amazon imports and manual adds have no provider record, so they're covered by the later fill (Phase 5, "Synopsis for books added without a lookup").
+5. **Tests:**
+   - The provider: a string, an object and a missing description; an edition leading to its work; ids refused before the network.
+   - The service: an empty description gets filled; an existing one is never overwritten; a private book is skipped; a provider failure leaves the add in place.
+
+**Done when:** a book added by search or ISBN from Open Library or Google Books has its synopsis in `Book.description` when the provider has one, without slowing or failing the add.
+
+**Outcome (2026-11-15):**
+- **Provider:** `openLibrary.fetchDescription(sourceId)`, an optional method on `MetadataProvider`.
+  - It refuses anything but `OL…W` or `OL…M` before a request.
+  - For an edition, it reads `works[0].key` from `/books/{M}.json`, accepting only a work key.
+  - It then reads `/works/{W}.json`, with the description as a string or `{ value }`, cleaned by `cleanDescription`.
+  - It goes through `fetchProviderJson`. Checked live: *The Midnight Library*'s English edition leads to its work's synopsis.
+- **Metadata service:**
+  - `findDescription(metadata)` uses the record's own description (Google), or else asks the provider (Open Library). A provider error counts as none.
+  - `findDescriptionByIsbn(isbn13)` is for a catalog book reused by its ISBN: the first provider that knows the ISBN and has a synopsis.
+- **Book service:** `fillMissingDescription(book, metadata?)` skips private books and books that already have a synopsis. It fills through `book.model.fillBookDescription`, which only updates a shared book whose description is null or empty, so it never overwrites. It logs rather than throws.
+- **When:** `addBookByIsbn` and `addBookFromProvider` now also return the provider record they used (`metadata`, undefined for a reused catalog book). The `addBookByIsbn` and `addSearchBook` controllers schedule `libraryService.saveSynopsis(added)` with Next's `after()`, so it runs once the response is sent and can't slow or fail the add.
+- **Tests:**
+  - The provider: string, object, missing, HTML and edition-to-work descriptions, and refused ids.
+  - `findDescription` and `findDescriptionByIsbn`.
+  - `fillMissingDescription`: fills, never overwrites, skips private books, logs failures.
+  - The model's update filter.
+  - That the controllers schedule the fill rather than run it inline.
+- **Deviation:** the plan said "after the add's transaction". It runs after the response instead (`after()`), which also keeps the extra Open Library requests off the add's wait.
+- **Fix (2026-11-15), found by the user:** *Alchemised*, added by search, got no synopsis.
+  - **Cause:** Open Library has it on the edition (OL62430938M), and its work (OL45882131W) has none. `fetchDescription` only read the work's.
+  - **Fix:** it now reads the edition's own synopsis first, and asks the work only when the edition has none.
+  - **Tests:** the edition's own synopsis, with no work request, and neither having one.
+  - **To fill that book:** add it again by ISBN or search. That only adds formats, and the fill runs again.
+- **Fix (2026-11-15), found by the user:** a picked search result was replaced by another record with the same ISBN.
+  - **What happened:** the user picked *Alchemised* by SenLinYu (Open Library edition OL60695609M). It was added from OL62430938M ("ALCHEMISED", no authors), which shares ISBN 9780593972717.
+  - **Cause:** a result with an ISBN was previewed and added by that ISBN, and Open Library's ISBN lookup answers with whichever record it picks.
+  - **Fix:** a search result is now always previewed and added from the exact record picked (`lookupById`, then `addBookFromProvider`). That record's ISBN is still shown, and still matches a book already in the catalog. `searchResultSchema` and `parseSearchBook` no longer take an ISBN. The add form sends an ISBN only from the ISBN tab, and `addSearchBook` never calls `addBookByIsbn`.
+  - **Tests:** updated for the picked record winning, and an ISBN sent with a search add being ignored.
+- **Still wrong in the user's library:** the *Alchemised* catalog book added before this fix kept "ALCHEMISED" and no authors. A re-add by search, with the right record, matched that book by ISBN and reused it unchanged.
+- **Change (2026-11-15), decided by the user: provider records fill a matched catalog book's blanks.**
+  - **Rule (`books/catalog-blanks.rules.ts`, `catalogBlanksFrom`):** a search or ISBN add whose provider record matches a catalog book fills that book's blank subtitle, authors, cover, page count, year, and the provider's own id. Filling the authors also rebuilds the dedupe key and author search from them.
+  - **Never overwrites:** a detail that's there stays, and the title is never a blank, so "ALCHEMISED" stays in capitals. Private books are never touched.
+  - **Only provider records:** manual adds and Amazon imports never fill the shared catalog.
+  - **Where:** `book.service.fillMissingDetails`, after `fillMissingIsbn`, in `addBookByIsbn` (provider path) and `addBookFromProvider`. It's best effort and logs failures.
+  - **Model:** `book.model.fillBookBlanks` re-checks every field it fills is still blank in the same update, so a race can't overwrite.
+  - **Preview:** a matched catalog book's blanks show the record's values, as the add will save them.
+  - **Tests:**
+    - The rule: the *Alchemised* case, nothing overwritten, private books, ids by source.
+    - The model's update filter, `fillMissingDetails`, the two adds calling it, and the preview.
+  - **For the user's book:** adding *Alchemised* again by search fills in SenLinYu and the page count and year, and keeps everything else. **✅ Checked by the user on 2026-11-15.**
+
+### Change: one book form for adding and editing ✅ built (2026-11-15, not yet checked signed in)
+
+Asked by the user, who added `book` and `canEdit` props to `AddBookForm`. The same form now serves the Manual, ISBN and Search tabs and the shelf's edit dialog.
+
+- **`AddBookForm`:**
+  - `book` fills every field (`bookFormValues`: title, subtitle, authors, ISBN, pages, cover, formats, status, read dates, audiobook length, acquired date).
+  - `canEdit` false locks the catalog's title, subtitle and ISBN, and drops the required-field check. Authors, pages and cover stay editable as the reader's own.
+  - `submit` saves it from the submit handler, not as a form action, so a rejected save keeps what was typed and a successful add remounts it empty.
+  - `hidden` adds the ISBN or the search record.
+  - `editing` passes the book to `StatusField` for its reads.
+  - `formId` lets a dialog's own button submit.
+  - `addFormatsOnly` is the "already in your library" mode.
+  - `onDone` and `onPendingChange` report back.
+- **ISBN and Search tabs:** `AddPreviewedBook` (`BookPreview.tsx`) now renders `AddBookForm` from the preview, with `canEdit={false}`. The preview card above it is unchanged.
+- **Edit dialog:** `EditBookDialog` renders `AddBookForm` with the shelf book, `canEdit={false}` and `editing`, mounted only while open. `ShelfBook` gains the catalog's `subtitle` and `isbn13`, shown locked.
+- **Server:** `parseIsbnBook` and `parseSearchBook` accept `authors`, `pageCount` and `coverUrl`.
+  - `addBookByIsbn` and `addBookFromProvider` store them as the reader's own only where they differ from what the preview showed: the catalog's details, with blanks filled from the record.
+  - `readerDetails` is shared with `editUserBook`, which already kept only differences.
+  - `createUserBook` takes these details.
+- **Ids:** `FormatsField`, `StatusField`, `AudioLengthField`, `PartialDateField` and the form's text fields now use `useId`. The add page keeps three forms mounted, which had duplicate ids, so a label could tick another tab's checkbox.
+- **Tests:** the reader's details on an add (kept only when changed), and the ISBN and Search schemas reading them.
+- **Then (2026-11-15), asked by the user: the preview card is gone.**
+  - The user saw the ISBN tab looking as before after a lookup: probably a book already in their library, whose form showed only the format checkboxes and the acquired date.
+  - The form now always shows every field. For a book already in the library (`addFormatsOnly`), all details are locked, the status is hidden, and only formats and the acquired date can be added.
+  - The card's cover, year, source and "Already in your library · View the shelf" moved into the form's new `header` slot (`PreviewHeader` in `BookPreview.tsx`). The ISBN and Search tabs no longer render the card. The user had already removed it from Search.
+- **Not checked yet:** the forms in the browser, signed in.
+
+## 4d — Scan the barcode ✅ built (2026-11-15); real-phone check still to do
 
 A book's barcode is an EAN-13 starting with 978 or 979, which is its ISBN-13. Scanning only produces an ISBN and hands it to the ISBN tab (4b).
 
@@ -208,6 +336,64 @@ A book's barcode is an EAN-13 starting with 978 or 979, which is its ISBN-13. Sc
    - No barcode found shows "Couldn't read a barcode. Try again closer, in good light, or type the ISBN."
 4. **Then:** the ISBN fills the ISBN tab's field and the lookup runs straight away. "Scan another" is offered after an add.
 5. **Verify** on a real iPhone and a real Android phone, with a clean barcode, a curved spine-side barcode, a worn one, and a book with the price add-on.
+
+### 4d outcome (2026-11-15)
+
+- **Dependency:** `barcode-detector` **3.2.3**, pinned exactly. 3.2.4 came out the same day, too new under the two-week rule, and a caret range would have picked it up. It brings `zxing-wasm` 3.1.6 (2026-10-19). Both are MIT. The reader WASM is 947 KB, loaded only when a scan starts.
+  - `npm audit` now reports 7 findings, not 6. The new one is `fast-xml-parser` (low), through `firebase-admin` → `@google-cloud/storage`, not through this package. Flagged to the user; nothing changed.
+- **Serving the WASM from the app:** `scripts/copy-zxing-wasm.mjs` copies `zxing_reader.wasm` to `public/vendor/zxing-wasm/<version>/`. It runs from `postinstall` and `build`, and `/public/vendor/` is gitignored. The scanner points `prepareZXingModule`'s `locateFile` there. Checked: the dev server serves it (200, `application/wasm`) without a sign-in.
+- **Reading the photo (`components/pages/books/new/barcode-scan.ts`):** the photo goes onto a canvas scaled to at most 1,600 px on the long side. It's read with the browser's own `BarcodeDetector` when that supports `ean_13`, and otherwise with `barcode-detector/ponyfill`, imported dynamically at the first scan and cached. Nothing is uploaded.
+- **The rule (`books/barcode.rules.ts`, `readBookBarcode`):** it takes the first 13 digits of each run of 13 or more, so a 2- or 5-digit price add-on is ignored, whether reported separately or joined to the code. It accepts only a valid 978/979 ISBN-13. Any other valid EAN-13 gives "That isn't a book barcode."; nothing usable gives "Couldn't read a barcode. Try again closer, in good light, or type the ISBN." `books/isbn.ts` gains `isValidEan13`.
+- **UI:** `ScanBarcodeButton.tsx`, beside "Look up" on the ISBN tab, uses `<input type="file" accept="image/*" capture="environment">`. A read ISBN fills the field and is looked up straight away. After an add from a scan, the button reads "Scan another". Errors show under the field.
+- **Types:** `BookBarcodeResult` (`types/books.type.tsx`) and `BarcodeReader` (`types/ui.type.ts`), per the types rule.
+- **Tests:** `barcode.rules.test.ts` covers books, both prefixes, every add-on shape, a product code, a mixed photo and misses. `isbn.test.ts` covers `isValidEan13`. A one-off Node check confirmed `zxing-wasm` 3.1.6 reads a generated EAN-13 back as `9780441013593`.
+- **Still to do by the user:**
+  - Step 5: scan on a real iPhone and a real Android phone (clean, curved, worn, with an add-on). Neither the camera nor the signed-in flow could be checked here.
+  - Decide what to do about the new `fast-xml-parser` audit finding.
+
+### 4d follow-up: live scanning ✅ built (2026-11-15); real-device check still to do
+
+Asked by the user on 2026-11-15, replacing the "Later" item. Point the camera at a book and its ISBN is read from the video, with no photo to take. It's quicker for several books, and it's the only way to use a laptop's webcam, which a file input can't open.
+
+1. **Where:** a "Scan live" button beside "Scan barcode" on the ISBN tab, shown only where `navigator.mediaDevices.getUserMedia` exists. HTTPS or localhost is required.
+   - "Scan barcode" (the photo) stays: it needs no permission and works with poor connections or older phones.
+2. **The viewfinder:** a dialog with the rear camera's video (`facingMode: "environment"`, falling back to any camera on a laptop), a frame showing where to hold the barcode, and Cancel.
+   - Closing it, finding a book, or leaving the page stops every camera track, so the camera light goes off.
+   - Nothing is recorded or uploaded; frames are read in the browser and dropped.
+3. **Reading:** the same reader as the photo (`barcode-scan.ts`: the browser's `BarcodeDetector`, or `barcode-detector` with the app-served WASM) and the same rule (`readBookBarcode`).
+   - About 5 frames a second, each scaled down like a photo, with only one read in flight at a time, so a slow phone doesn't pile up work.
+   - A frame with no barcode, or a product barcode, just keeps scanning. Only a book's ISBN stops it. "That isn't a book barcode." shows as a hint in the dialog after a product code is seen.
+   - **Stops on a book:** the dialog closes, the ISBN fills the field, and the lookup runs, exactly as a scanned photo does. "Scan another" opens the live view again after an add.
+4. **Permission and errors:** the browser asks for the camera the first time.
+   - **Refused:** "Inkwell can't use the camera. Allow it in your browser's settings, or take a photo instead."
+   - **No camera found, or it's busy:** "No camera is available. Take a photo or type the ISBN."
+   - Each error leaves the photo button and the ISBN field working.
+5. **Tests:** the frame loop's pure parts (throttling, keep scanning on a miss or a product code, stop on a book), and the error messages per `getUserMedia` error (`NotAllowedError`, `NotFoundError`, `NotReadableError`).
+6. **Verify:** on a real iPhone (Safari) and a real Android phone (Chrome), and on a laptop webcam. Check a clean barcode, a curved one, a worn one, and one with a price add-on, and that the camera light goes off after each way of closing.
+
+**Done when:** pointing a phone or laptop camera at a book's barcode fills in the ISBN and finds the book without taking a photo, and the camera always turns off afterwards.
+
+**Outcome (2026-11-15):**
+- **Button:** `LiveScanButton.tsx`, "Scan live" beside "Scan barcode" on the ISBN tab. It's shown only once the browser reports `navigator.mediaDevices.getUserMedia`, checked after mounting so the server and browser render alike. The tab's button row now wraps (`flex-wrap`), so four controls fit on a phone.
+- **Viewfinder:** a dialog with the camera's video (`facingMode: { ideal: "environment" }`, `muted`, `playsInline` for iPhone), a frame to aim with, a status line, and Cancel.
+  - The viewfinder is mounted only while the dialog is open. Unmounting stops every track: Cancel, the close button, Escape, a found book, an error, or leaving the page.
+  - A permission answer that arrives after closing stops that stream too.
+- **Reading:** the reader loads alongside the camera (`prepareReader`). Then `requestAnimationFrame` reads a frame at most every 200 ms, one at a time (`shouldReadFrame`), through `readVideoFrame` in `barcode-scan.ts`. That reuses the photo's reader and scaling, and one canvas for every frame.
+  - `readLiveFrame` stops on a book.
+  - A product code shows "That isn't a book barcode." in the status line and keeps scanning, as do frames with nothing.
+  - A found ISBN closes the dialog, fills the field and runs the lookup. The button that scanned it then reads "Scan another" (`ScanMethod` in `types/ui.type.ts`).
+- **Errors** (`cameraErrorMessage`, `books/barcode.rules.ts`) close the dialog and show under the ISBN field. The photo button and the field keep working.
+  - `NotAllowedError` and `SecurityError` give "Inkwell can't use the camera…".
+  - Anything else (`NotFoundError`, `NotReadableError`, …) gives "No camera is available…".
+  - A reader that fails to load gives "The scanner couldn't start…".
+- **Tests:** `readLiveFrame`, `shouldReadFrame` and `cameraErrorMessage` in `barcode.rules.test.ts`.
+- **Checked:** no `Permissions-Policy` header blocks the camera.
+- **Not checked:** the camera itself. Step 6, on a real iPhone, an Android phone and a laptop webcam, is the user's, including the camera light going off after every way of closing.
+- **Then (2026-11-15), the user's design: one "Scan barcode" dropdown.** The user put both scans in a dropdown ("Upload image" / "Upload another", "Scan live" / "Scan another"), with the scanners rendered inside the menu items. Choosing an item closed the menu and unmounted them, so neither worked.
+  - Now, as in the other menus, the items are plain `DropdownMenuItem`s with an icon, a label and `onClick`.
+  - The photo input (`ScanBarcodeButton`, now just the hidden input, clicked through a ref) and the live dialog (`LiveScanButton`, controlled by `open`) sit beside the menu, so they survive it closing.
+  - "Scan live" shows only where a camera can open (`useCameraSupported`). The trigger shows a spinner while a photo is read.
+  - The user's trigger, labels, variant and icon sizes are kept.
 
 ## Env vars
 
@@ -231,7 +417,7 @@ Made with the user on 2026-11-08:
 | Search language | All languages, no filter |
 | Matching by title and author | Fill the blank ISBN on the matched catalog book, never overwrite (4b) |
 | Barcode library | `barcode-detector` (on `zxing-wasm`), not `@zxing/browser` (4d) |
-| Live scanning | Photo only for now; live scanning moves to "Later" |
+| Live scanning | Photo first (4d); live scanning added as a 4d follow-up on 2026-11-15, at the user's request |
 | Rate limiting | Per user, now, counted in Postgres (4a, step 7) |
 
 ## Done when
@@ -249,7 +435,6 @@ Made with the user on 2026-11-08:
 
 ## Later
 
-- Live scanning: a camera viewfinder (`getUserMedia`) that reads barcodes continuously, quicker for several books. Needs a camera permission and HTTPS.
 - Scan several books in a row into a queue, then set formats for all of them at once.
 - Choose a specific edition (cover, language, page count) of a work.
 - Let the extension use `/api/books/search` to fill in ISBNs for imported ebooks.

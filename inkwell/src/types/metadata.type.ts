@@ -1,3 +1,5 @@
+import type * as bookModel from "@/server/books/book.model";
+
 // Book details from an outside source (Open Library or Google Books), already
 // cleaned and length-capped by the provider that produced them.
 export type MetadataSourceName = "OPEN_LIBRARY" | "GOOGLE_BOOKS";
@@ -22,5 +24,18 @@ export type BookMetadata = {
 // timeout or bad status throws, and the service treats both as a miss.
 export type MetadataProvider = {
   lookupIsbn(isbn13: string): Promise<BookMetadata | null>;
+  // The record a search result came from, by its sourceId, for adding a
+  // result that has no ISBN. The id is untrusted and checked by the provider.
+  lookupId(sourceId: string): Promise<BookMetadata | null>;
+  // A record's synopsis, for a provider whose search and ISBN answers leave
+  // it out (Open Library). Undefined when there's none.
+  fetchDescription?(sourceId: string): Promise<string | undefined>;
   search(query: string, limit: number): Promise<BookMetadata[]>;
 };
+
+export type CatalogRecord = NonNullable<Awaited<ReturnType<typeof bookModel.findBookByIsbn13>>>;
+
+export type IsbnLookup =
+  | { found: "catalog"; book: CatalogRecord }
+  | { found: "provider"; metadata: BookMetadata }
+  | { found: "none"; isbn13: string };

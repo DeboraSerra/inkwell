@@ -1,6 +1,7 @@
 import "server-only";
 import { RateLimitError } from "@/server/errors";
 import * as rateLimitModel from "./rate-limit.model";
+import type { RateLimitBucket } from "@/types/rate-limit.type";
 
 // Counted in Postgres because serverless instances don't share memory. Limits
 // a runaway client, or a leaked API token, from burning the book APIs' quotas.
@@ -8,8 +9,6 @@ export const RATE_LIMITS = {
   ISBN_LOOKUP: 60,
   BOOK_SEARCH: 60,
 } as const;
-
-export type RateLimitBucket = keyof typeof RATE_LIMITS;
 
 export const RATE_LIMIT_WINDOW_SECONDS = 60;
 

@@ -4,23 +4,20 @@ import { cleanIsbn, toIsbn13 } from "@/server/books/isbn";
 import { ValidationError } from "@/server/errors";
 import { googleBooks } from "./google-books.provider";
 import { ProviderError } from "./http";
-import type { BookMetadata, MetadataProvider } from "./metadata.types";
 import { openLibrary } from "./open-library.provider";
+import type { BookMetadata, IsbnLookup, MetadataProvider, MetadataSourceName } from "@/types/metadata.type";
 
 export const SEARCH_LIMIT = 10;
 export const MIN_QUERY_LENGTH = 3;
 export const MAX_QUERY_LENGTH = 200;
 
-type CatalogBook = NonNullable<Awaited<ReturnType<typeof bookModel.findBookByIsbn13>>>;
-
-export type IsbnLookup =
-  | { found: "catalog"; book: CatalogBook }
-  | { found: "provider"; metadata: BookMetadata }
-  | { found: "none"; isbn13: string };
-
 // Open Library first: it's free, needs no key, and asks only for a user agent.
 // Google Books is the fallback and fills gaps.
 const PROVIDERS: readonly MetadataProvider[] = [openLibrary, googleBooks];
+const BY_SOURCE: Record<MetadataSourceName, MetadataProvider> = {
+  OPEN_LIBRARY: openLibrary,
+  GOOGLE_BOOKS: googleBooks,
+};
 
 // A provider that's down, slow or returns junk counts as a miss, so the next
 // one gets a chance. Anything else is a bug and surfaces.
@@ -94,4 +91,37 @@ export async function searchBooks(query: string): Promise<BookMetadata[]> {
     if (results.length > 0) return results;
   }
   return [];
+}
+
+// A search result again, by where it came from, for adding one with no ISBN.
+// The details come from the provider, never from the request. Null when the
+// provider no longer has it, is down, or the id isn't one of its ids.
+export async function lookupById(source: MetadataSourceName, sourceId: string): Promise<BookMetadata | null> {
+  const provider = BY_SOURCE[source];
+  if (!provider) return null;
+  const metadata = await tryProvider(() => provider.lookupId(sourceId), null);
+  if (!metadata) return null;
+  return fillGaps(metadata, PROVIDERS.filter((other) => other !== provider));
+}
+
+// A book's synopsis from the record it was found with: the record's own, or
+// for Open Library the one on its work, which costs a request or two. Best
+// effort, so a provider that's down just means no synopsis.
+export async function findDescription(metadata: BookMetadata): Promise<string | undefined> {
+  if (metadata.description) return metadata.description;
+  const provider = BY_SOURCE[metadata.source];
+  if (!provider?.fetchDescription) return undefined;
+  const describe = provider.fetchDescription;
+  return tryProvider(() => describe(metadata.sourceId), undefined);
+}
+
+// For a catalog book added by ISBN, which has no provider record at hand: the
+// first provider that knows the ISBN and has a synopsis for it.
+export async function findDescriptionByIsbn(isbn13: string): Promise<string | undefined> {
+  for (const provider of PROVIDERS) {
+    const metadata = await tryProvider(() => provider.lookupIsbn(isbn13), null);
+    const description = metadata ? await findDescription(metadata) : undefined;
+    if (description) return description;
+  }
+  return undefined;
 }

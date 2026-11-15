@@ -3,6 +3,7 @@
 // rule is unit-tested without a database.
 import { type BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { ValidationError } from "@/server/errors";
+import type { ReadChange, ReadingState } from "@/types/library.type";
 
 // What each status is called as a list in the UI.
 export const LIST_NAMES: Record<ReadingStatus, string> = {
@@ -12,22 +13,6 @@ export const LIST_NAMES: Record<ReadingStatus, string> = {
   FINISHED: "Finished",
   DNF: "DNF",
 };
-
-export type ReadingState = {
-  status: ReadingStatus;
-  formats: BookFormat[];
-};
-
-// What a status change does to the book's reads.
-export type ReadChange =
-  | "none"
-  | "open"
-  | "reopen"
-  | "closeFinished"
-  | "closeDnf"
-  | "addFinished"
-  | "addDnf"
-  | "discardOpen";
 
 export class InvalidTransitionError extends ValidationError {
   constructor(from: ReadingStatus, to: ReadingStatus, formats: readonly BookFormat[]) {

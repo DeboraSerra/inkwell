@@ -8,10 +8,10 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && node scripts/copy-zxing-wasm.mjs && next build",
     "start": "next start",
     "lint": "biome lint",
-    "postinstall": "prisma generate",
+    "postinstall": "prisma generate && node scripts/copy-zxing-wasm.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -19,6 +19,7 @@
     "@base-ui/react": "^1.9.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "barcode-detector": "3.2.3",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.1",
     "dotenv": "^17.4.2",

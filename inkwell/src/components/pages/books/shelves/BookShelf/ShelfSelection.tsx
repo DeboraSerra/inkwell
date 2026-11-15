@@ -4,19 +4,10 @@
 // shelf, so BookShelf provides it, and remounting BookShelf on a shelf or page
 // change clears it.
 import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
+import type { ShelfSelectionValue } from "@/types/ui.type";
 
 // Bulk moves and deletes take at most this many books, as the server does.
 export const MAX_SELECTED = 30;
-
-type ShelfSelectionValue = {
-  selected: string[];
-  atLimit: boolean;
-  isSelected: (id: string) => boolean;
-  toggle: (id: string, checked: boolean) => void;
-  select: (ids: string[]) => void;
-  deselect: (ids: string[]) => void;
-  clear: () => void;
-};
 
 const shelfSelection = createContext<ShelfSelectionValue | null>(null);
 

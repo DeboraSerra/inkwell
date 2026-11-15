@@ -3,24 +3,17 @@
 // Everything a single book's card can do, so the card needs only the book.
 import { toast } from "@/components/ui/toast";
 import type { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
-import {
-  type BookChangeResult,
-  changeBookFormats,
-  changeBookStatus,
-  editBook,
-  moveBookWithDates,
-  removeBook,
-} from "@/server/library/library.controller";
-import type { ShelfBook } from "@/server/library/library.service";
+import { changeBookFormats, changeBookStatus, editBook, moveBookWithDates, removeBook } from "@/server/library/library.controller";
+import type { ShelfBook } from "@/types/books.type";
 import { LIST_NAMES } from "@/server/library/status.rules";
 import { useTransition } from "react";
 import { useShelfSelection } from "../components/pages/books/shelves/BookShelf/ShelfSelection";
 import { useBooksContext } from "../components/pages/context";
+import type { BookChangeResult } from "@/types/library.type";
+import type { ChangedBook } from "@/types/ui.type";
 
 const showError = (description: string) =>
   toast.add({ description, type: "error" });
-
-type ChangedBook = NonNullable<BookChangeResult["book"]>;
 
 export function useBookActions(book: ShelfBook) {
   const { filters, refresh } = useBooksContext();

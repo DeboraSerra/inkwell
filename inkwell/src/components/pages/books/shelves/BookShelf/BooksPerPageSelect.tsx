@@ -2,9 +2,10 @@
 
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { rememberShelfPageSize } from "@/server/library/library.controller";
-import { PAGE_SIZES, type PageSize, pageHolding, shelfHref } from "@/server/library/shelf-filters";
+import { PAGE_SIZES, pageHolding, shelfHref } from "@/server/library/shelf-filters";
 import { useRouter } from "next/navigation";
 import { useLoadedShelf } from "../../../context";
+import type { PageSize } from "@/types/shelf.type";
 
 const ITEMS = PAGE_SIZES.map((size) => ({ label: String(size), value: size }));
 

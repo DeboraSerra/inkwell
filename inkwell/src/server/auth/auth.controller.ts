@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { DomainError } from "@/server/errors";
 import { clearSessionCookie, requireUser, setSessionCookie } from "./auth.guard";
 import * as authService from "./auth.service";
+import type { CreateTokenState } from "@/types/auth.type";
 
 // Only allow same-site relative paths, so `?next=` can't become an open redirect.
 const safeRedirectPath = (path: unknown) =>
@@ -29,8 +30,6 @@ export async function signOut() {
   await clearSessionCookie();
   redirect("/login");
 }
-
-export type CreateTokenState = { token?: string; error?: string };
 
 export async function createApiToken(
   _prev: CreateTokenState,

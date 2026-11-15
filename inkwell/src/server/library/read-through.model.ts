@@ -1,17 +1,10 @@
 import "server-only";
-import type { DatePrecision, ReadOutcome } from "@/generated/prisma/enums";
-import { prisma, type Db } from "@/server/db";
+import type { ReadOutcome } from "@/generated/prisma/enums";
+import { prisma } from "@/server/db";
+import type { NewRead } from "@/types/library.type";
+import type { Db } from "@/types/server.type";
 
 // ReadThrough has no userId of its own, so reads are scoped through their book.
-
-export type NewRead = {
-  userBookId: string;
-  startedAt?: Date | null;
-  startedAtPrecision?: DatePrecision;
-  endedAt?: Date | null;
-  endedAtPrecision?: DatePrecision;
-  outcome?: ReadOutcome | null;
-};
 
 // The caller must have checked that these books belong to the user: an insert
 // has no row to filter on.

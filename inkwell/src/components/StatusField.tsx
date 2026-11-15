@@ -1,18 +1,16 @@
 "use client";
 
 import { ReadingStatus } from "@/generated/prisma/enums";
-import type { ManualBookValues } from "@/server/library/manual-book.schema";
-import {
-  type ReadingState,
-  startsNewRead,
-} from "@/server/library/status.rules";
+import { startsNewRead } from "@/server/library/status.rules";
 import { Info, PlusCircle } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { PartialDateField } from "./PartialDateField";
 import { Button } from "./ui/button";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "./ui/field";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import type { ManualBookValues, ReadingState } from "@/types/library.type";
+import type { PastReadSet } from "@/types/ui.type";
 
 const STATUS = [
   { value: "", label: "Not started" },
@@ -30,11 +28,6 @@ const STATUS = [
     label: "Currently reading",
   },
 ];
-
-// An earlier finished read's date fields, sent as pastRead<n>StartedYear and
-// so on. `id` is set for a read already saved, so its dates are corrected
-// rather than added again.
-type PastReadSet = { key: string; id?: string; values?: Record<string, string> };
 
 const MAX_PAST_READS = 20;
 
@@ -82,6 +75,8 @@ export function StatusField({
   current?: ReadingState;
   pastReads?: { id: string; values: Record<string, string> }[];
 }>) {
+  // Unique per form: the add page keeps several forms mounted at once.
+  const uid = useId();
   const [status, setStatus] = useState(values?.status ?? "");
   const [sets, setSets] = useState<PastReadSet[]>(() => initialPastReads(values, pastReads));
   const addSet = () =>
@@ -104,7 +99,7 @@ export function StatusField({
       <FieldSet>
         <FieldLegend
           variant='label'
-          id='status-legend'
+          id={`${uid}-status-legend`}
           className='flex gap-1 items-center'
         >
           <span>Status</span>
@@ -123,15 +118,15 @@ export function StatusField({
         </FieldLegend>
         <RadioGroup
           name='status'
-          aria-labelledby='status-legend'
+          aria-labelledby={`${uid}-status-legend`}
           value={status}
           onValueChange={(value) => setStatus(String(value))}
           className='flex flex-col gap-x-5 gap-y-2'
         >
           {STATUS.map(({ value, label, info }) => (
             <Field key={value} orientation='horizontal' className='w-fit'>
-              <RadioGroupItem id={`status-${value}`} value={value} />
-              <FieldLabel htmlFor={`status-${value}`} className='font-normal'>
+              <RadioGroupItem id={`${uid}-status-${value}`} value={value} />
+              <FieldLabel htmlFor={`${uid}-status-${value}`} className='font-normal'>
                 {label}
               </FieldLabel>
               {info && (

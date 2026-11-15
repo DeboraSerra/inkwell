@@ -1,14 +1,11 @@
 import "server-only";
 import { BookFormat, UserBookSource } from "@/generated/prisma/enums";
-import {
-  type AmazonBookDetails,
-  type AmazonDocDetails,
-  findOrCreateAmazonBook,
-  findOrCreateAmazonDoc,
-} from "@/server/books/book.service";
-import { transaction, type Tx } from "@/server/db";
-import type { Acquired } from "@/server/imports/amazon-import.schema";
+import { findOrCreateAmazonBook, findOrCreateAmazonDoc } from "@/server/books/book.service";
+import { transaction } from "@/server/db";
 import { addBookToLibrary } from "@/server/library/library.service";
+import type { AmazonBookDetails, AmazonDocDetails } from "@/types/books.type";
+import type { Acquired } from "@/types/imports.type";
+import type { Tx } from "@/types/server.type";
 
 // One transaction per book, so a long import doesn't hold one open, and running
 // it again after a failure just finds the books already added.

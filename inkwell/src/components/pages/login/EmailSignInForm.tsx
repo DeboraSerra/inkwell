@@ -11,33 +11,32 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { auth } from "@/config/firebase";
 import { signInWithFirebase } from "@/config/firebase-session";
+import type { SignInMode } from "@/types/ui.type";
 
 const MIN_PASSWORD_LENGTH = 8;
-
-type Mode = "signIn" | "signUp" | "reset";
 
 const RESET_SENT_MESSAGE =
   "If there's an account for that email, we've sent a link to reset your password.";
 
-const DEFAULT_ERRORS: Record<Mode, string> = {
+const DEFAULT_ERRORS: Record<SignInMode, string> = {
   signIn: "Couldn't sign you in. Please try again.",
   signUp: "Couldn't create your account. Please try again.",
   reset: "Couldn't send the reset email. Please try again.",
 };
 
-const PENDING_LABELS: Record<Mode, string> = {
+const PENDING_LABELS: Record<SignInMode, string> = {
   signIn: "Signing in…",
   signUp: "Creating account…",
   reset: "Sending…",
 };
 
-const SUBMIT_LABELS: Record<Mode, string> = {
+const SUBMIT_LABELS: Record<SignInMode, string> = {
   signIn: "Sign in",
   signUp: "Create account",
   reset: "Send reset link",
 };
 
-const FOOTER_PROMPTS: Record<Mode, string> = {
+const FOOTER_PROMPTS: Record<SignInMode, string> = {
   signIn: "New to Inkwell? ",
   signUp: "Already have an account? ",
   reset: "Remembered it? ",
@@ -45,7 +44,7 @@ const FOOTER_PROMPTS: Record<Mode, string> = {
 
 // Firebase reports a wrong email and a wrong password the same way
 // (auth/invalid-credential), so these messages never reveal which accounts exist.
-function errorMessage(code: string | undefined, mode: Mode) {
+function errorMessage(code: string | undefined, mode: SignInMode) {
   switch (code) {
     case "auth/invalid-credential":
     case "auth/wrong-password":
@@ -77,14 +76,14 @@ async function sendResetLink(email: string) {
 }
 
 export default function EmailSignInForm({ next }: Readonly<{ next?: string }>) {
-  const [mode, setMode] = useState<Mode>("signIn");
+  const [mode, setMode] = useState<SignInMode>("signIn");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const isSignUp = mode === "signUp";
   const isReset = mode === "reset";
 
-  const switchMode = (to: Mode) => {
+  const switchMode = (to: SignInMode) => {
     setError(null);
     setNotice(null);
     setMode(to);

@@ -1,68 +1,163 @@
 "use client";
 
+import { BookCover } from "@/components/BookCover";
+import { PartialDateField } from "@/components/PartialDateField";
 import { Button } from "@/components/ui/button";
-import { Field, FieldGroup } from "@/components/ui/field";
-import {
-  type AddManualBookState,
-  addManualBook,
-} from "@/server/library/library.controller";
+import { Field, FieldDescription, FieldGroup } from "@/components/ui/field";
+import { ReadingStatus } from "@/generated/prisma/enums";
+import { formatIsbn } from "@/server/books/isbn";
+import { splitAudioLength } from "@/server/library/audio-length.rules";
+import { addManualBook } from "@/server/library/library.controller";
+import type { BookFormBook, BookFormResult } from "@/types/books.type";
 import { Loader } from "lucide-react";
 import {
   type ChangeEvent,
+  type ReactNode,
   type SubmitEvent,
-  useActionState,
   useEffect,
+  useId,
   useState,
+  useTransition,
 } from "react";
 import { StatusField } from "../../../StatusField";
 import { TextField } from "../../../TextField";
 import { toast } from "../../../ui/toast";
-import { PartialDateField } from "@/components/PartialDateField";
 import { FormatsField } from "./FormatsField";
 import { applyIsbnFormat } from "./isbn-input";
+import type { ManualBookValues, ReadingState } from "@/types/library.type";
 
 const REQUIRED_FIELDS = [
   { name: "title", label: "Title" },
   { name: "authors", label: "Authors" },
 ];
 
-type FormState = AddManualBookState & { submission: number };
+// Wishlist and TBR are both "not started", which the status field shows as empty.
+const formStatus = (status?: ReadingStatus) =>
+  !status ||
+  status === ReadingStatus.WISHLIST ||
+  status === ReadingStatus.TO_READ
+    ? ""
+    : status;
 
-// `defaultIsbn` fills the ISBN when the ISBN tab couldn't find the book.
-export default function AddBookForm({ defaultIsbn }: Readonly<{ defaultIsbn?: string }>) {
-  // Remounting after each submit applies the defaults: empty after a success,
-  // or what was typed after an error. The checkboxes keep their own state, so
-  // React's automatic form reset wouldn't clear them. The count lives in the
-  // action's state so it changes in the same render as the values.
-  const [state, formAction, isPending] = useActionState<FormState, FormData>(
-    async (previous, formData) => ({
-      ...(await addManualBook(previous, formData)),
-      submission: previous.submission + 1,
-    }),
-    { submission: 0 },
-  );
-  const values = state.values;
+// The book's details as the form's starting values.
+export const bookFormValues = (
+  book?: BookFormBook,
+): ManualBookValues | undefined =>
+  book && {
+    title: book.title,
+    subtitle: book.subtitle ?? "",
+    authors: book.authors.join("; "),
+    coverUrl: book.coverUrl ?? "",
+    pageCount: book.pageCount?.toString() ?? "",
+    isbn: book.isbn13 ? formatIsbn(book.isbn13) : "",
+    formats: book.formats ?? [],
+    status: formStatus(book.status),
+    ...splitAudioLength(book.audioMinutes),
+    ...book.readDates,
+    ...book.acquiredValues,
+  };
+
+const manualAdd = async (formData: FormData): Promise<BookFormResult> => {
+  const { error, message } = await addManualBook({}, formData);
+  return { ok: !error, error, message };
+};
+
+// The one book form: adding by hand (the default), adding a looked-up book on
+// the ISBN and Search tabs, and editing a shelf book.
+// - `book` fills every field. `defaultIsbn` fills the ISBN when the ISBN tab
+//   couldn't find the book.
+// - `canEdit` false locks the catalog's title, subtitle and ISBN (disabled
+//   fields aren't sent); the reader's own authors, pages and cover stay
+//   editable, and only then are title and authors required.
+// - `submit` saves it. It's called from the submit handler rather than as a
+//   form action, which React would reset, losing what was typed on an error.
+// - `hidden` adds fields the server needs, such as the ISBN or search record.
+// - `editing` is the book being edited, for its reads; `formId` lets a dialog's
+//   own button submit, and leaves out the form's.
+// - `addFormatsOnly` is a book already in the library: its details show
+//   locked, without the status, and only formats and the acquired date can
+//   be added to it.
+// - `header` goes above the fields, such as a looked-up book's cover.
+export default function AddBookForm({
+  defaultIsbn,
+  book,
+  canEdit = true,
+  submit = manualAdd,
+  hidden = {},
+  editing,
+  formId,
+  submitLabel = "Add book",
+  addFormatsOnly = false,
+  header,
+  onDone,
+  onPendingChange,
+}: Readonly<{
+  defaultIsbn?: string;
+  book?: BookFormBook;
+  canEdit?: boolean;
+  submit?: (formData: FormData) => Promise<BookFormResult>;
+  hidden?: Record<string, string>;
+  editing?: ReadingState;
+  formId?: string;
+  submitLabel?: string;
+  addFormatsOnly?: boolean;
+  header?: ReactNode;
+  onDone?: () => void;
+  onPendingChange?: (pending: boolean) => void;
+}>) {
+  // Unique per form: the add page keeps several forms mounted at once.
+  const uid = useId();
+  const values = bookFormValues(book);
+  // Remounting after a successful add clears the form, checkboxes included:
+  // Base UI checkboxes keep their own state.
+  const [submission, setSubmission] = useState(0);
+  const [isPending, startTransition] = useTransition();
   const [missing, setMissing] = useState<string[]>([]);
   // Whether a format is ticked, reported by FormatsField.
-  const [owned, setOwned] = useState(false);
+  const [owned, setOwned] = useState(Boolean(book?.formats?.length));
+  // The cover field is uncontrolled, so what's typed is kept here for the
+  // cover shown next to it.
+  const [coverUrl, setCoverUrl] = useState(values?.coverUrl ?? "");
+  const required = canEdit && !addFormatsOnly ? REQUIRED_FIELDS : [];
+  // The catalog's title, subtitle and ISBN; and for a book already in the
+  // library, the reader's details too, which adding again doesn't change.
+  const lockCatalog = !canEdit || addFormatsOnly;
+  const lockReader = addFormatsOnly;
 
-  // Cancelling the submit skips the action, so the form isn't remounted and
-  // keeps what was typed.
+  useEffect(() => {
+    onPendingChange?.(isPending);
+  }, [isPending, onPendingChange]);
+
   const handleSubmit = (event: SubmitEvent<HTMLFormElement>) => {
-    const formData = new FormData(event.currentTarget);
-    const empty = REQUIRED_FIELDS.filter(({ name }) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const empty = required.filter(({ name }) => {
       const value = formData.get(name);
       return typeof value !== "string" || !value.trim();
     });
     setMissing(empty.map(({ name }) => name));
-    if (empty.length === 0) return;
-
-    event.preventDefault();
-    for (const { label } of empty) {
-      toast.add({ description: `${label} is required.`, type: "error" });
+    if (empty.length > 0) {
+      for (const { label } of empty) {
+        toast.add({ description: `${label} is required.`, type: "error" });
+      }
+      const firstEmpty = form.elements.namedItem(empty[0].name);
+      if (firstEmpty instanceof HTMLElement) firstEmpty.focus();
+      return;
     }
-    const firstEmpty = event.currentTarget.elements.namedItem(empty[0].name);
-    if (firstEmpty instanceof HTMLElement) firstEmpty.focus();
+
+    startTransition(async () => {
+      const result = await submit(formData);
+      if (result.error) toast.add({ description: result.error, type: "error" });
+      if (!result.ok) return;
+      if (result.message) toast.add({ description: result.message });
+      // A new add starts empty; an edit closes instead.
+      if (!editing) {
+        setSubmission((count) => count + 1);
+        setCoverUrl(values?.coverUrl ?? "");
+      }
+      onDone?.();
+    });
   };
 
   const handleChange = (event: ChangeEvent<HTMLFormElement>) => {
@@ -71,36 +166,83 @@ export default function AddBookForm({ defaultIsbn }: Readonly<{ defaultIsbn?: st
     if (name === "isbn" && event.target instanceof HTMLInputElement) {
       applyIsbnFormat(event.target);
     }
+    if (name === "coverUrl" && event.target instanceof HTMLInputElement) {
+      setCoverUrl(event.target.value.trim());
+    }
   };
 
-  useEffect(() => {
-    if (state.error) {
-      toast.add({ description: state.error, type: "error" });
-    } else if (state.message) {
-      toast.add({ description: state.message });
-    }
-  }, [state]);
+  const formats = (
+    <FormatsField
+      defaultValues={values?.formats}
+      audioLength={values}
+      withLength={!addFormatsOnly}
+      onOwnedChange={setOwned}
+    />
+  );
+  // When you got it, if you remember: a year alone is fine. Only an owned
+  // book was acquired, so this shows once a format is ticked.
+  const acquired = owned && (
+    <PartialDateField
+      name='acquired'
+      legend='Acquired'
+      values={{
+        acquiredDay: values?.acquiredDay,
+        acquiredMonth: values?.acquiredMonth,
+        acquiredYear: values?.acquiredYear,
+      }}
+    />
+  );
+  const submitButton = !formId && (
+    <Field orientation='horizontal' className='flex justify-end'>
+      <Button type='submit' size='lg' disabled={isPending}>
+        {isPending ? <Loader className='spin-in' /> : submitLabel}
+      </Button>
+    </Field>
+  );
 
   return (
     <form
-      key={state.submission}
-      action={formAction}
+      key={submission}
+      id={formId}
       onSubmit={handleSubmit}
       onChange={handleChange}
       noValidate
+      className="max-w-200"
     >
+      {Object.entries(hidden).map(([name, value]) => (
+        <input key={name} type='hidden' name={name} value={value} />
+      ))}
       <FieldGroup>
+        {header}
+        <div className='flex gap-3'>
+          <BookCover
+            src={coverUrl}
+            width={100}
+            height={160}
+          />
+          <TextField
+            name='coverUrl'
+            id={`${uid}-coverUrl`}
+            label='Cover image URL'
+            defaultValue={values?.coverUrl}
+            disabled={lockReader}
+          />
+        </div>
         <TextField
           name='title'
+          id={`${uid}-title`}
           label='Title'
           required
           invalid={missing.includes("title")}
           defaultValue={values?.title}
+          disabled={lockCatalog}
         />
         <TextField
           name='subtitle'
+          id={`${uid}-subtitle`}
           label='Subtitle'
           defaultValue={values?.subtitle}
+          disabled={lockCatalog}
           info={
             <div className='flex flex-col justify-start'>
               <p>
@@ -123,47 +265,61 @@ export default function AddBookForm({ defaultIsbn }: Readonly<{ defaultIsbn?: st
         />
         <TextField
           name='authors'
+          id={`${uid}-authors`}
           label='Authors'
           required
           invalid={missing.includes("authors")}
           hint='Separate several authors with a semicolon.'
           defaultValue={values?.authors}
+          disabled={lockReader}
         />
 
-        <div className='grid grid-cols-2 gap-5'>
-          <FormatsField defaultValues={values?.formats} audioLength={values} onOwnedChange={setOwned} />
+        {addFormatsOnly ? (
+          formats
+        ) : (
+          <div className='grid grid-cols-2 gap-5'>
+            {formats}
 
-          <StatusField values={values} />
-        </div>
-
-        {/* When you got it, if you remember: a year alone is fine. */}
-        {/* Only an owned book was acquired, so this shows once a format is ticked. */}
-        {owned && (
-          <PartialDateField
-            name='acquired'
-            legend='Acquired'
-            values={{ acquiredDay: values?.acquiredDay, acquiredMonth: values?.acquiredMonth, acquiredYear: values?.acquiredYear }}
-          />
+            <StatusField
+              values={values}
+              current={editing}
+              pastReads={editing ? book?.pastReads : undefined}
+            />
+          </div>
         )}
 
-        <TextField name='isbn' label='ISBN' defaultValue={values?.isbn ?? defaultIsbn} />
+        {acquired}
+
+        <TextField
+          name='isbn'
+          id={`${uid}-isbn`}
+          label='ISBN'
+          defaultValue={values?.isbn ?? defaultIsbn}
+          disabled={lockCatalog}
+        />
         <TextField
           name='pageCount'
+          id={`${uid}-pageCount`}
           label='Pages'
           inputMode='numeric'
           defaultValue={values?.pageCount}
+          disabled={lockReader}
         />
-        <TextField
-          name='coverUrl'
-          label='Cover image URL'
-          defaultValue={values?.coverUrl}
-        />
+        {addFormatsOnly ? (
+          <FieldDescription>
+            Adding it again only adds the formats you tick, and the acquired
+            date when it's earlier than the one you have.
+          </FieldDescription>
+        ) : (
+          !canEdit && (
+            <FieldDescription>
+              Authors, cover and pages only change for you. Leave one empty to
+              go back to the original.
+            </FieldDescription>
+          )
+        )}
 
-        <Field orientation='horizontal' className='flex justify-end'>
-          <Button type='submit' size='lg' disabled={isPending}>
-            {isPending ? <Loader className='spin-in' /> : "Add book"}
-          </Button>
-        </Field>
+        {submitButton}
       </FieldGroup>
     </form>
   );

@@ -6,21 +6,11 @@
 // load them on the server, since it never sees the query string.
 import { toast } from "@/components/ui/toast";
 import { loadShelf } from "@/server/library/library.controller";
-import { parseShelfFilters, type ShelfFilters, searchParamsRecord, shelfHref } from "@/server/library/shelf-filters";
+import { parseShelfFilters, searchParamsRecord, shelfHref } from "@/server/library/shelf-filters";
 import type { ShelfType, UserType } from "@/types";
 import { useSearchParams } from "next/navigation";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
-
-type BooksContextProps = {
-  user: UserType;
-  filters: ShelfFilters;
-  // Null until the first load finishes. While a new load runs, the last shelf
-  // stays, so the page doesn't flash empty.
-  shelf: ShelfType | null;
-  isLoading: boolean;
-  // Loads the shelf again, after a change the URL doesn't show (a move, an edit).
-  refresh: () => void;
-};
+import type { BooksContextProps } from "@/types/ui.type";
 
 const booksContext = createContext<BooksContextProps | null>(null);
 

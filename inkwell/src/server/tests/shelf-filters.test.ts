@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { moveDateValues, moveTargets, pageHolding, pageLinks, parsePageSize, parseShelfFilters, resolvePageSize, searchParamsRecord, shelfHref } from "@/server/library/shelf-filters";
+import { moveDateValues, moveTargets, OWNED_SHELF, SHELF_TABS, pageHolding, pageLinks, parsePageSize, parseShelfFilters, resolvePageSize, searchParamsRecord, shelfHref } from "@/server/library/shelf-filters";
 import { ReadingStatus } from "@/generated/prisma/enums";
 
 describe("parseShelfFilters", () => {
   it("defaults to TBR with no filters", () => {
-    expect(parseShelfFilters({})).toEqual({ shelf: "tbr", status: "TO_READ", formats: [], search: "", page: 1, sort: "acquired-desc" });
+    expect(parseShelfFilters({})).toEqual({ shelf: "tbr", status: "TO_READ", owned: false, formats: [], search: "", page: 1, sort: "acquired-desc" });
   });
 
   it.each([
@@ -196,21 +196,34 @@ describe("sort", () => {
 
   it.each(["read-desc", "read-asc"])("reads sort=%s on Finished only", (sort) => {
     expect(parseShelfFilters({ shelf: "finished", sort }).sort).toBe(sort);
-    for (const shelf of ["tbr", "wishlist", "reading", "dnf"]) {
-      expect(parseShelfFilters({ shelf, sort }).sort).toBe("acquired-desc");
+    expect(parseShelfFilters({ shelf: "tbr", sort }).sort).toBe("acquired-desc");
+    for (const shelf of ["wishlist", "reading", "dnf"]) {
+      expect(parseShelfFilters({ shelf, sort }).sort).toBe("added-desc");
     }
   });
 
   it.each(["", "added", "acquired", "title", "read", "__proto__"])("falls back to the shelf's default for %j", (sort) => {
     expect(parseShelfFilters({ sort }).sort).toBe("acquired-desc");
     expect(parseShelfFilters({ shelf: "finished", sort }).sort).toBe("read-desc");
+    expect(parseShelfFilters({ shelf: "reading", sort }).sort).toBe("added-desc");
   });
 
-  it("defaults Finished to newest read and every other shelf to newest purchase", () => {
-    expect(parseShelfFilters({ shelf: "finished" }).sort).toBe("read-desc");
-    for (const shelf of ["tbr", "wishlist", "reading", "dnf"]) {
-      expect(parseShelfFilters({ shelf }).sort).toBe("acquired-desc");
-    }
+  it.each([
+    ["finished", "read-desc"],
+    ["tbr", "acquired-desc"],
+    ["owned", "acquired-desc"],
+    ["wishlist", "added-desc"],
+    ["reading", "added-desc"],
+    ["dnf", "added-desc"],
+  ])("defaults %s to %s, and leaves it out of links", (shelf, sort) => {
+    expect(parseShelfFilters({ shelf }).sort).toBe(sort);
+    expect(shelfHref({ shelf, formats: [], search: "", sort: sort as never })).toBe(`/books/shelves?shelf=${shelf}`);
+  });
+
+  it("keeps a non-default sort in a link for Reading", () => {
+    expect(shelfHref({ shelf: "reading", formats: [], search: "", sort: "acquired-desc" })).toBe(
+      "/books/shelves?shelf=reading&sort=acquired-desc",
+    );
   });
 
   it("keeps the sort in shelf links, leaving out the shelf's own default", () => {
@@ -226,5 +239,49 @@ describe("sort", () => {
 
   it("ignores the old acquired filter in a URL", () => {
     expect(parseShelfFilters({ acquired: "2024" })).not.toHaveProperty("acquired");
+  });
+});
+
+describe("the Owned shelf", () => {
+  it("reads shelf=owned as every list, owned books only", () => {
+    expect(parseShelfFilters({ shelf: "owned" })).toEqual({
+      shelf: "owned",
+      status: undefined,
+      owned: true,
+      formats: [],
+      search: "",
+      page: 1,
+      sort: "acquired-desc",
+    });
+  });
+
+  it("keeps search, formats, page size, paging and sort", () => {
+    const filters = parseShelfFilters({ shelf: "owned", format: ["AUDIO"], q: "dune", per: "50", page: "3", sort: "title-asc" });
+    expect(filters).toMatchObject({ owned: true, formats: ["AUDIO"], search: "dune", perPage: 50, page: 3, sort: "title-asc" });
+    const href = shelfHref(filters);
+    expect(href).toBe("/books/shelves?shelf=owned&format=AUDIO&q=dune&per=50&sort=title-asc&page=3");
+    expect(parseShelfFilters(searchParamsRecord(new URL(href, "http://x").searchParams))).toEqual(filters);
+  });
+
+  it("opens on newest purchase and never sorts by read dates", () => {
+    expect(shelfHref({ shelf: "owned", formats: [], search: "", sort: "acquired-desc" })).toBe("/books/shelves?shelf=owned");
+    for (const sort of ["read-desc", "read-asc"]) {
+      expect(parseShelfFilters({ shelf: "owned", sort }).sort).toBe("acquired-desc");
+    }
+  });
+
+  it("is a tab after the five lists", () => {
+    expect(SHELF_TABS.map(({ slug }) => slug)).toEqual(["tbr", "wishlist", "reading", "finished", "dnf", "owned"]);
+  });
+
+  it("is never offered as a move target", () => {
+    for (const status of Object.values(ReadingStatus)) {
+      const targets = moveTargets({ status, formats: ["EBOOK"] }).map(({ slug }) => slug);
+      expect(targets).not.toContain(OWNED_SHELF.slug);
+    }
+  });
+
+  it("leaves the five lists unowned-only", () => {
+    expect(parseShelfFilters({ shelf: "tbr" }).owned).toBe(false);
   });
 });

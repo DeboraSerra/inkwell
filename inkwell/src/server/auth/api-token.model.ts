@@ -1,5 +1,6 @@
 import "server-only";
-import { prisma, type Db } from "@/server/db";
+import { prisma } from "@/server/db";
+import type { Db } from "@/types/server.type";
 
 export function createApiToken(
   data: { userId: string; name: string; tokenHash: string; prefix: string },

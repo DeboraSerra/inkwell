@@ -5,7 +5,7 @@
 // with no pattern that could backtrack, and dropped unless it reads as one
 // real, past date.
 import { DatePrecision } from "@/generated/prisma/enums";
-import type { PartialDate } from "@/server/library/partial-date.rules";
+import type { PartialDate } from "@/types/dates.type";
 
 const MAX_TEXT_LENGTH = 120;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;

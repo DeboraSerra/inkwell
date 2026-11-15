@@ -1,19 +1,14 @@
 import "server-only";
 import { MetadataSource } from "@/generated/prisma/enums";
-import type { Tx } from "@/server/db";
 import { NotFoundError } from "@/server/errors";
 import * as bookModel from "./book.model";
+import { catalogBlanksFrom } from "./catalog-blanks.rules";
 import { authorSearchText, dedupeKey } from "./dedupe";
-import type { BookMetadata } from "@/server/metadata/metadata.types";
+import { findDescription, findDescriptionByIsbn } from "@/server/metadata/metadata.service";
 import { cleanIsbn, toIsbn13 } from "./isbn";
-
-export type BookIdentity = {
-  asin?: string | null;
-  isbn13?: string | null;
-  isbn10?: string | null;
-  title: string;
-  authors: string[];
-};
+import type { AmazonBookDetails, AmazonDocDetails, BookIdentity, CatalogBookIds, CatalogDetails, DescribedBook, ManualBookDetails } from "@/types/books.type";
+import type { BookMetadata } from "@/types/metadata.type";
+import type { Tx } from "@/types/server.type";
 
 // Finds a catalog book matching any identifier, strongest first:
 // ASIN, then ISBN (either format), then normalized title + authors' surnames.
@@ -36,15 +31,6 @@ export async function findExistingBook(identity: BookIdentity, tx?: Tx) {
 
   return bookModel.findBookByDedupeKey(dedupeKey(identity.title, identity.authors), tx);
 }
-
-export type ManualBookDetails = {
-  title: string;
-  authors: string[];
-  subtitle?: string;
-  coverUrl?: string;
-  pageCount?: number;
-  isbn?: string;
-};
 
 // The catalog is shared, so a match is reused as it is: what one user typed or
 // imported never overwrites details other users see.
@@ -85,24 +71,17 @@ export function findOrCreateManualBook(details: ManualBookDetails, tx?: Tx) {
   );
 }
 
-export type AmazonBookDetails = {
-  asin?: string;
-  title: string;
-  authors: string[];
-  coverUrl?: string;
-};
-
-export type AmazonDocDetails = {
-  title: string;
-  authors: string[];
-  coverUrl?: string;
-};
-
-// A personal document belongs to one user, so it's only ever matched against
-// their own documents. It has no ASIN: identifiers are for the shared catalog.
+// A personal document is matched in order: a book already in the reader's
+// library, then their own private documents, then the shared catalog, so a
+// document that is a published book (a PDF of a novel) uses the shared book,
+// as the user decided. Only a document with no match becomes a new private
+// book. It has no ASIN: identifiers are for the shared catalog.
 export async function findOrCreateAmazonDoc(ownerId: string, details: AmazonDocDetails, tx?: Tx) {
   const key = dedupeKey(details.title, details.authors);
-  const existing = await bookModel.findOwnedBookByDedupeKey(ownerId, key, tx);
+  const existing =
+    (await bookModel.findLibraryBookByDedupeKey(ownerId, key, tx)) ??
+    (await bookModel.findOwnedBookByDedupeKey(ownerId, key, tx)) ??
+    (await bookModel.findBookByDedupeKey(key, tx));
   if (existing) return existing;
 
   const created = await bookModel.createBook(
@@ -155,16 +134,49 @@ export function findOrCreateMetadataBook(metadata: BookMetadata, tx?: Tx) {
   );
 }
 
-type CatalogBook = { id: string; ownerId: string | null; isbn13: string | null; isbn10: string | null };
-
 // A book matched by title and author may have no ISBN yet. Filling that blank
 // (never overwriting) lets later lookups and imports match it by ISBN. It's a
 // best-effort extra, so it runs outside the add's transaction and a clash
 // with another book's ISBN just skips it.
-export async function fillMissingIsbn(book: CatalogBook, metadata: BookMetadata) {
+export async function fillMissingIsbn(book: CatalogBookIds, metadata: BookMetadata) {
   if (book.ownerId || book.isbn13 || !metadata.isbn13) return false;
   return bookModel.fillBookIsbn(book.id, {
     isbn13: metadata.isbn13,
     ...(book.isbn10 || !metadata.isbn10 ? {} : { isbn10: metadata.isbn10 }),
   });
+}
+
+// A provider record that matched a catalog book fills that book's blank
+// details (authors, cover, pages…), never overwriting one, so a book first
+// added from a poor record gets better as better records are added. Only
+// provider records do this; manual adds and imports never touch the catalog.
+// Best effort, like the ISBN fill.
+export async function fillMissingDetails(book: CatalogDetails & { id: string }, metadata: BookMetadata) {
+  const blanks = catalogBlanksFrom(book, metadata);
+  if (Object.keys(blanks).length === 0) return false;
+  try {
+    return await bookModel.fillBookBlanks(book.id, blanks);
+  } catch (error) {
+    console.warn("Filling a catalog book's details failed", error);
+    return false;
+  }
+}
+
+// Saves the synopsis of a book just added by search or ISBN, when the shared
+// book has none: from the provider record it was found with, or, for a
+// catalog book reused by its ISBN, from the first provider that has one. Run
+// after the add's response is sent; it never overwrites, skips private books,
+// and logs rather than throws, so it can't fail an add.
+export async function fillMissingDescription(book: DescribedBook, metadata?: BookMetadata) {
+  if (book.ownerId || book.description) return false;
+  try {
+    const description = metadata
+      ? await findDescription(metadata)
+      : book.isbn13 && (await findDescriptionByIsbn(book.isbn13));
+    if (!description) return false;
+    return await bookModel.fillBookDescription(book.id, description);
+  } catch (error) {
+    console.warn("Saving a book's synopsis failed", error);
+    return false;
+  }
 }

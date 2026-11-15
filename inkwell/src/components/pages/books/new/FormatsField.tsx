@@ -1,7 +1,7 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { AudioLengthField } from "@/components/AudioLengthField";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
@@ -31,6 +31,8 @@ export function FormatsField({
   withLength?: boolean;
   onOwnedChange?: (owned: boolean) => void;
 }>) {
+  // Unique per form: the add page keeps several forms mounted at once.
+  const uid = useId();
   const [ticked, setTicked] = useState<string[]>(() => defaultValues ?? []);
   const audio = ticked.includes(BookFormat.AUDIO);
 
@@ -57,13 +59,13 @@ export function FormatsField({
         {FORMATS.map(({ value, label }) => (
           <Field key={value} orientation='horizontal' className='w-auto'>
             <Checkbox
-              id={`format-${value}`}
+              id={`${uid}-format-${value}`}
               name='formats'
               value={value}
               defaultChecked={defaultValues?.includes(value)}
               onCheckedChange={(checked) => toggle(value, checked)}
             />
-            <FieldLabel htmlFor={`format-${value}`} className='font-normal'>
+            <FieldLabel htmlFor={`${uid}-format-${value}`} className='font-normal'>
               {label}
             </FieldLabel>
           </Field>

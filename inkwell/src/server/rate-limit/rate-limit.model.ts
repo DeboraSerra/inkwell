@@ -1,7 +1,7 @@
 import "server-only";
-import { prisma, type Db } from "@/server/db";
-
-export type RateLimitCount = { count: number; windowStart: Date };
+import { prisma } from "@/server/db";
+import type { RateLimitCount } from "@/types/rate-limit.type";
+import type { Db } from "@/types/server.type";
 
 // Counts one request in the user's current window, atomically, and returns the
 // new count. A window older than `windowSeconds` starts over at 1. Both the

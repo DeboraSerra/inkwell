@@ -1,7 +1,6 @@
+import type { DomainErrorCode } from "@/types/server.type";
 // Errors thrown by services. Controllers turn them into HTTP statuses or form
 // messages using `code`, so services never deal with transport concerns.
-
-export type DomainErrorCode = "NOT_FOUND" | "INVALID" | "UNAUTHORIZED" | "RATE_LIMITED";
 
 export class DomainError extends Error {
   constructor(

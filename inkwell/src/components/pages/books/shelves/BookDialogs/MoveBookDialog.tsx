@@ -1,7 +1,7 @@
 "use client";
 
 import { ReadingStatus } from "@/generated/prisma/enums";
-import type { ShelfBook } from "@/server/library/library.service";
+import type { ShelfBook } from "@/types/books.type";
 import { moveDateValues } from "@/server/library/shelf-filters";
 import { LIST_NAMES } from "@/server/library/status.rules";
 import { type SubmitEvent, useId, useTransition } from "react";

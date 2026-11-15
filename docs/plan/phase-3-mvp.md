@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: ✅ 3a–3d done; ✅ the DNF, `&amp;` and shelf-search fixes are built and the backfill is run locally and on Supabase (a signed-in browser check still needs you); ⏭️ next: 3e, then 3f.** 3a to 3d are committed, and the ["Done when"](#done-when) list was checked on 2026-11-08 (see "Checked" under it). The Docs-tab issue found during that check is fixed in the extension, but the fix hasn't been run on the real page yet.
+**Status: ✅ closed on 2026-11-15.** 3a–3g and every fix and change are built. The user checked the signed-in, Chrome, deploy, upload and re-import steps on 2026-11-15. See ["Closed"](#closed-2026-11-15) under "Done when". One deploy is still owed: the latest Docs change ("Change: documents reuse the shared catalog").
 
 Goal: add books manually or through the Chrome extension, move them between lists, and browse them with filters.
 
@@ -421,6 +421,7 @@ Added at the user's request on 2026-11-08, after the extension's store build was
    - **✅ Built (2026-11-14):**
      - **Rules:** `library/read-label.rules.ts` (pure) has `formatPartialDate` and `readDatesLabel(status, read)`.
        - **Years show their last two digits, at the user's request:** "24", "Oct 24", "5 Oct 25", and "05" for 2005. Read in UTC.
+         - **Changed on 2026-11-15 (see "Change: a year alone shows in full" below):** a date known only to the year shows the full year, "2024", not "24".
        - **Wording, as the user changed it:** Reading and Finished show bare dates ("5 Oct 25", "5 Oct 25 – 12 Nov 25", "Nov 25"), without "Started" or "Finished". DNF keeps "Started … · Stopped …".
        - A read with no dates, and every Wishlist or TBR book, shows nothing.
      - **Data:** `ShelfBook` gets `latestRead` (only the known dates, each with its precision) and `earlierReads`, the number of other reads. Both come from the reads the shelf query already loads, so there's no extra query.
@@ -515,6 +516,7 @@ Added at the user's request on 2026-11-08, after the extension's store build was
      - **Still to do by the user:**
        - Load `dist/package/` unpacked in Chrome and run one import against the deployed site.
        - Upload the zip.
+       - **✅ Done by the user on 2026-11-15** (the screenshot retaken, and 2.3.0 uploaded).
 12. **Tests**, the same way as the Docs-tab fix and the store build:
    - Run the real `app.js` and `options.html` on temporary pages with a stand-in for Chrome's API. Cover: the account shown in the dialog, a 401 and an unreachable site stopping before scraping, batch errors keeping their wording, and the options page in both builds.
    - A visual check of the options page in light and dark.
@@ -628,7 +630,7 @@ So the purchase date gets its own column.
   - The edit dialog clears the date when the field is emptied.
   - **Shown only while a format is ticked,** at the user's request, since only an owned book was acquired. `FormatsField` reports whether any format is ticked (`onOwnedChange`, on mount too, so the add form's remount after a submit starts in step). The edit dialog tracks its own checkboxes and starts over each time it opens. The server matches: `parseAcquired(formats, …)` ignores the date with no format, so an edit that unticks every format clears it. Checked in the browser on a temporary page.
 - **✅ Shelves, as the user chose:** a sort menu kept in the URL as `?sort=`:
-  - **Defaults, chosen by the user:** Finished opens on Read newest first, and every other shelf on Purchase newest first (`defaultSortFor`). The default is left out of the URL. Shelf tabs don't carry the sort, so each shelf opens on its own default. Within a shelf, filters, search and paging keep the chosen order.
+  - **Defaults, chosen by the user:** Finished opens on Read newest first, and every other shelf on Purchase newest first (`defaultSortFor`). **Changed on 2026-11-15, at the user's request:** Wishlist, Reading and DNF now open on Newest added; TBR and Owned stay on Purchase newest first, and Finished on Read newest first. The default is left out of the URL. Shelf tabs don't carry the sort, so each shelf opens on its own default. Within a shelf, filters, search and paging keep the chosen order.
   - Added newest first (`added-desc`) and oldest first (`added-asc`).
   - Purchase newest first (`acquired-desc`) and oldest first (`acquired-asc`), with books with no purchase date last either way.
   - Title A to Z (`title-asc`) and Z to A (`title-desc`), by the catalog title.
@@ -660,12 +662,135 @@ So the purchase date gets its own column.
     2. Load `dist/package/` in Chrome and run one import, on both the Books and Docs tabs.
     3. Upload the 2.3.0 zip, once 2.2.0's review allows, or after cancelling that pending review.
     4. Run one import over the whole library, so books already imported get their purchase dates.
+  - **✅ All four done by the user on 2026-11-15.**
 - **Not verified:** the shelf controls and the forms signed in.
 
 **Done when:**
 - Importing from Amazon saves each book's purchase date, and re-importing fills it in for books already imported, without reordering the shelves.
 - A book added by hand can have an acquired date, including just a year.
 - The shelves can be sorted by purchase date, either way round (the year filter was dropped at the user's request).
+
+## Fix: re-importing Docs duplicates documents ✅ done
+
+Reported by the user on 2026-11-14: running the extension again on the Docs tab added a second copy of documents already in the library, on TBR, including ones already moved to Finished.
+
+**What happened.** Read on Supabase without changing anything:
+- **88 duplicated documents.** Each original is a *shared* catalog book with no ASIN, 51 on Finished and 37 on TBR. Each copy is a new *private* book with the same title, authors and dedupe key, on TBR. All came from Amazon imports.
+- **Five other same-title pairs** have different ASINs and authors (for example two *The Great Gatsby* editions). They're different books and aren't part of this.
+
+**Cause.** `findOrCreateAmazonDoc` (`books/book.service.ts`) only looks for a match among the user's own *private* books (`findOwnedBookByDedupeKey`). These documents were imported as shared books: either before private documents existed (the Nov 1 run), or on Nov 8, when the Docs tab wasn't recognised. That's the "still to decide" item under "Checked (2026-11-08)". The Docs import never sees the shared copy already in the library, so it creates a private book. That's a different `bookId`, so `addBookToLibrary` adds a second library entry on the shelf the formats call for, which is TBR.
+
+**Fix:**
+1. **Match the reader's own library first.** Before creating a private book, `findOrCreateAmazonDoc` reuses a book *already in this user's library* with the same dedupe key, whether shared or private. Then a re-import only adds formats, and the acquired date when it's earlier, as for any book. Never match another user's shared books by title here, so documents stay private for new imports.
+   - Model: a lookup such as `findLibraryBookByDedupeKey(userId, dedupeKey)` on `Book` joined through `UserBook` with `userId`, preferring the user's private copy, then the oldest.
+2. **Clean up the 88 pairs,** with a one-off script modelled on the earlier backfills (`prisma/merge-duplicate-docs.ts`). It changes data, so it runs only with the user's go-ahead: on the local database first if it has any, then on Supabase. A dry run lists every pair first. For each pair:
+   - **Keep the original library entry,** with its status, reads, `addedAt` and place on the shelf, and merge the copy's formats into it.
+   - **Keep the earlier acquired date** of the two.
+   - **Delete the duplicate library entry,** which has no reads of its own (the script checks that, and skips any pair where it isn't true).
+   - **Decide with the user which book the kept entry points to.** This settles the open Nov 1 question:
+     - *Keep it on the shared book,* which changes the least.
+     - Or *point it at the private copy,* so the document becomes private as intended, then delete the shared catalog book if no other user has it.
+   - It's idempotent, and it reports how many pairs were merged and skipped.
+3. **Tests:**
+   - The service: a Docs re-import reuses a shared book already in the reader's library, reuses a private one, and never matches a shared book only another user has.
+   - The script: on throwaway rows, a pair is merged once and a second run changes nothing.
+   - An import run twice on the same Docs page adds nothing the second time.
+
+**Done when:** re-running the extension on the Docs tab adds no copies, and the 88 duplicates are merged into the originals, with the original shelves and reads kept.
+
+### Outcome (2026-11-15)
+
+- **✅ Match the reader's library first:** `findOrCreateAmazonDoc` now tries `findLibraryBookByDedupeKey(userId, dedupeKey)` (`books/book.model.ts`), which only matches books already in this reader's library, shared or their own private copy, private first, then the oldest. It then falls back to the owner's private books, then creates a private one. A shared book that only other readers have never matches, so new documents stay private.
+- **✅ Merge script:** `prisma/merge-duplicate-docs.ts [--dry-run]`. The user chose to **point the kept entry at the private copy**. The pairing and merge logic is pure, in `imports/duplicate-docs.rules.ts`. For each reader and dedupe key, the original is the entry on a shared book with no ASIN, and the copy is the entry on that reader's private book. For each pair, in one transaction:
+  - The copy's entry is deleted.
+  - The original's entry keeps its status, reads and `addedAt`, gains the copy's formats (Wishlist → TBR if that gives it a first format), keeps the earlier purchase date, and moves to the private book.
+  - The shared book is deleted if nobody else has it in their library.
+  - Each write checks that the row hasn't changed since the plan was read, and throws if it has.
+  - It skips (and reports) a key with more than one copy on either side, or a copy with reads of its own. Books with an ASIN and other users' books are ignored. A second run finds nothing, because a merged pair is no longer a pair.
+- **✅ Tests:**
+  - `book.service.test.ts`: library match first, then own documents, never the shared catalog; a second run reuses the first run's document.
+  - `book.model.test.ts`: the new lookup is scoped to this reader's library and excludes other users' private books.
+  - `duplicate-docs.rules.test.ts`: kept status and reads, formats, purchase dates, every skip, per-reader pairing, and a second run changing nothing.
+  - `imports.service.test.ts`: a Docs page imported twice adds nothing the second time.
+- **Deviation:** the script is tested through its pure rules (with a simulated second run), not on throwaway database rows.
+- **Run locally:** a dry run on the local database found 0 pairs, so there was nothing to merge there.
+- **Supabase:** the user merged the duplicates by hand on 2026-11-15, so the script wasn't run there. It stays in `prisma/` for any copies found later; a dry run should now find none.
+- **✅ Checked by the user on 2026-11-15:** deployed, and a Docs re-import added nothing.
+
+## Change: documents reuse the shared catalog ✅ done (2026-11-15)
+
+Decided by the user on 2026-11-15, after the Docs fix. It answers the open Nov 1 question and replaces the "never match another user's shared books here" line in the fix above.
+
+- **Rule:** a Docs import uses a matching shared catalog book when one exists, instead of creating a private one. Only a document with no match becomes private.
+- **Order in `findOrCreateAmazonDoc`:** the reader's library (`findLibraryBookByDedupeKey`), then their own private documents (`findOwnedBookByDedupeKey`), then the shared catalog (`findBookByDedupeKey`, which never returns private books), and only then a new private book.
+- **The Nov 1 documents** are shared books already in the reader's library, so they match first and stay as they are. No data is changed.
+- **Briefly built, then dropped:** a version that made matched shared books private (claiming the book, or moving the entry to a private copy). The user redirected before it was finished, and it was removed.
+- **Tests (`book.service.test.ts`):** a catalog match is used rather than creating a book; the reader's own documents come before the catalog; the three lookups run in order; a book is created only when nothing matches.
+- **Still to do by the user:** deploy.
+
+## Change: a year alone shows in full ✅ done
+
+Asked by the user on 2026-11-14. On shelf cards, a date known only to the year shows two digits ("24"), which reads like a day.
+
+1. **Rule:** in `formatPartialDate` (`library/read-label.rules.ts`), a date with `YEAR` precision shows the full year ("2024", "Started 2019", "Stopped 2024"). Dates with a month or a day keep the two-digit year, as now ("Oct 24", "5 Oct 25").
+2. **Ranges:** a finished read keeps each date at its own precision, so "2019 – Mar 19".
+3. **Tests:** in `read-label.rules.test.ts`, a year alone ("2024", "2000"), each status's wording with a year alone, and month and day dates unchanged.
+
+**Done when:** a card with a year-only date shows four digits, and every other date looks as it does now.
+
+### Outcome (2026-11-15)
+
+- **✅ Rule:** `formatPartialDate` returns the full year for `YEAR` precision; month and day dates keep the two-digit year. It's the only formatter for shelf-card read dates, so Reading, Finished and DNF all pick it up.
+- **✅ Ranges:** each end keeps its own precision ("2019 – Mar 19", "2018 – 2019").
+- **✅ Tests:** `read-label.rules.test.ts` covers "2024" and "2000", Reading, Finished and DNF ("Started 2019", "Stopped 2024") with a year alone, both range shapes, and the unchanged month and day cases.
+- **Deviations:** none. Not checked in the browser: there's no signed-in session for the dev server, and the label comes straight from the tested rule.
+
+## 3g — An "Owned" shelf ✅ done
+
+Asked by the user on 2026-11-14: a shelf with every book owned in at least one format, whatever its status: not started (TBR), Reading, Finished or DNF. Wishlist books aren't owned by definition, so they never appear.
+
+**It's a view, not a list.** The five lists are still `UserBook.status`, and nothing new is stored. "Owned" is the same query with no status filter and `formats` not empty. The domain rule "there are five lists, and the list is the status" stays true; AGENTS.md should say Owned is a cross-list view.
+
+1. **Filters (`shelf-filters.ts`):**
+   - Add `{ slug: "owned", label: "Owned" }` as a tab after the five lists. `?shelf=owned` keeps working with search, the format filters (any of the ticked formats), books per page and paging.
+   - `ShelfFilters.status` becomes optional, or a list: none means every status. Keep the five lists where code needs a real status.
+2. **Query (`library.model.ts`, `library.service.ts`):** "owned" sends `formats: { isEmpty: false }` (or the ticked formats) and no status. The count and the listing use the same filter.
+3. **Places that assume one status per shelf:**
+   - **Tabs:** add Owned. Each shelf opens on its own default sort.
+   - **Sort:** default Purchase newest first. The "Read" orders stay Finished-only.
+   - **"Mark as" on a card** (`moveTargets`) lists only the five lists, never Owned.
+   - **"Move selected to"** offers all five lists. Books already on the chosen list are skipped and reported, as now.
+   - **A move or edit** leaves a book on Owned while it keeps a format. Unticking its last format takes it off Owned, and a not-started book then moves to the Wishlist, as the rules already say.
+   - **Empty state:** "You don't own any books yet", or "No owned books match these filters".
+4. **Cards:** since the shelf mixes lists, each card shows a small badge with its list (TBR, Reading, Finished, DNF), only on Owned. The read dates on cards already follow each book's status.
+5. **Tests:** parsing `?shelf=owned`, the query (no status, formats not empty), the count, the menus never offering Owned as a target, and a book leaving Owned when its last format is removed.
+
+**Done when:** an "Owned" tab lists every book owned in any format across TBR, Reading, Finished and DNF, with search, format filters, sorting and paging, and each card shows which list it's on.
+
+### Outcome (2026-11-15)
+
+- **✅ Filters (`shelf-filters.ts`):**
+  - `OWNED_SHELF` (`?shelf=owned`) and `SHELF_TABS` (the five lists, then Owned) are added. `SHELVES` stays the five lists, so `moveTargets` and "Move selected to" never offer Owned.
+  - `ShelfFilters.status` is optional (undefined on Owned), and a new `owned` flag is set only on Owned.
+  - Owned opens on Purchase, newest first, and ignores the "Read" sorts.
+- **✅ Query:** `owned` goes through `listShelfPage` to the model's `UserBookFilter`.
+  - With no ticked formats, it filters `formats: { isEmpty: false }`. Ticked formats use `hasSome`, which already implies owned.
+  - There's no status filter, and the count and the listing share the filter.
+- **✅ UI:**
+  - The tab is added.
+  - On Owned, "Move selected to" offers all five lists, since none is the current one.
+  - Empty states: "You don't own any books yet." and "No owned books match these filters."
+  - On Owned only, each card shows a small badge with its list (`BookCard`'s `showList`).
+  - Unticking a book's last format takes it off Owned on the next refresh, and a TBR book moves to the Wishlist, as `changeFormats` already does.
+- **✅ Tests:**
+  - `shelf-filters.test.ts`: parsing, links, default sort, no read sorts, tab order, never a move target.
+- **Later the same day, at the user's request:** Wishlist, Reading and DNF open on Newest added (`DEFAULT_SORTS` in `shelf-filters.ts`). Owned stays on Purchase newest first, as does TBR. Each shelf's default and its link are tested.
+  - `library.model.test.ts`: list and count with `isEmpty: false` and no status, and ticked formats.
+  - `library.service.test.ts`: Owned passed to count and listing.
+  - `library.controller.test.ts`: `loadShelf` on Owned.
+  - Losing the last format is already covered in `status.rules.test.ts`.
+- **Deviation:** the plan suggested making status "optional, or a list". It's optional, plus an explicit `owned` flag. "No status" alone already means every book, including the Wishlist, in other callers.
+- **✅ Checked by the user, signed in, on 2026-11-15.** The user later removed the list badge from the cards, and the `showList` prop went with it.
 
 ## Done when
 
@@ -696,8 +821,25 @@ The user ran six steps by hand, signed in. The local database was then read, wit
   - `/pdocs/` pre-selects Docs and sends `docs`.
   - An unknown address defaults to Books, and picking Docs by hand sends `docs`.
   - Cancel sends nothing.
-- **Still to do:** run it once on the real Docs tab, choosing Docs, and check that the documents arrive as private books.
-- **Still to decide:** whether to turn the Nov 1 documents into private books. That changes data, so it needs the user's go-ahead.
+- **✅ Done (2026-11-15):** run on the real Docs tab, choosing Docs, by the user.
+- **✅ Decided (2026-11-15):** the Nov 1 documents stay shared. Documents now reuse a matching shared book (see "Change: documents reuse the shared catalog").
 - Also fixed: a malformed closing tag in `extension/options.html` (`<output/>` instead of `</output>`).
 
 **Also found:** 80 of the 230 Amazon catalog books have no ASIN, so a re-import can only match them by title and author. They're probably from before ASIN capture.
+
+### Closed (2026-11-15)
+
+| Done when | Result |
+|---|---|
+| The phase's own list, above | ✅ Checked on 2026-11-08 (see "Checked"). Nothing since has changed that behaviour, and each item stays covered by tests. |
+| Every list on the five shelves, plus Owned, with format filters and search | ✅ The Owned tab was checked by the user, signed in. |
+| DNF moves, shelf search, `&amp;` fixes | ✅ Checked signed in by the user. The backfill was run locally and on Supabase on 2026-11-14. |
+| 3e polish (items 1–11) | ✅ Built. The user checked the copy button and books per page, retook the screenshot and uploaded the extension. Books per page also offers 5, beyond the 10, 20, 30 and 50 the list names. |
+| 3f purchase dates | ✅ The user deployed, tried and uploaded 2.3.0, and re-imported the library. |
+| Docs re-import duplicates | ✅ The 88 pairs were merged by hand on Supabase, and a Docs re-import added nothing. |
+| A year alone in full, 3g Owned shelf, default sorts per shelf | ✅ Built and checked by the user. |
+| Checks | ✅ On closing: `tsc`, lint (one known warning, `<img>` in `BookCover.tsx`), 869 tests, and the build all pass. |
+
+**Carried over:**
+- **Deploy owed:** "Change: documents reuse the shared catalog" is built but not yet deployed.
+- **Note, not a task:** 80 Amazon catalog books have no ASIN, so they only match by title and author.

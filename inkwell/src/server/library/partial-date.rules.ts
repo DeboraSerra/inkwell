@@ -1,10 +1,7 @@
 // Read dates where only the year, or the month and year, may be known. Pure
 // functions, so every rule is unit-tested without a database.
 import { DatePrecision } from "@/generated/prisma/enums";
-
-export type PartialDate = { date: Date; precision: DatePrecision };
-export type ReadDates = { started?: PartialDate; ended?: PartialDate };
-type DateParts = { day?: string; month?: string; year?: string };
+import type { DateParts, PartialDate, ReadDates } from "@/types/dates.type";
 
 const MIN_YEAR = 1000;
 const DAY_MS = 86_400_000;

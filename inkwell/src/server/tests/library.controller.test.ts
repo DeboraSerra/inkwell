@@ -6,6 +6,12 @@ import * as libraryService from "@/server/library/library.service";
 import { consumeRateLimit } from "@/server/rate-limit/rate-limit.service";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+// `after` needs a live request; here it just records what's scheduled.
+const scheduled = vi.hoisted(() => [] as (() => unknown)[]);
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (task: () => unknown) => scheduled.push(task),
+}));
 const request = vi.hoisted(() => ({ cookie: undefined as string | undefined, userAgent: "", set: vi.fn() }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({
@@ -18,7 +24,7 @@ vi.mock("@/server/auth/auth.guard");
 vi.mock("@/server/library/library.service");
 vi.mock("@/server/rate-limit/rate-limit.service");
 
-const { addBookByIsbn, addManualBook, changeBookFormats, loadShelf, lookUpIsbn, rememberShelfPageSize, changeBookStatus, editBook, moveBooks, moveBookWithDates, removeBook, removeBooks } = await import(
+const { addBookByIsbn, addManualBook, addSearchBook, previewSearchResult, changeBookFormats, loadShelf, lookUpIsbn, rememberShelfPageSize, changeBookStatus, editBook, moveBooks, moveBookWithDates, removeBook, removeBooks } = await import(
   "@/server/library/library.controller"
 );
 const service = vi.mocked(libraryService);
@@ -36,6 +42,7 @@ const PHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKi
 const DESKTOP = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
 
 beforeEach(() => {
+  scheduled.length = 0;
   vi.resetAllMocks();
   request.cookie = undefined;
   request.userAgent = DESKTOP;
@@ -344,6 +351,11 @@ describe("add by ISBN", () => {
       );
       expect(state.message).toContain("to Finished");
       expect(consumeRateLimit).toHaveBeenCalledWith("user-1", "ISBN_LOOKUP");
+      // The synopsis is saved after the response, not as part of the add.
+      expect(service.saveSynopsis).not.toHaveBeenCalled();
+      expect(scheduled).toHaveLength(1);
+      await scheduled[0]();
+      expect(service.saveSynopsis).toHaveBeenCalledWith(added(ReadingStatus.FINISHED, true));
       expect(service.addBookByIsbn).toHaveBeenCalledWith("user-1", "0441013597", {
         formats: ["EBOOK"],
         status: "FINISHED",
@@ -378,6 +390,85 @@ describe("add by ISBN", () => {
   });
 });
 
+describe("add from search", () => {
+  const preview = { title: "Old Book", authors: ["Anne"], from: "GOOGLE_BOOKS" as const, ref: { source: "GOOGLE_BOOKS" as const, sourceId: "g1" } };
+
+  describe("previewSearchResult", () => {
+    it("opens a result for the signed-in user and counts as a lookup", async () => {
+      service.previewSearchResult.mockResolvedValue(preview);
+      await expect(previewSearchResult({ source: "GOOGLE_BOOKS", sourceId: "g1" })).resolves.toEqual({ preview });
+      expect(consumeRateLimit).toHaveBeenCalledWith("user-1", "ISBN_LOOKUP");
+      expect(service.previewSearchResult).toHaveBeenCalledWith("user-1", { source: "GOOGLE_BOOKS", sourceId: "g1" });
+    });
+
+    it.each([
+      ["nothing", undefined],
+      ["an unknown source", { source: "AMAZON", sourceId: "x" }],
+      ["an id with a slash", { source: "GOOGLE_BOOKS", sourceId: "a/b" }],
+    ])("rejects %s without a lookup", async (_label, input) => {
+      await expect(previewSearchResult(input)).resolves.toEqual({ error: "Choose a search result." });
+      expect(consumeRateLimit).not.toHaveBeenCalled();
+      expect(service.previewSearchResult).not.toHaveBeenCalled();
+    });
+
+    it("shows a domain error", async () => {
+      service.previewSearchResult.mockRejectedValue(new NotFoundError("That book is no longer available."));
+      await expect(previewSearchResult({ source: "GOOGLE_BOOKS", sourceId: "g1" })).resolves.toEqual({
+        error: "That book is no longer available.",
+      });
+    });
+  });
+
+  describe("addSearchBook", () => {
+    it("adds the picked record even when an ISBN is sent, never by the ISBN", async () => {
+      service.addBookFromProvider.mockResolvedValue(added(ReadingStatus.TO_READ, true));
+      const state = await addSearchBook(
+        {},
+        form({ source: "OPEN_LIBRARY", sourceId: "OL60695609M", isbn: "9780593972717", formats: "EBOOK", title: "Fake" }),
+      );
+      expect(state.message).toContain("to TBR");
+      expect(consumeRateLimit).toHaveBeenCalledWith("user-1", "ISBN_LOOKUP");
+      expect(service.addBookFromProvider).toHaveBeenCalledWith(
+        "user-1",
+        { source: "OPEN_LIBRARY", sourceId: "OL60695609M" },
+        expect.objectContaining({ formats: ["EBOOK"] }),
+      );
+      expect(service.addBookByIsbn).not.toHaveBeenCalled();
+    });
+
+    it("adds a result without an ISBN by its provider record", async () => {
+      service.addBookFromProvider.mockResolvedValue(added(ReadingStatus.WISHLIST, true));
+      const state = await addSearchBook({}, form({ source: "GOOGLE_BOOKS", sourceId: "g1" }));
+      expect(state.message).toContain("to Wishlist");
+      expect(scheduled).toHaveLength(1);
+      expect(service.addBookFromProvider).toHaveBeenCalledWith(
+        "user-1",
+        { source: "GOOGLE_BOOKS", sourceId: "g1" },
+        expect.objectContaining({ formats: [] }),
+      );
+      expect(service.addBookByIsbn).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["no source", { sourceId: "g1" }],
+      ["a bad id", { source: "GOOGLE_BOOKS", sourceId: "../x" }],
+      ["a bad format", { source: "GOOGLE_BOOKS", sourceId: "g1", formats: "SCROLL" }],
+    ])("rejects %s and keeps the choices", async (_label, fields) => {
+      const state = await addSearchBook({}, form(fields));
+      expect(state.error).toBeTruthy();
+      expect(state.values).toBeDefined();
+      expect(service.addBookFromProvider).not.toHaveBeenCalled();
+      expect(service.addBookByIsbn).not.toHaveBeenCalled();
+    });
+
+    it("shows a domain error", async () => {
+      service.addBookFromProvider.mockRejectedValue(new NotFoundError("That book is no longer available."));
+      const state = await addSearchBook({}, form({ source: "GOOGLE_BOOKS", sourceId: "g1" }));
+      expect(state.error).toBe("That book is no longer available.");
+    });
+  });
+});
+
 describe("loadShelf", () => {
   const page = { books: [], page: 2, pageCount: 3, pageSize: 30 as const, total: 70, firstIndex: 31 };
 
@@ -387,8 +478,19 @@ describe("loadShelf", () => {
     expect(result).toEqual({ shelf: page });
     expect(service.listShelfPage).toHaveBeenCalledWith(
       "user-1",
-      { status: ReadingStatus.FINISHED, formats: ["EBOOK"], search: "dune", sort: "read-desc" },
+      { status: ReadingStatus.FINISHED, owned: false, formats: ["EBOOK"], search: "dune", sort: "read-desc" },
       2,
+      30,
+    );
+  });
+
+  it("loads the Owned shelf with no status and owned books only", async () => {
+    service.listShelfPage.mockResolvedValue(page);
+    await loadShelf({ shelf: "owned" });
+    expect(service.listShelfPage).toHaveBeenCalledWith(
+      "user-1",
+      { status: undefined, owned: true, formats: [], search: "", sort: "acquired-desc" },
+      1,
       30,
     );
   });
@@ -396,7 +498,7 @@ describe("loadShelf", () => {
   it("falls back to TBR, page 1, for unknown values", async () => {
     service.listShelfPage.mockResolvedValue(page);
     await loadShelf({ shelf: "__proto__", page: "-4" });
-    expect(service.listShelfPage).toHaveBeenCalledWith("user-1", { status: ReadingStatus.TO_READ, formats: [], search: "", sort: "acquired-desc" }, 1, 30);
+    expect(service.listShelfPage).toHaveBeenCalledWith("user-1", { status: ReadingStatus.TO_READ, owned: false, formats: [], search: "", sort: "acquired-desc" }, 1, 30);
   });
 
   it.each([

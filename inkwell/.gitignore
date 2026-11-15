@@ -43,3 +43,6 @@ next-env.d.ts
 
 /src/generated/prisma
 personal-lib-41851-firebase-adminsdk-fbsvc-3148c0e5a4.json
+
+# Barcode reader WASM, copied from node_modules (scripts/copy-zxing-wasm.mjs)
+/public/vendor/

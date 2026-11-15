@@ -9,10 +9,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ReadingStatus } from "@/generated/prisma/enums";
-import { shelfHref, type ShelfSort } from "@/server/library/shelf-filters";
+import { shelfHref } from "@/server/library/shelf-filters";
 import { ListFilter } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useBooksContext } from "../../../context";
+import type { ShelfSort } from "@/types/shelf.type";
 
 const SORTS: { label: string; value: ShelfSort }[] = [
   { label: "Added: newest first", value: "added-desc" },
