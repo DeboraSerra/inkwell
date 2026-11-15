@@ -4,19 +4,12 @@ import { cleanIsbn, toIsbn13 } from "@/server/books/isbn";
 import { ValidationError } from "@/server/errors";
 import { googleBooks } from "./google-books.provider";
 import { ProviderError } from "./http";
-import type { BookMetadata, MetadataProvider, MetadataSourceName } from "./metadata.types";
 import { openLibrary } from "./open-library.provider";
+import type { BookMetadata, IsbnLookup, MetadataProvider, MetadataSourceName } from "@/types/metadata.type";
 
 export const SEARCH_LIMIT = 10;
 export const MIN_QUERY_LENGTH = 3;
 export const MAX_QUERY_LENGTH = 200;
-
-type CatalogBook = NonNullable<Awaited<ReturnType<typeof bookModel.findBookByIsbn13>>>;
-
-export type IsbnLookup =
-  | { found: "catalog"; book: CatalogBook }
-  | { found: "provider"; metadata: BookMetadata }
-  | { found: "none"; isbn13: string };
 
 // Open Library first: it's free, needs no key, and asks only for a user agent.
 // Google Books is the fallback and fills gaps.

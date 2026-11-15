@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
-import { type CreateTokenState, createApiToken } from "@/server/auth/auth.controller";
+import { createApiToken } from "@/server/auth/auth.controller";
+import type { CreateTokenState } from "@/types/auth.type";
 
 const COPIED_MS = 2000;
 

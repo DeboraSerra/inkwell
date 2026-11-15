@@ -11,8 +11,7 @@ import { DomainError } from "@/server/errors";
 import { consumeRateLimit } from "@/server/rate-limit/rate-limit.service";
 import { isbnField, parseIsbnBook, parseSearchBook, searchResultSchema } from "./isbn-book.schema";
 import * as libraryService from "./library.service";
-import type { IsbnPreview } from "@/types/books.type";
-import { type ManualBookValues, manualBookValues, parseManualBook } from "./manual-book.schema";
+import { manualBookValues, parseManualBook } from "./manual-book.schema";
 import {
   changeFormatsSchema,
   changeStatusSchema,
@@ -25,16 +24,10 @@ import {
 } from "./shelf-actions.schema";
 import { PAGE_SIZE_COOKIE, parsePageSize, parseShelfFilters, resolvePageSize } from "./shelf-filters";
 import { LIST_NAMES } from "./status.rules";
+import type { AddIsbnBookState, AddManualBookState, BookChangeResult, IsbnLookupResult, LoadShelfResult, SearchPreviewResult } from "@/types/library.type";
 
 const SHELVES_PATH = "/books/shelves";
 const INVALID_REQUEST = "That request isn't valid.";
-
-export type AddManualBookState = {
-  message?: string;
-  error?: string;
-  // What was typed, so a rejected form keeps it.
-  values?: ManualBookValues;
-};
 
 export async function addManualBook(
   _prev: AddManualBookState,
@@ -71,13 +64,6 @@ export async function addManualBook(
   }
 }
 
-export type IsbnLookupResult = {
-  preview?: IsbnPreview;
-  // The cleaned ISBN-13, so the manual form can start from it.
-  notFound?: { isbn13: string };
-  error?: string;
-};
-
 export async function lookUpIsbn(isbn: unknown): Promise<IsbnLookupResult> {
   const user = await requireUser();
   const parsed = isbnField.safeParse(isbn);
@@ -91,8 +77,6 @@ export async function lookUpIsbn(isbn: unknown): Promise<IsbnLookupResult> {
     throw error;
   }
 }
-
-export type AddIsbnBookState = AddManualBookState;
 
 export async function addBookByIsbn(
   _prev: AddIsbnBookState,
@@ -123,8 +107,6 @@ export async function addBookByIsbn(
     throw error;
   }
 }
-
-export type SearchPreviewResult = { preview?: IsbnPreview; error?: string };
 
 // Opens a search result for adding. Counts as a lookup, since it may call a
 // provider again.
@@ -173,11 +155,6 @@ export async function addSearchBook(
   }
 }
 
-export type BookChangeResult = {
-  error?: string;
-  book?: { id: string; status: ReadingStatus; formats: BookFormat[] };
-};
-
 export async function changeBookStatus(userBookId: string, status: ReadingStatus): Promise<BookChangeResult> {
   const user = await requireUser();
   const parsed = changeStatusSchema.safeParse({ userBookId, status });
@@ -205,11 +182,6 @@ export async function changeBookFormats(userBookId: string, formats: BookFormat[
     throw error;
   }
 }
-
-export type LoadShelfResult = {
-  error?: string;
-  shelf?: Awaited<ReturnType<typeof libraryService.listShelfPage>>;
-};
 
 // One page of a shelf, for the app-wide books context. The filters are parsed
 // again here, since the query string comes from the client. The page size is

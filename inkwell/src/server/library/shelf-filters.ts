@@ -2,7 +2,9 @@
 // components. Input is untrusted, so anything unknown falls back to no filter.
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { toDateValues } from "./partial-date.rules";
-import { canTransition, LIST_NAMES, type ReadingState, startsNewRead } from "./status.rules";
+import { canTransition, LIST_NAMES, startsNewRead } from "./status.rules";
+import type { ReadingState } from "@/types/library.type";
+import type { PageSize, ShelfFilters, ShelfParams, ShelfSort } from "@/types/shelf.type";
 
 const MAX_SEARCH_LENGTH = 200;
 // Pages on each side of the current one in the page links.
@@ -30,7 +32,6 @@ export const moveTargets = (book: ReadingState) =>
 // The page sizes a reader can choose. Anything else from a URL or cookie is
 // ignored, so a request can't ask for an arbitrary number of books.
 export const PAGE_SIZES = [5, 10, 20, 30, 50] as const;
-export type PageSize = (typeof PAGE_SIZES)[number];
 export const PAGE_SIZE_COOKIE = "shelfPerPage";
 
 export const parsePageSize = (value: unknown): PageSize | undefined => {
@@ -69,7 +70,6 @@ export const SHELF_SORTS = [
   "read-desc",
   "read-asc",
 ] as const;
-export type ShelfSort = (typeof SHELF_SORTS)[number];
 // Each shelf's opening order, chosen by the user: Finished by the books read
 // most recently; Wishlist, Reading and DNF by the books added most recently;
 // TBR and Owned (no status) by the books bought most recently. The default
@@ -94,22 +94,6 @@ const parseShelfSort = (value: unknown, status?: ReadingStatus): ShelfSort => {
 };
 
 const statusOf = (slug: string) => SHELVES.find((shelf) => shelf.slug === slug)?.status;
-
-export type ShelfFilters = {
-  shelf: string;
-  // The list shown, or undefined on Owned, which shows every list.
-  status?: ReadingStatus;
-  // Only books with at least one format (the Owned shelf).
-  owned: boolean;
-  formats: BookFormat[];
-  search: string;
-  page: number;
-  // Only when the URL asks for one; otherwise the cookie or device decides.
-  perPage?: PageSize;
-  sort: ShelfSort;
-};
-
-export type ShelfParams = Record<string, string | string[] | undefined>;
 
 const list = (value: string | string[] | undefined) => [value ?? []].flat();
 

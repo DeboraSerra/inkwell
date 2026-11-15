@@ -1,33 +1,23 @@
 import "server-only";
 import { type BookFormat, DatePrecision, ReadingStatus, ReadOutcome, UserBookSource } from "@/generated/prisma/enums";
-import {
-  fillMissingDescription,
-  fillMissingDetails,
-  fillMissingIsbn,
-  findExistingBook,
-  findOrCreateManualBook,
-  findOrCreateMetadataBook,
-  type ManualBookDetails,
-} from "@/server/books/book.service";
+import { fillMissingDescription, fillMissingDetails, fillMissingIsbn, findExistingBook, findOrCreateManualBook, findOrCreateMetadataBook } from "@/server/books/book.service";
 import { authorSearchText, dedupeKey, normalizeAuthor, normalizeAuthorName, normalizeTitle } from "@/server/books/dedupe";
-import { transaction, type Tx } from "@/server/db";
+import { transaction } from "@/server/db";
 import { NotFoundError, ValidationError } from "@/server/errors";
 import { lookupById, lookupIsbn, searchBooks } from "@/server/metadata/metadata.service";
-import type { BookMetadata } from "@/server/metadata/metadata.types";
 import * as libraryModel from "./library.model";
 import * as readModel from "./read-through.model";
-import {
-  canTransition,
-  changeFormats,
-  initialState,
-  notStartedStatusFor,
-  type ReadChange,
-  readChangeFor,
-} from "./status.rules";
-import { type PartialDate, type ReadDates, toDateValues, toEditedReadFields, toReadFields } from "./partial-date.rules";
+import { canTransition, changeFormats, initialState, notStartedStatusFor, readChangeFor } from "./status.rules";
+import { toDateValues, toEditedReadFields, toReadFields } from "./partial-date.rules";
 import type { IsbnPreview, IsbnPreviewResult, ProviderRef, SearchResult, ShelfBook, ShelfRead } from "@/types/books.type";
 import { sortByLastFinished, sortReads } from "./read-order.rules";
-import { type PageSize, parsePageSize, type ShelfSort } from "./shelf-filters";
+import { parsePageSize } from "./shelf-filters";
+import type { ManualBookDetails } from "@/types/books.type";
+import type { PartialDate, ReadDates } from "@/types/dates.type";
+import type { ActedOn, AddBookInput, BookEdit, FoundLookup, LookupChoices, PastRead, ReadChange, ReaderDetails, ShownDetails, SkippedBook, StoredRead, UserBookFilters } from "@/types/library.type";
+import type { BookMetadata } from "@/types/metadata.type";
+import type { Tx } from "@/types/server.type";
+import type { PageSize, ShelfSort } from "@/types/shelf.type";
 
 // Every function takes the signed-in user's id first.
 
@@ -43,9 +33,6 @@ const NOT_IN_LIBRARY = "Book not found in your library";
 const inTransaction = <T>(tx: Tx | undefined, fn: (tx: Tx) => Promise<T>) =>
   tx ? fn(tx) : transaction(fn);
 
-// The read a status change acted on: an existing one by id, or "created" for
-// the read it added, which is then the book's newest entry.
-type ActedOn = Map<string, string>;
 const CREATED = "created";
 
 // Applies status-change effects to the read history in a fixed number of
@@ -113,32 +100,6 @@ async function applyReadChanges(
   for (const { userBookId } of newReads) actedOn.set(userBookId, CREATED);
   return actedOn;
 }
-
-export type AddBookInput = {
-  bookId: string;
-  // Empty means the book isn't owned, so it goes on the Wishlist.
-  formats: BookFormat[];
-  source: UserBookSource;
-  status?: ReadingStatus;
-  // When the status was reached, for books read or started in the past. Null
-  // when that isn't known; left out, it means now.
-  at?: Date | null;
-  // Dates the user gave for the first read, which win over `at`.
-  dates?: ReadDates;
-  // An audiobook's length in minutes, when the reader gave one.
-  audioMinutes?: number;
-  // More finished reads, for a book added as already read more than once.
-  pastReads?: PastRead[];
-  // When the reader got the book, if known.
-  acquired?: PartialDate;
-  // The reader's own authors, pages and cover, already reduced to what
-  // differs from the catalog (readerDetails).
-  details?: ReaderDetails;
-};
-
-export type ReaderDetails = { authors: string[]; authorSearch: string; pageCount: number | null; coverUrl: string | null };
-
-type ShownDetails = { authors: string[]; pageCount: number | null; coverUrl: string | null };
 
 // Only real differences from what the reader was shown are kept as theirs, so
 // later catalog fixes still reach the book. Empty means the catalog's.
@@ -248,8 +209,6 @@ export function addManualBook(
   });
 }
 
-type FoundLookup = Exclude<Awaited<ReturnType<typeof lookupIsbn>>, { found: "none" }>;
-
 // What adding this book would add. A provider's book that matches a catalog
 // book by title and author shows the catalog's details, since adding reuses
 // that book unchanged; and a book already in the library shows the reader's
@@ -334,21 +293,6 @@ export async function searchForLibrary(userId: string, query: string): Promise<S
   });
 }
 
-export type LookupChoices = {
-  formats: BookFormat[];
-  status?: ReadingStatus;
-  dates?: ReadDates;
-  audioMinutes?: number;
-  pastReads?: PastRead[];
-  acquired?: PartialDate;
-  source?: typeof UserBookSource.ISBN | typeof UserBookSource.SEARCH;
-  // The reader's own details, from the add form; kept only where they differ
-  // from what the preview showed.
-  authors?: string[];
-  pageCount?: number;
-  coverUrl?: string;
-};
-
 // Adds a book by ISBN. The book's details always come from the server's own
 // lookup, never from the request, so the shared catalog only holds what a
 // provider said. The lookup runs before the transaction, so no network call
@@ -421,22 +365,6 @@ export function getUserBook(userId: string, userBookId: string) {
   return libraryModel.findUserBookWithCatalog(userId, userBookId);
 }
 
-export type UserBookFilters = {
-  status?: ReadingStatus | ReadingStatus[];
-  // Owned in any of these formats.
-  formats?: BookFormat[];
-  // Owned in at least one format, whatever the list (the Owned shelf).
-  owned?: boolean;
-  source?: UserBookSource;
-  // Matches the title or any author's first or last name, ignoring case and accents.
-  search?: string;
-  sort?: ShelfSort;
-  take?: number;
-  // The id of the last row of the previous page.
-  cursor?: string;
-  skip?: number;
-};
-
 function toArray<T extends string>(value: T | T[] | undefined): T[] | undefined {
   if (value === undefined) return undefined;
   return Array.isArray(value) ? value : [value];
@@ -490,13 +418,6 @@ const latestReadValues = (read?: {
         ...toDateValues("ended", read.endedAt, read.endedAtPrecision),
       }
     : {};
-
-type StoredRead = {
-  startedAt: Date | null;
-  startedAtPrecision: DatePrecision;
-  endedAt: Date | null;
-  endedAtPrecision: DatePrecision;
-};
 
 // Only the dates that are known, each with how much of it is known.
 const toShelfRead = (read?: StoredRead): ShelfRead | null =>
@@ -584,8 +505,6 @@ export function updateStatus(
   });
 }
 
-export type SkippedBook = { userBookId: string; reason: string };
-
 // Moves many books at once. Books that can't move are reported, not fatal.
 // Records no dates: a bulk move doesn't know when each book was read.
 export async function updateStatuses(
@@ -653,10 +572,6 @@ async function saveLatestReadDates(
   if (readId) await readModel.updateBookReadDates(userId, userBookId, readId, fields, tx);
 }
 
-// Another finished read in the book's history, besides the latest one: new
-// when it has no id, or an earlier read's corrected dates when it has one.
-export type PastRead = { id?: string; dates: ReadDates };
-
 const READ_NOT_FOUND = "That read isn't in your library.";
 
 // Never changes the book's status or formats, never touches the open read,
@@ -696,23 +611,6 @@ export function moveUserBook(userId: string, userBookId: string, status: Reading
     return updated;
   });
 }
-
-export type BookEdit = {
-  formats: BookFormat[];
-  // Left out means not started: formats decide between Wishlist and TBR.
-  status?: ReadingStatus;
-  // Left out, or the same as the catalog, means the catalog's value is used.
-  pageCount?: number;
-  authors?: string[];
-  coverUrl?: string;
-  // Left out means no length, which clears a stored one.
-  audioMinutes?: number;
-  dates: ReadDates;
-  // Earlier finished reads: corrected dates, and reads added with the dialog.
-  pastReads?: PastRead[];
-  // When the reader got the book. Left out clears it, as with read dates.
-  acquired?: PartialDate;
-};
 
 const sameList = (a: string[], b: string[]) => a.join(";") === b.join(";");
 

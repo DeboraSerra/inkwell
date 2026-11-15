@@ -1,6 +1,7 @@
 import "./load-env";
 import { prisma } from "@/server/db";
-import { type DocMerge, planDocMerges } from "@/server/imports/duplicate-docs.rules";
+import { planDocMerges } from "@/server/imports/duplicate-docs.rules";
+import type { DocMerge } from "@/types/imports.type";
 
 // Merges the documents a Docs re-import added twice (Phase 3, "Fix:
 // re-importing Docs duplicates documents"). For each pair, the original

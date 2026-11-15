@@ -1,42 +1,6 @@
-// Pairs up the documents a Docs re-import added twice, and works out how each
-// pair merges. Pure, so prisma/merge-duplicate-docs.ts is tested without a
-// database.
-//
-// The original is a library entry on a shared book with no ASIN (a document
-// imported before documents were private); the copy is an entry on the
-// reader's own private book with the same dedupe key. The original's entry is
-// kept, with its status, reads and addedAt, and moves to the private book so
-// the document becomes private as intended.
-import type { BookFormat, DatePrecision, ReadingStatus } from "@/generated/prisma/enums";
+
 import { changeFormats } from "@/server/library/status.rules";
-
-export type DocEntry = {
-  id: string;
-  userId: string;
-  bookId: string;
-  book: { ownerId: string | null; asin: string | null; dedupeKey: string };
-  status: ReadingStatus;
-  formats: BookFormat[];
-  acquiredAt: Date | null;
-  acquiredAtPrecision: DatePrecision;
-  readCount: number;
-};
-
-export type DocMerge<T extends DocEntry = DocEntry> = {
-  userId: string;
-  dedupeKey: string;
-  keep: T;
-  drop: T;
-  data: {
-    bookId: string;
-    status: ReadingStatus;
-    formats: BookFormat[];
-    acquiredAt: Date | null;
-    acquiredAtPrecision: DatePrecision;
-  };
-};
-
-export type DocSkip = { userId: string; dedupeKey: string; reason: string };
+import type { DocEntry, DocMerge, DocSkip } from "@/types/imports.type";
 
 const isOriginal = (entry: DocEntry) => entry.book.ownerId === null && entry.book.asin === null;
 const isPrivateCopy = (entry: DocEntry) => entry.book.ownerId === entry.userId;

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { type CatalogDetails, catalogBlanksFrom } from "@/server/books/catalog-blanks.rules";
+import { catalogBlanksFrom } from "@/server/books/catalog-blanks.rules";
 import { authorSearchText, dedupeKey } from "@/server/books/dedupe";
-import type { BookMetadata } from "@/server/metadata/metadata.types";
+import type { CatalogDetails } from "@/types/books.type";
+import type { BookMetadata } from "@/types/metadata.type";
 
 // Alchemised: the catalog book came from a record with no authors, and the
 // record the reader later picked has them.

@@ -1,11 +1,11 @@
 "use client";
 
-import type { AddIsbnBookState } from "@/server/library/library.controller";
 import { SHELVES, shelfHref } from "@/server/library/shelf-filters";
 import { LIST_NAMES } from "@/server/library/status.rules";
 import type { BookFormBook, IsbnPreview } from "@/types/books.type";
 import Link from "next/link";
 import AddBookForm from "./AddBookForm";
+import type { AddAction } from "@/types/ui.type";
 
 // The looked-up book and the form that adds it, shared by the ISBN and
 // Search tabs.
@@ -51,11 +51,6 @@ export const previewBook = (preview: IsbnPreview): BookFormBook => ({
   pageCount: preview.pageCount,
   isbn13: preview.isbn13,
 });
-
-type AddAction = (
-  previous: AddIsbnBookState,
-  formData: FormData,
-) => Promise<AddIsbnBookState>;
 
 // Adds the previewed book with the shared book form. Only the ISBN, or the
 // provider's record id, identifies the book: the server looks it up again

@@ -19,6 +19,7 @@ import {
   readStatusField,
   typedAuthorsField,
 } from "./manual-book.schema";
+import type { ChoiceInput } from "@/types/library.type";
 
 export const isbnField = z
   .string("Enter an ISBN.")
@@ -28,7 +29,7 @@ export const isbnField = z
 
 // The reader's choices when adding a looked-up book: formats, list, dates,
 // length and purchase date. Shared by the ISBN and search forms.
-const choiceFields = {
+export const choiceFields = {
   formats: z.array(z.enum(BookFormat, "Choose a valid format.")),
   status: readStatusField,
   ...readDateFields,
@@ -41,8 +42,6 @@ const choiceFields = {
   pageCount: pageCountField,
   coverUrl: coverUrlField,
 };
-type ChoiceInput = z.infer<z.ZodObject<typeof choiceFields>>;
-
 function toChoices<T extends ChoiceInput>(data: T, ctx: z.RefinementCtx) {
   const {
     startedDay,

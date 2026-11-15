@@ -1,8 +1,8 @@
-// The book types shared by the server and the components: what a shelf, a
-// lookup, a search and the book form pass around. Plain data only.
+// The book types: the shared catalog, a shelf, a lookup, a search and the
+// book form. Plain data only.
 import type { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
-import type { PartialDate } from "@/server/library/partial-date.rules";
-import type { MetadataSourceName } from "@/server/metadata/metadata.types";
+import type { PartialDate } from "./dates.type";
+import type { MetadataSourceName } from "./metadata.type";
 
 // Shelves
 
@@ -91,3 +91,62 @@ export type BookFormBook = {
 // What a submit reports back. `ok` false keeps the form as it is, with what
 // was typed; an error is shown here, a success message too.
 export type BookFormResult = { ok: boolean; error?: string; message?: string };
+
+export type BookIdentity = {
+  asin?: string | null;
+  isbn13?: string | null;
+  isbn10?: string | null;
+  title: string;
+  authors: string[];
+};
+
+export type ManualBookDetails = {
+  title: string;
+  authors: string[];
+  subtitle?: string;
+  coverUrl?: string;
+  pageCount?: number;
+  isbn?: string;
+};
+
+export type AmazonBookDetails = {
+  asin?: string;
+  title: string;
+  authors: string[];
+  coverUrl?: string;
+};
+
+export type AmazonDocDetails = {
+  title: string;
+  authors: string[];
+  coverUrl?: string;
+};
+
+export type CatalogBookIds = { id: string; ownerId: string | null; isbn13: string | null; isbn10: string | null };
+
+export type DescribedBook = CatalogBookIds & { description: string | null };
+
+export type CatalogDetails = {
+  ownerId: string | null;
+  title: string;
+  subtitle: string | null;
+  authors: string[];
+  coverUrl: string | null;
+  pageCount: number | null;
+  publishedYear: number | null;
+  openLibraryId: string | null;
+  googleBooksId: string | null;
+};
+
+// What can be filled: never null, since a fill only ever adds a value.
+export type CatalogBlanks = {
+  subtitle?: string;
+  authors?: string[];
+  dedupeKey?: string;
+  authorSearch?: string;
+  coverUrl?: string;
+  pageCount?: number;
+  publishedYear?: number;
+  openLibraryId?: string;
+  googleBooksId?: string;
+};

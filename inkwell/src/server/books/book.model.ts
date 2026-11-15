@@ -1,6 +1,8 @@
 import "server-only";
 import { Prisma } from "@/generated/prisma/client";
-import { prisma, type Db } from "@/server/db";
+import { prisma } from "@/server/db";
+import type { CatalogBlanks } from "@/types/books.type";
+import type { Db } from "@/types/server.type";
 
 export function findBookByAsin(asin: string, db: Db = prisma) {
   return db.book.findUnique({ where: { asin } });
@@ -39,18 +41,6 @@ export function findLibraryBookByDedupeKey(userId: string, dedupeKey: string, db
 export function findOwnedBookByDedupeKey(ownerId: string, dedupeKey: string, db: Db = prisma) {
   return db.book.findFirst({ where: { dedupeKey, ownerId }, orderBy: { createdAt: "asc" } });
 }
-
-export type CatalogBlanks = {
-  subtitle?: string;
-  authors?: string[];
-  dedupeKey?: string;
-  authorSearch?: string;
-  coverUrl?: string;
-  pageCount?: number;
-  publishedYear?: number;
-  openLibraryId?: string;
-  googleBooksId?: string;
-};
 
 // Each field being filled must still be blank, so a detail set in the meantime
 // (by another add, or a later phase) is never overwritten.

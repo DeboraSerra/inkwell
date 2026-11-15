@@ -4,11 +4,7 @@ import { TextField } from "@/components/TextField";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
 import { formatIsbn } from "@/server/books/isbn";
-import {
-  type IsbnLookupResult,
-  addBookByIsbn,
-  lookUpIsbn,
-} from "@/server/library/library.controller";
+import { addBookByIsbn, lookUpIsbn } from "@/server/library/library.controller";
 import { Loader } from "lucide-react";
 import {
   type ChangeEvent,
@@ -19,6 +15,7 @@ import {
 } from "react";
 import { AddPreviewedBook } from "./BookPreview";
 import { applyIsbnFormat } from "./isbn-input";
+import type { IsbnLookupResult } from "@/types/library.type";
 
 export default function IsbnLookup({
   onFillByHand,

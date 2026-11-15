@@ -3,8 +3,8 @@ import * as bookModel from "@/server/books/book.model";
 import { ValidationError } from "@/server/errors";
 import { googleBooks } from "@/server/metadata/google-books.provider";
 import { ProviderError } from "@/server/metadata/http";
-import type { BookMetadata } from "@/server/metadata/metadata.types";
 import { openLibrary } from "@/server/metadata/open-library.provider";
+import type { BookMetadata } from "@/types/metadata.type";
 
 vi.mock("@/server/books/book.model");
 vi.mock("@/server/metadata/open-library.provider");

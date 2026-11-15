@@ -10,10 +10,7 @@ import { useShelfSelection } from "../BookShelf/ShelfSelection";
 import { FORMAT_LABELS } from "../formats";
 import { BookCardMenu } from "./BookCardMenu";
 import { BookTitle } from "./BookTitle";
-
-// Each word with where it starts in the text, a key that stays unique when a
-// word repeats, as "Oct" does in "5 Oct 25 – 12 Oct 25".
-type PositionedWord = { word: string; start: number };
+import type { PositionedWord } from "@/types/ui.type";
 
 function wordsWithPositions(text: string): PositionedWord[] {
   const words: PositionedWord[] = [];

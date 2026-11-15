@@ -37,7 +37,7 @@ Key files in `inkwell/`:
 | `src/server/library/` | Per-user library: `status.rules.ts` (statuses, formats and read changes; pure), `library.model.ts`, `read-through.model.ts`, `library.service.ts`, `library.controller.ts`, `manual-book.schema.ts` (zod) |
 | `src/server/metadata/` | Book details from Open Library and Google Books (Phase 4a): `metadata.service.ts` (`lookupIsbn`, `searchBooks`, `lookupById`), one `*.provider.ts` per source, `sanitize.ts` (pure cleaners for untrusted fields), `http.ts` (timeout, size cap, day-long cache) |
 | `src/server/rate-limit/` | Per-user request limits counted in Postgres: `consumeRateLimit` throws `RateLimitError` (HTTP 429) |
-| `src/types/books.type.tsx` | Book types shared by the server and the components: `ShelfBook`, `ShelfRead`, `IsbnPreview`, `IsbnPreviewResult`, `ProviderRef`, `SearchResult`, `BookFormBook`, `BookFormResult`. Import them from here, not from services. |
+| `src/types/` | **Every named type and interface**, one file per module: `books.type.tsx` (catalog, shelf books, lookups, search, the book form), `library.type.ts`, `shelf.type.ts`, `dates.type.ts`, `imports.type.ts`, `metadata.type.ts`, `auth.type.ts`, `rate-limit.type.ts`, `server.type.ts` (`Db`, `Tx`, error codes), `ui.type.ts` (components and hooks), and `index.tsx` (`ShelfType`, `UserType`). See "Types live in `src/types/`" below. |
 | `prisma/schema.prisma`, `prisma/migrations/` | Database schema and migrations |
 | `prisma/seed.ts`, `assets/lists/` | Idempotent seed for the curated genres and tropes |
 | `prisma/load-env.ts` | Loads `.env.local`, then `.env`, for the Prisma CLI and the seed |
@@ -108,6 +108,7 @@ inkwell/src/
 │   └── ui/                   # shadcn components: vendored, not linted, don't edit by hand
 ├── config/                   # Firebase client and Admin SDK setup
 ├── lib/utils.ts              # shadcn's cn helper
+├── types/                    # every named type, one <module>.type.ts per module
 ├── proxy.ts
 ├── generated/prisma/         # Prisma client (generated, gitignored)
 └── server/
@@ -166,6 +167,8 @@ inkwell/src/
 
 ## Code style and quality
 
+- **Types live in `src/types/` (rule).** Every named `type` and `interface` is declared in `src/types/<module>.type.ts` (or `.tsx`) and imported from there with `import type`; never declare one next to the code that uses it, exported or not. That includes types derived from code (`z.infer<…>`, `ReturnType<typeof …>`, `(typeof X)[number]`): import the value with `import type` in the types file. Exceptions: inline props (`Readonly<{ book: ShelfBook }>`), helper types local to a test file, the generated Prisma client, and shadcn's vendored `components/ui/`. A name must be unique across `src/types/`, so give file-local names a specific one (`AddBookTab`, not `Tab`).
+- **Every book add and edit uses `AddBookForm` (rule).** `components/pages/books/new/AddBookForm.tsx` is the only form for adding or editing a book: the Manual, ISBN and Search tabs, and the shelf's edit dialog. Configure it with its props (`book` to fill it, `canEdit` to lock the catalog's title, subtitle and ISBN, `submit`, `hidden`, `editing`, `formId`, `addFormatsOnly`, `header`) rather than building another form; if it can't do something a new screen needs, extend it.
 - **Match the surrounding code:** TypeScript, two-space indentation, double quotes, named exports for helpers and default exports for pages and components. Mobile-first layouts.
 - **UI uses shadcn (`base-nova`, on Base UI).** Use `src/components/ui/` rather than raw `<button>` and `<input>`, and theme tokens (`text-muted-foreground`, `border`) rather than colors like `zinc-500`. Add components with `npx shadcn add <name>`.
 - **Base UI checkboxes keep their own state,** so React's automatic form reset doesn't clear them. See how `AddBookForm` remounts the form.

@@ -1,21 +1,14 @@
 import "server-only";
 import { MetadataSource } from "@/generated/prisma/enums";
-import type { Tx } from "@/server/db";
 import { NotFoundError } from "@/server/errors";
 import * as bookModel from "./book.model";
-import { catalogBlanksFrom, type CatalogDetails } from "./catalog-blanks.rules";
+import { catalogBlanksFrom } from "./catalog-blanks.rules";
 import { authorSearchText, dedupeKey } from "./dedupe";
 import { findDescription, findDescriptionByIsbn } from "@/server/metadata/metadata.service";
-import type { BookMetadata } from "@/server/metadata/metadata.types";
 import { cleanIsbn, toIsbn13 } from "./isbn";
-
-export type BookIdentity = {
-  asin?: string | null;
-  isbn13?: string | null;
-  isbn10?: string | null;
-  title: string;
-  authors: string[];
-};
+import type { AmazonBookDetails, AmazonDocDetails, BookIdentity, CatalogBookIds, CatalogDetails, DescribedBook, ManualBookDetails } from "@/types/books.type";
+import type { BookMetadata } from "@/types/metadata.type";
+import type { Tx } from "@/types/server.type";
 
 // Finds a catalog book matching any identifier, strongest first:
 // ASIN, then ISBN (either format), then normalized title + authors' surnames.
@@ -38,15 +31,6 @@ export async function findExistingBook(identity: BookIdentity, tx?: Tx) {
 
   return bookModel.findBookByDedupeKey(dedupeKey(identity.title, identity.authors), tx);
 }
-
-export type ManualBookDetails = {
-  title: string;
-  authors: string[];
-  subtitle?: string;
-  coverUrl?: string;
-  pageCount?: number;
-  isbn?: string;
-};
 
 // The catalog is shared, so a match is reused as it is: what one user typed or
 // imported never overwrites details other users see.
@@ -86,19 +70,6 @@ export function findOrCreateManualBook(details: ManualBookDetails, tx?: Tx) {
     tx,
   );
 }
-
-export type AmazonBookDetails = {
-  asin?: string;
-  title: string;
-  authors: string[];
-  coverUrl?: string;
-};
-
-export type AmazonDocDetails = {
-  title: string;
-  authors: string[];
-  coverUrl?: string;
-};
 
 // A personal document is matched in order: a book already in the reader's
 // library, then their own private documents, then the shared catalog, so a
@@ -163,13 +134,11 @@ export function findOrCreateMetadataBook(metadata: BookMetadata, tx?: Tx) {
   );
 }
 
-type CatalogBook = { id: string; ownerId: string | null; isbn13: string | null; isbn10: string | null };
-
 // A book matched by title and author may have no ISBN yet. Filling that blank
 // (never overwriting) lets later lookups and imports match it by ISBN. It's a
 // best-effort extra, so it runs outside the add's transaction and a clash
 // with another book's ISBN just skips it.
-export async function fillMissingIsbn(book: CatalogBook, metadata: BookMetadata) {
+export async function fillMissingIsbn(book: CatalogBookIds, metadata: BookMetadata) {
   if (book.ownerId || book.isbn13 || !metadata.isbn13) return false;
   return bookModel.fillBookIsbn(book.id, {
     isbn13: metadata.isbn13,
@@ -192,8 +161,6 @@ export async function fillMissingDetails(book: CatalogDetails & { id: string }, 
     return false;
   }
 }
-
-type DescribedBook = CatalogBook & { description: string | null };
 
 // Saves the synopsis of a book just added by search or ISBN, when the shared
 // book has none: from the provider record it was found with, or, for a

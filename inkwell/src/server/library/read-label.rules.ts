@@ -1,8 +1,8 @@
 // The read dates a shelf card shows, at the precision that's known. Pure, so
 // it's unit-tested without a browser, and shared with client components.
 import { DatePrecision, ReadingStatus } from "@/generated/prisma/enums";
-import type { PartialDate } from "./partial-date.rules";
 import type { ShelfRead } from "@/types/books.type";
+import type { PartialDate } from "@/types/dates.type";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 

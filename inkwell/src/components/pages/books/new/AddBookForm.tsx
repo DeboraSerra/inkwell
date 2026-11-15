@@ -8,8 +8,6 @@ import { ReadingStatus } from "@/generated/prisma/enums";
 import { formatIsbn } from "@/server/books/isbn";
 import { splitAudioLength } from "@/server/library/audio-length.rules";
 import { addManualBook } from "@/server/library/library.controller";
-import type { ManualBookValues } from "@/server/library/manual-book.schema";
-import type { ReadingState } from "@/server/library/status.rules";
 import type { BookFormBook, BookFormResult } from "@/types/books.type";
 import { Loader } from "lucide-react";
 import {
@@ -26,6 +24,7 @@ import { TextField } from "../../../TextField";
 import { toast } from "../../../ui/toast";
 import { FormatsField } from "./FormatsField";
 import { applyIsbnFormat } from "./isbn-input";
+import type { ManualBookValues, ReadingState } from "@/types/library.type";
 
 const REQUIRED_FIELDS = [
   { name: "title", label: "Title" },

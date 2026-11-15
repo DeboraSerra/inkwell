@@ -1,3 +1,5 @@
+import type * as bookModel from "@/server/books/book.model";
+
 // Book details from an outside source (Open Library or Google Books), already
 // cleaned and length-capped by the provider that produced them.
 export type MetadataSourceName = "OPEN_LIBRARY" | "GOOGLE_BOOKS";
@@ -30,3 +32,10 @@ export type MetadataProvider = {
   fetchDescription?(sourceId: string): Promise<string | undefined>;
   search(query: string, limit: number): Promise<BookMetadata[]>;
 };
+
+export type CatalogRecord = NonNullable<Awaited<ReturnType<typeof bookModel.findBookByIsbn13>>>;
+
+export type IsbnLookup =
+  | { found: "catalog"; book: CatalogRecord }
+  | { found: "provider"; metadata: BookMetadata }
+  | { found: "none"; isbn13: string };

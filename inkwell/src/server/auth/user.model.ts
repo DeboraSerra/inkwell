@@ -1,12 +1,7 @@
 import "server-only";
-import { prisma, type Db } from "@/server/db";
-
-export type UserProfile = {
-  id: string;
-  email: string;
-  name?: string | null;
-  photoUrl?: string | null;
-};
+import { prisma } from "@/server/db";
+import type { UserProfile } from "@/types/auth.type";
+import type { Db } from "@/types/server.type";
 
 export function upsertUser({ id, email, name, photoUrl }: UserProfile, db: Db = prisma) {
   return db.user.upsert({

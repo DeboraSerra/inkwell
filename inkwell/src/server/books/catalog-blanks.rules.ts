@@ -2,33 +2,9 @@
 // Pure, so it's unit-tested without Prisma. Only blanks are ever filled: a
 // detail that's already there stays, whoever set it, so one reader's add never
 // changes what others see. The title is never a blank.
-import type { BookMetadata } from "@/server/metadata/metadata.types";
 import { authorSearchText, dedupeKey } from "./dedupe";
-
-export type CatalogDetails = {
-  ownerId: string | null;
-  title: string;
-  subtitle: string | null;
-  authors: string[];
-  coverUrl: string | null;
-  pageCount: number | null;
-  publishedYear: number | null;
-  openLibraryId: string | null;
-  googleBooksId: string | null;
-};
-
-// What can be filled: never null, since a fill only ever adds a value.
-export type CatalogBlanks = {
-  subtitle?: string;
-  authors?: string[];
-  dedupeKey?: string;
-  authorSearch?: string;
-  coverUrl?: string;
-  pageCount?: number;
-  publishedYear?: number;
-  openLibraryId?: string;
-  googleBooksId?: string;
-};
+import type { CatalogBlanks, CatalogDetails } from "@/types/books.type";
+import type { BookMetadata } from "@/types/metadata.type";
 
 // Each field that's blank on the book and known on the record. Authors bring
 // the dedupe key and author search with them, since both are built from them.

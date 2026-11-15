@@ -1,8 +1,9 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
-import type { BookFormat, DatePrecision, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
-import { prisma, type Db } from "@/server/db";
-import type { ReadingState } from "./status.rules";
+import type { DatePrecision, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
+import { prisma } from "@/server/db";
+import type { ReadingState, UserBookFilter, UserBookQuery } from "@/types/library.type";
+import type { Db } from "@/types/server.type";
 
 // Every function takes the user's id and filters by it, so one user can never
 // read or change another user's books.
@@ -71,32 +72,10 @@ export async function createUserBook(
   return created.at(0) ?? null;
 }
 
-export type UserBookFilter = {
-  status?: ReadingStatus[];
-  // Owned in any of these formats.
-  formats?: BookFormat[];
-  // Owned in at least one format. Ticked formats already imply it.
-  owned?: boolean;
-  source?: UserBookSource;
-  // Raw text matched against the title and its normalized form against the
-  // dedupe key. `author` is matched against any author's name, and `surname`
-  // against any author's last word, so "JRR Tolkien" finds "J. R. R. Tolkien".
-  // Authors are searched in the catalog and in the reader's own list.
-  search?: { text: string; normalized: string; author: string; surname: string };
-};
-
 function formatsWhere({ formats, owned }: UserBookFilter) {
   if (formats) return { hasSome: formats };
   return owned ? { isEmpty: false } : undefined;
 }
-
-export type UserBookQuery = UserBookFilter & {
-  // By date added (the default, newest first), purchase date or title.
-  sort?: { by: "added" | "acquired" | "title"; direction: "asc" | "desc" };
-  take: number;
-  cursor?: string;
-  skip?: number;
-};
 
 const userBookWhere = (userId: string, query: UserBookFilter) => {
   const { search } = query;

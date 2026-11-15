@@ -6,11 +6,10 @@ import { formatIsbn } from "@/server/books/isbn";
 import AddBookForm from "./AddBookForm";
 import IsbnLookup from "./IsbnLookup";
 import SearchLookup from "./SearchLookup";
-
-type Tab = "search" | "isbn" | "manual";
+import type { AddBookTab } from "@/types/ui.type";
 
 export function AddBookTabs() {
-  const [tab, setTab] = useState<Tab>("search");
+  const [tab, setTab] = useState<AddBookTab>("search");
   // An ISBN the lookup couldn't find, carried into the manual form. The count
   // remounts the form so a second "Fill in by hand" applies too.
   const [prefill, setPrefill] = useState({ isbn: "", count: 0 });
@@ -21,7 +20,7 @@ export function AddBookTabs() {
   }, []);
 
   return (
-    <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className='gap-6'>
+    <Tabs value={tab} onValueChange={(value) => setTab(value as AddBookTab)} className='gap-6'>
       <TabsList variant="line">
         <TabsTrigger value='search'>Search</TabsTrigger>
         <TabsTrigger value='isbn'>ISBN</TabsTrigger>

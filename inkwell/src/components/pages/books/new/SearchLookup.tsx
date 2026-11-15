@@ -20,19 +20,10 @@ import {
   useTransition,
 } from "react";
 import { AddPreviewedBook } from "./BookPreview";
+import type { SearchRequest, SearchState } from "@/types/ui.type";
 
 const DEBOUNCE_MS = 400;
 const MIN_QUERY_LENGTH = 3;
-
-type SearchState =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "results"; results: SearchResult[] }
-  | { kind: "error"; message: string };
-
-// What to search for. A new object with the same text searches again, as
-// after adding a book, so the results show it as in the library.
-type SearchRequest = { text: string };
 
 // Searches as the reader types: after a pause, from 3 characters, and
 // cancelling the previous search when a new one starts.

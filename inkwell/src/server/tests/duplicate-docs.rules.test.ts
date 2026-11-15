@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BookFormat, DatePrecision, ReadingStatus } from "@/generated/prisma/enums";
-import { type DocEntry, type DocMerge, planDocMerges } from "@/server/imports/duplicate-docs.rules";
+import { planDocMerges } from "@/server/imports/duplicate-docs.rules";
+import type { DocEntry, DocMerge } from "@/types/imports.type";
 
 const { EBOOK, PHYSICAL } = BookFormat;
 const { DAY, MONTH } = DatePrecision;

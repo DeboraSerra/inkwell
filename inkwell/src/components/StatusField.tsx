@@ -1,11 +1,7 @@
 "use client";
 
 import { ReadingStatus } from "@/generated/prisma/enums";
-import type { ManualBookValues } from "@/server/library/manual-book.schema";
-import {
-  type ReadingState,
-  startsNewRead,
-} from "@/server/library/status.rules";
+import { startsNewRead } from "@/server/library/status.rules";
 import { Info, PlusCircle } from "lucide-react";
 import { useId, useState } from "react";
 import { PartialDateField } from "./PartialDateField";
@@ -13,6 +9,8 @@ import { Button } from "./ui/button";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "./ui/field";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import type { ManualBookValues, ReadingState } from "@/types/library.type";
+import type { PastReadSet } from "@/types/ui.type";
 
 const STATUS = [
   { value: "", label: "Not started" },
@@ -30,11 +28,6 @@ const STATUS = [
     label: "Currently reading",
   },
 ];
-
-// An earlier finished read's date fields, sent as pastRead<n>StartedYear and
-// so on. `id` is set for a read already saved, so its dates are corrected
-// rather than added again.
-type PastReadSet = { key: string; id?: string; values?: Record<string, string> };
 
 const MAX_PAST_READS = 20;
 

@@ -1,11 +1,10 @@
 // Validates what the extension scraped from Amazon. Every field is untrusted.
 import { z } from "zod";
-import type { AmazonBookDetails, AmazonDocDetails } from "@/server/books/book.service";
 import { splitAmazonAuthors } from "@/server/books/dedupe";
 import { decodeEntities } from "@/server/books/text";
 import { authorsField, isHttpsUrl } from "@/server/library/manual-book.schema";
-import type { PartialDate } from "@/server/library/partial-date.rules";
 import { parseAcquiredText } from "./acquired-date.rules";
+import type { AmazonImport } from "@/types/imports.type";
 
 export const MAX_BOOKS_PER_REQUEST = 200;
 
@@ -27,10 +26,6 @@ const acquiredField = z
   .optional()
   .catch(undefined)
   .transform((text) => parseAcquiredText(text));
-
-// The purchase date belongs to the reader, so it's kept apart from the details
-// that go into the shared catalog.
-export type Acquired = { acquired?: PartialDate };
 
 const scrapedBook = z.object({
   // A wrong ASIN or cover shouldn't lose the book: it's still found by title and author.
@@ -62,10 +57,6 @@ const parseRows = <T>(rows: unknown[], schema: z.ZodType<T>) => {
   });
   return { parsed, skipped: rows.length - parsed.length };
 };
-
-export type AmazonImport =
-  | { kind: "books"; books: (AmazonBookDetails & Acquired)[]; skipped: number }
-  | { kind: "docs"; books: (AmazonDocDetails & Acquired)[]; skipped: number };
 
 // A bad row is counted rather than failing the rest. Returns null when the
 // payload as a whole is wrong.

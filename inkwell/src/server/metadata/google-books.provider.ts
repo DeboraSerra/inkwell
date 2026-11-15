@@ -1,7 +1,6 @@
 import "server-only";
 import { z } from "zod";
 import { fetchProviderJson } from "./http";
-import type { BookMetadata, MetadataProvider } from "./metadata.types";
 import {
   cleanAuthors,
   cleanCoverUrl,
@@ -14,6 +13,7 @@ import {
   cleanYear,
   LIMITS,
 } from "./sanitize";
+import type { BookMetadata, MetadataProvider } from "@/types/metadata.type";
 
 // In zod 4 a key whose schema is z.unknown() is still required unless marked
 // optional, and any field here may be missing.

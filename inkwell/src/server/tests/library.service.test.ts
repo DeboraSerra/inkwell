@@ -13,7 +13,7 @@ import * as libraryModel from "@/server/library/library.model";
 import * as readThroughModel from "@/server/library/read-through.model";
 import { InvalidTransitionError } from "@/server/library/status.rules";
 import { lookupById, lookupIsbn, searchBooks } from "@/server/metadata/metadata.service";
-import type { BookMetadata } from "@/server/metadata/metadata.types";
+import type { BookMetadata } from "@/types/metadata.type";
 
 vi.mock("@/server/books/book.service");
 vi.mock("@/server/library/library.model");
