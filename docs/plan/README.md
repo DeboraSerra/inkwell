@@ -45,7 +45,7 @@
    - 4b — Add by ISBN ✅ done, at `/books/new`
    - 4c — Search by title or author ✅ done, at `/books/new` (Search tab), checked by the user (✅ follow-up built: the synopsis is saved after an add by search or ISBN)
    - 4d — Scan the barcode ✅ built (photo, decoded in the browser); real-phone check still to do
-   - 4d follow-up — Live scanning ⏭️ not started: read the barcode from the camera's video, phone or laptop
+   - 4d follow-up — Live scanning ✅ built: "Scan live" reads the barcode from the camera's video, phone or laptop; real-device check still to do
 5. [Phase 5 — AI enrichment (Claude API)](phase-5-ai-enrichment.md)
 6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)
 7. [Phase 7 — Quality and deploy](phase-7-quality-deploy.md)

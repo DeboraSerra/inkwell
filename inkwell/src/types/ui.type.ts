@@ -57,3 +57,6 @@ export type SignInMode = "signIn" | "signUp" | "reset";
 // The part of the Barcode Detection API the scanner uses, whether the
 // browser's own or the `barcode-detector` package's.
 export type BarcodeReader = { detect(image: HTMLCanvasElement): Promise<{ rawValue: string }[]> };
+
+// How the ISBN tab's last book was scanned: from a photo, or the live camera.
+export type ScanMethod = "photo" | "live";

@@ -42,13 +42,18 @@ const getReader = () => {
   return reader;
 };
 
+// Draws an image or a video frame onto a canvas, scaled down to MAX_SIDE.
+function drawScaled(source: CanvasImageSource, width: number, height: number, canvas: HTMLCanvasElement) {
+  const scale = Math.min(1, MAX_SIDE / Math.max(width, height));
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
+  canvas.getContext("2d")?.drawImage(source, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
 async function toCanvas(file: File) {
   const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const canvas = drawScaled(bitmap, bitmap.width, bitmap.height, document.createElement("canvas"));
   bitmap.close();
   return canvas;
 }
@@ -57,5 +62,18 @@ async function toCanvas(file: File) {
 export async function readBarcodes(file: File): Promise<string[]> {
   const [canvas, detector] = await Promise.all([toCanvas(file), getReader()]);
   const found = await detector.detect(canvas);
+  return found.map(({ rawValue }) => rawValue);
+}
+
+// Loads the reader ahead of the first frame, so live scanning starts reading
+// as soon as the video plays.
+export const prepareReader = () => getReader().then(() => undefined);
+
+// The raw values of every barcode in the video's current frame. `canvas` is
+// reused across frames, so a live scan doesn't create one per frame.
+export async function readVideoFrame(video: HTMLVideoElement, canvas: HTMLCanvasElement): Promise<string[]> {
+  if (!video.videoWidth || !video.videoHeight) return [];
+  const detector = await getReader();
+  const found = await detector.detect(drawScaled(video, video.videoWidth, video.videoHeight, canvas));
   return found.map(({ rawValue }) => rawValue);
 }

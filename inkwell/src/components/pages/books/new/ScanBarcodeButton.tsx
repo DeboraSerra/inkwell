@@ -1,28 +1,30 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { NO_BARCODE, readBookBarcode } from "@/server/books/barcode.rules";
-import { Camera, Loader } from "lucide-react";
-import { type ChangeEvent, useRef, useState } from "react";
+import type { ChangeEvent, Ref } from "react";
 import { readBarcodes } from "./barcode-scan";
 
-// Opens the rear camera through a file input, so phones need no camera
-// permission or live video, and reads the ISBN from the photo in the browser.
-// Desktop browsers open a file picker instead.
+// The hidden file input behind the "Upload image" menu item, which clicks it
+// through `ref`. On a phone it opens the rear camera, with no permission or
+// live video; elsewhere a file picker. The photo is read in the browser.
+// It lives outside the menu, so it's still there when the menu closes.
 export function ScanBarcodeButton({
-  label = "Scan barcode",
+  ref,
   onIsbn,
   onError,
-}: Readonly<{ label?: string; onIsbn: (isbn13: string) => void; onError: (message: string) => void }>) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [isReading, setReading] = useState(false);
-
+  onReadingChange,
+}: Readonly<{
+  ref: Ref<HTMLInputElement>;
+  onIsbn: (isbn13: string) => void;
+  onError: (message: string) => void;
+  onReadingChange?: (reading: boolean) => void;
+}>) {
   const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     // The same photo can be chosen again after a miss.
     event.target.value = "";
     if (!file) return;
-    setReading(true);
+    onReadingChange?.(true);
     try {
       const result = readBookBarcode(await readBarcodes(file));
       if (result.error === undefined) onIsbn(result.isbn13);
@@ -31,31 +33,20 @@ export function ScanBarcodeButton({
       console.warn("Reading a barcode failed", error);
       onError(NO_BARCODE);
     } finally {
-      setReading(false);
+      onReadingChange?.(false);
     }
   };
 
   return (
-    <>
-      <input
-        ref={inputRef}
-        type='file'
-        accept='image/*'
-        capture='environment'
-        className='sr-only'
-        tabIndex={-1}
-        aria-hidden='true'
-        onChange={handleFile}
-      />
-      <Button
-        type='button'
-        variant='outline'
-        disabled={isReading}
-        onClick={() => inputRef.current?.click()}
-      >
-        {isReading ? <Loader className='spin-in' /> : <Camera />}
-        {label}
-      </Button>
-    </>
+    <input
+      ref={ref}
+      type='file'
+      accept='image/*'
+      capture='environment'
+      className='sr-only'
+      tabIndex={-1}
+      aria-hidden='true'
+      onChange={handleFile}
+    />
   );
 }

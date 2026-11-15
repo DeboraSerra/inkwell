@@ -155,3 +155,6 @@ export type CatalogBlanks = {
 
 // What a scanned photo gave: a book's ISBN-13, or the message to show.
 export type BookBarcodeResult = { isbn13: string; error?: undefined } | { isbn13?: undefined; error: string };
+
+// What one live-scan video frame showed.
+export type LiveFrame = { kind: "book"; isbn13: string } | { kind: "product" } | { kind: "none" };

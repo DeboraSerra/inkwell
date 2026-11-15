@@ -351,7 +351,7 @@ A book's barcode is an EAN-13 starting with 978 or 979, which is its ISBN-13. Sc
   - Step 5: scan on a real iPhone and a real Android phone (clean, curved, worn, with an add-on). Neither the camera nor the signed-in flow could be checked here.
   - Decide what to do about the new `fast-xml-parser` audit finding.
 
-### 4d follow-up: live scanning ⏭️ not started
+### 4d follow-up: live scanning ✅ built (2026-11-15); real-device check still to do
 
 Asked by the user on 2026-11-15, replacing the "Later" item. Point the camera at a book and its ISBN is read from the video, with no photo to take. It's quicker for several books, and it's the only way to use a laptop's webcam, which a file input can't open.
 
@@ -372,6 +372,28 @@ Asked by the user on 2026-11-15, replacing the "Later" item. Point the camera at
 6. **Verify:** on a real iPhone (Safari) and a real Android phone (Chrome), and on a laptop webcam. Check a clean barcode, a curved one, a worn one, and one with a price add-on, and that the camera light goes off after each way of closing.
 
 **Done when:** pointing a phone or laptop camera at a book's barcode fills in the ISBN and finds the book without taking a photo, and the camera always turns off afterwards.
+
+**Outcome (2026-11-15):**
+- **Button:** `LiveScanButton.tsx`, "Scan live" beside "Scan barcode" on the ISBN tab. It's shown only once the browser reports `navigator.mediaDevices.getUserMedia`, checked after mounting so the server and browser render alike. The tab's button row now wraps (`flex-wrap`), so four controls fit on a phone.
+- **Viewfinder:** a dialog with the camera's video (`facingMode: { ideal: "environment" }`, `muted`, `playsInline` for iPhone), a frame to aim with, a status line, and Cancel.
+  - The viewfinder is mounted only while the dialog is open. Unmounting stops every track: Cancel, the close button, Escape, a found book, an error, or leaving the page.
+  - A permission answer that arrives after closing stops that stream too.
+- **Reading:** the reader loads alongside the camera (`prepareReader`). Then `requestAnimationFrame` reads a frame at most every 200 ms, one at a time (`shouldReadFrame`), through `readVideoFrame` in `barcode-scan.ts`. That reuses the photo's reader and scaling, and one canvas for every frame.
+  - `readLiveFrame` stops on a book.
+  - A product code shows "That isn't a book barcode." in the status line and keeps scanning, as do frames with nothing.
+  - A found ISBN closes the dialog, fills the field and runs the lookup. The button that scanned it then reads "Scan another" (`ScanMethod` in `types/ui.type.ts`).
+- **Errors** (`cameraErrorMessage`, `books/barcode.rules.ts`) close the dialog and show under the ISBN field. The photo button and the field keep working.
+  - `NotAllowedError` and `SecurityError` give "Inkwell can't use the camera…".
+  - Anything else (`NotFoundError`, `NotReadableError`, …) gives "No camera is available…".
+  - A reader that fails to load gives "The scanner couldn't start…".
+- **Tests:** `readLiveFrame`, `shouldReadFrame` and `cameraErrorMessage` in `barcode.rules.test.ts`.
+- **Checked:** no `Permissions-Policy` header blocks the camera.
+- **Not checked:** the camera itself. Step 6, on a real iPhone, an Android phone and a laptop webcam, is the user's, including the camera light going off after every way of closing.
+- **Then (2026-11-15), the user's design: one "Scan barcode" dropdown.** The user put both scans in a dropdown ("Upload image" / "Upload another", "Scan live" / "Scan another"), with the scanners rendered inside the menu items. Choosing an item closed the menu and unmounted them, so neither worked.
+  - Now, as in the other menus, the items are plain `DropdownMenuItem`s with an icon, a label and `onClick`.
+  - The photo input (`ScanBarcodeButton`, now just the hidden input, clicked through a ref) and the live dialog (`LiveScanButton`, controlled by `open`) sit beside the menu, so they survive it closing.
+  - "Scan live" shows only where a camera can open (`useCameraSupported`). The trigger shows a spinner while a photo is read.
+  - The user's trigger, labels, variant and icon sizes are kept.
 
 ## Env vars
 

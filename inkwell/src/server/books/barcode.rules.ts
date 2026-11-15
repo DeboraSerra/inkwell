@@ -1,6 +1,6 @@
 // Reads a book's ISBN out of what a barcode decoder found in a photo. Pure, so
 // it's unit-tested without a camera, and shared with the scanner in the browser.
-import type { BookBarcodeResult } from "@/types/books.type";
+import type { BookBarcodeResult, LiveFrame } from "@/types/books.type";
 import { isValidEan13, isValidIsbn13 } from "./isbn";
 
 export const NOT_A_BOOK = "That isn't a book barcode.";
@@ -24,3 +24,29 @@ export function readBookBarcode(rawValues: readonly string[]): BookBarcodeResult
   if (isbn13) return { isbn13 };
   return { error: codes.some((code) => isValidEan13(code)) ? NOT_A_BOOK : NO_BARCODE };
 }
+
+// Live scanning reads the camera's video a few frames a second.
+
+// What one video frame means: a book stops the scan; a product barcode keeps
+// scanning with a hint; nothing keeps scanning quietly.
+export function readLiveFrame(rawValues: readonly string[]): LiveFrame {
+  const result = readBookBarcode(rawValues);
+  if (result.error === undefined) return { kind: "book", isbn13: result.isbn13 };
+  return { kind: result.error === NOT_A_BOOK ? "product" : "none" };
+}
+
+// About 5 frames a second, and never a new read while one is still running,
+// so a slow phone doesn't pile up work.
+export const FRAME_INTERVAL_MS = 200;
+
+export const shouldReadFrame = (now: number, lastReadAt: number, reading: boolean) =>
+  !reading && now - lastReadAt >= FRAME_INTERVAL_MS;
+
+export const CAMERA_REFUSED = "Inkwell can't use the camera. Allow it in your browser's settings, or take a photo instead.";
+export const NO_CAMERA = "No camera is available. Take a photo or type the ISBN.";
+export const SCANNER_FAILED = "The scanner couldn't start. Take a photo or type the ISBN.";
+
+// The message for a getUserMedia failure, by the error's name. Anything else
+// (an unexpected failure) is treated as no usable camera.
+export const cameraErrorMessage = (name: string | undefined) =>
+  name === "NotAllowedError" || name === "SecurityError" ? CAMERA_REFUSED : NO_CAMERA;

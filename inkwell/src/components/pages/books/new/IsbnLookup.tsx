@@ -2,10 +2,18 @@
 
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { FieldError } from "@/components/ui/field";
 import { formatIsbn } from "@/server/books/isbn";
 import { addBookByIsbn, lookUpIsbn } from "@/server/library/library.controller";
-import { Loader } from "lucide-react";
+import type { IsbnLookupResult } from "@/types/library.type";
+import type { ScanMethod } from "@/types/ui.type";
+import { Camera, Loader, ScanLine } from "lucide-react";
 import {
   type ChangeEvent,
   type SubmitEvent,
@@ -15,17 +23,24 @@ import {
 } from "react";
 import { AddPreviewedBook } from "./BookPreview";
 import { applyIsbnFormat } from "./isbn-input";
+import { LiveScanButton, useCameraSupported } from "./LiveScanButton";
 import { ScanBarcodeButton } from "./ScanBarcodeButton";
-import type { IsbnLookupResult } from "@/types/library.type";
 
 export default function IsbnLookup({
   onFillByHand,
 }: Readonly<{ onFillByHand: (isbn13: string) => void }>) {
   const [result, setResult] = useState<IsbnLookupResult | null>(null);
   const [isLooking, startLookup] = useTransition();
-  // Whether the last book came from a scan, so the button offers another.
-  const [scanned, setScanned] = useState(false);
+  // How the last book was scanned, so that button offers another.
+  const [scanned, setScanned] = useState<ScanMethod | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // The scanners live outside the menu, so they survive it closing: the menu
+  // items only click the photo input or open the live dialog.
+  const photoRef = useRef<HTMLInputElement>(null);
+  const [isReadingPhoto, setReadingPhoto] = useState(false);
+  const [liveOpen, setLiveOpen] = useState(false);
+  const cameraSupported = useCameraSupported();
+  const another = (method: ScanMethod) => scanned === method && !result;
 
   const lookUp = (isbn: string) =>
     startLookup(async () => {
@@ -34,14 +49,14 @@ export default function IsbnLookup({
 
   const handleSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setScanned(false);
+    setScanned(null);
     lookUp(inputRef.current?.value ?? "");
   };
 
   // A scanned ISBN fills the field and is looked up straight away.
-  const handleScanned = (isbn13: string) => {
+  const handleScanned = (method: ScanMethod) => (isbn13: string) => {
     if (inputRef.current) inputRef.current.value = formatIsbn(isbn13);
-    setScanned(true);
+    setScanned(method);
     setResult(null);
     lookUp(isbn13);
   };
@@ -50,7 +65,7 @@ export default function IsbnLookup({
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     applyIsbnFormat(event.target);
     setResult(null);
-    setScanned(false);
+    setScanned(null);
   };
 
   // Ready for the next book straight away.
@@ -65,8 +80,12 @@ export default function IsbnLookup({
   const notFound = result?.notFound;
   return (
     <div className='flex flex-col gap-6'>
-      <form onSubmit={handleSubmit} noValidate  className='flex flex-col gap-3 max-w-150'>
-        <div className='flex gap-2 items-end'>
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        className='flex flex-col gap-3 max-w-200'
+      >
+        <div className='flex gap-2 md:items-end flex-col md:flex-row'>
           <TextField
             ref={inputRef}
             id='lookup-isbn'
@@ -82,21 +101,56 @@ export default function IsbnLookup({
               </p>
             }
           />
-          <Button type='submit' disabled={isLooking}>
-            {isLooking ? <Loader className='spin-in' /> : "Look up"}
-          </Button>
-          <ScanBarcodeButton
-            label={scanned && !result ? "Scan another" : "Scan barcode"}
-            onIsbn={handleScanned}
-            onError={(error) => setResult({ error })}
-          />
+          <div className='flex gap-2'>
+            <Button type='submit' disabled={isLooking}>
+              {isLooking ? <Loader className='spin-in' /> : "Look up"}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button variant='secondary' disabled={isReadingPhoto} />}
+              >
+                {isReadingPhoto && <Loader size={14} className='spin-in' />}
+                {scanned === "photo" && !result
+                  ? "Scan another"
+                  : "Scan barcode"}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className='w-fit'>
+                <DropdownMenuItem onClick={() => photoRef.current?.click()}>
+                  <Camera size={14} />
+                  {another("photo") ? "Upload another" : "Upload image"}
+                </DropdownMenuItem>
+                {cameraSupported && (
+                  <DropdownMenuItem onClick={() => setLiveOpen(true)}>
+                    <ScanLine size={14} />
+                    {another("live") ? "Scan another" : "Scan live"}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <ScanBarcodeButton
+              ref={photoRef}
+              onIsbn={handleScanned("photo")}
+              onError={(error) => setResult({ error })}
+              onReadingChange={setReadingPhoto}
+            />
+            <LiveScanButton
+              open={liveOpen}
+              onOpenChange={setLiveOpen}
+              onIsbn={handleScanned("live")}
+              onError={(error) => setResult({ error })}
+            />
+          </div>
         </div>
         <FieldError>{result?.error}</FieldError>
       </form>
 
       {result?.preview && (
         <div className='flex flex-col gap-6'>
-          <AddPreviewedBook preview={result.preview} action={addBookByIsbn} onAdded={handleAdded} />
+          <AddPreviewedBook
+            preview={result.preview}
+            action={addBookByIsbn}
+            onAdded={handleAdded}
+          />
         </div>
       )}
 
