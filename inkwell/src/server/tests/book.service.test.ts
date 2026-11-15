@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as bookModel from "@/server/books/book.model";
+import { findDescription, findDescriptionByIsbn } from "@/server/metadata/metadata.service";
 
 vi.mock("@/server/books/book.model");
+vi.mock("@/server/metadata/metadata.service");
 
 const service = await import("@/server/books/book.service");
 const model = vi.mocked(bookModel);
@@ -219,5 +221,50 @@ describe("books from a metadata provider", () => {
       await expect(service.fillMissingIsbn(book, data)).resolves.toBe(false);
       expect(model.fillBookIsbn).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("fillMissingDescription", () => {
+  const shared = { id: "b1", ownerId: null, isbn13: "9780441013593", isbn10: null, description: null };
+  const metadata = { source: "OPEN_LIBRARY" as const, sourceId: "OL1M", title: "Dune", authors: [] };
+
+  it("saves the synopsis from the record the book was found with", async () => {
+    vi.mocked(findDescription).mockResolvedValue("Desert planet.");
+    model.fillBookDescription.mockResolvedValue(true);
+    await expect(service.fillMissingDescription(shared, metadata)).resolves.toBe(true);
+    expect(findDescription).toHaveBeenCalledWith(metadata);
+    expect(model.fillBookDescription).toHaveBeenCalledWith("b1", "Desert planet.");
+  });
+
+  it("looks a reused catalog book up by its ISBN", async () => {
+    vi.mocked(findDescriptionByIsbn).mockResolvedValue("Desert planet.");
+    model.fillBookDescription.mockResolvedValue(true);
+    await expect(service.fillMissingDescription({ ...shared, description: "" })).resolves.toBe(true);
+    expect(findDescriptionByIsbn).toHaveBeenCalledWith("9780441013593");
+  });
+
+  it.each([
+    ["one that already has a synopsis", { ...shared, description: "Already here." }, metadata],
+    ["a private book", { ...shared, ownerId: "user-1" }, metadata],
+    ["a catalog book with no ISBN and no record", { ...shared, isbn13: null }, undefined],
+  ])("leaves %s alone, without asking a provider", async (_label, book, record) => {
+    await expect(service.fillMissingDescription(book, record)).resolves.toBe(false);
+    expect(findDescription).not.toHaveBeenCalled();
+    expect(findDescriptionByIsbn).not.toHaveBeenCalled();
+    expect(model.fillBookDescription).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when the provider has no synopsis", async () => {
+    await expect(service.fillMissingDescription(shared, metadata)).resolves.toBe(false);
+    expect(model.fillBookDescription).not.toHaveBeenCalled();
+  });
+
+  it("logs a failure instead of throwing", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.mocked(findDescription).mockResolvedValue("Desert planet.");
+    model.fillBookDescription.mockRejectedValue(new Error("database down"));
+    await expect(service.fillMissingDescription(shared, metadata)).resolves.toBe(false);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

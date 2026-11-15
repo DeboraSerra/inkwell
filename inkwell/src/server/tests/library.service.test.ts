@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BookFormat, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
 import {
+  fillMissingDescription,
   fillMissingIsbn,
   findExistingBook,
   findOrCreateManualBook,
@@ -1108,6 +1109,7 @@ describe("add by ISBN", () => {
         "tx",
       );
       expect(result.created).toBe(true);
+      expect(result.metadata).toBe(metadata);
       expect(fillMissingIsbn).toHaveBeenCalledWith(catalogBook(), metadata);
     });
 
@@ -1123,7 +1125,8 @@ describe("add by ISBN", () => {
 
     it("reuses a catalog book without asking any provider or filling anything", async () => {
       lookup.mockResolvedValue({ found: "catalog", book: catalogBook() });
-      await service.addBookByIsbn(USER, ISBN, { formats: [EBOOK] });
+      const result = await service.addBookByIsbn(USER, ISBN, { formats: [EBOOK] });
+      expect(result.metadata).toBeUndefined();
       expect(findOrCreateMetadataBook).not.toHaveBeenCalled();
       expect(fillMissingIsbn).not.toHaveBeenCalled();
     });
@@ -1231,6 +1234,7 @@ describe("add by ISBN", () => {
         "tx",
       );
       expect(result.created).toBe(true);
+      expect(result.metadata).toBe(noIsbn);
       expect(fillMissingIsbn).toHaveBeenCalledWith(catalogBook({ isbn13: null }), noIsbn);
     });
 
@@ -1249,6 +1253,14 @@ describe("add by ISBN", () => {
       await expect(service.addBookFromProvider(USER, ref, { formats: [] })).rejects.toThrow(NotFoundError);
       expect(findOrCreateMetadataBook).not.toHaveBeenCalled();
       expect(model.findUserBookByBookId).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("saveSynopsis", () => {
+    it("fills the synopsis from the add's provider record", async () => {
+      vi.mocked(fillMissingDescription).mockResolvedValue(true);
+      await expect(service.saveSynopsis({ book: catalogBook(), metadata })).resolves.toBe(true);
+      expect(fillMissingDescription).toHaveBeenCalledWith(catalogBook(), metadata);
     });
   });
 });

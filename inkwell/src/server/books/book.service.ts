@@ -4,6 +4,7 @@ import type { Tx } from "@/server/db";
 import { NotFoundError } from "@/server/errors";
 import * as bookModel from "./book.model";
 import { authorSearchText, dedupeKey } from "./dedupe";
+import { findDescription, findDescriptionByIsbn } from "@/server/metadata/metadata.service";
 import type { BookMetadata } from "@/server/metadata/metadata.types";
 import { cleanIsbn, toIsbn13 } from "./isbn";
 
@@ -173,4 +174,25 @@ export async function fillMissingIsbn(book: CatalogBook, metadata: BookMetadata)
     isbn13: metadata.isbn13,
     ...(book.isbn10 || !metadata.isbn10 ? {} : { isbn10: metadata.isbn10 }),
   });
+}
+
+type DescribedBook = CatalogBook & { description: string | null };
+
+// Saves the synopsis of a book just added by search or ISBN, when the shared
+// book has none: from the provider record it was found with, or, for a
+// catalog book reused by its ISBN, from the first provider that has one. Run
+// after the add's response is sent; it never overwrites, skips private books,
+// and logs rather than throws, so it can't fail an add.
+export async function fillMissingDescription(book: DescribedBook, metadata?: BookMetadata) {
+  if (book.ownerId || book.description) return false;
+  try {
+    const description = metadata
+      ? await findDescription(metadata)
+      : book.isbn13 && (await findDescriptionByIsbn(book.isbn13));
+    if (!description) return false;
+    return await bookModel.fillBookDescription(book.id, description);
+  } catch (error) {
+    console.warn("Saving a book's synopsis failed", error);
+    return false;
+  }
 }

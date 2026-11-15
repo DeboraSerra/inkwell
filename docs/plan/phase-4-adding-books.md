@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: in progress.** 4a and 4b are done and committed. ✅ 4c is built (2026-11-15) and needs a signed-in check. ⏭️ Next is 4d. Phase 3 closed on 2026-11-15 ([phase-3-mvp.md](phase-3-mvp.md#closed-2026-11-15)). Phase 4 was started at the user's request before Phase 3's "Done when" list was checked.
+**Status: in progress.** 4a and 4b are done and committed. ✅ 4c is done (2026-11-15), checked by the user; its synopsis follow-up is built. ⏭️ Next is 4d. Phase 3 closed on 2026-11-15 ([phase-3-mvp.md](phase-3-mvp.md#closed-2026-11-15)). Phase 4 was started at the user's request before Phase 3's "Done when" list was checked.
 
 Goal: add a book without typing its details. Search by title or author, type an ISBN, or photograph the barcode, then confirm, pick formats and add. The manual form stays as the last resort.
 
@@ -175,7 +175,7 @@ A new module, `src/server/metadata/`, that turns an ISBN or a search query into 
   - The tabs, preview cards and ISBN formatting in the browser through a temporary render, since removed, on desktop and at phone width.
 - **Not verified:** a signed-in click-through of `/books/new`. Auto mode refused a temporary auth bypass for the browser test, so the actions were exercised through the service and unit tests only. Try it once while signed in.
 
-## 4c — Search by title or author ✅ built (not yet checked signed in)
+## 4c — Search by title or author ✅ done (checked by the user)
 
 1. **Endpoint:** `GET /api/books/search?q=…`, a route handler using `getRequestUser`, so the extension could use it later. A `GET` can be cached and cancelled, which suits search-as-you-type better than a server action. It replaces the empty `api/books/route.js`.
 2. **Search tab:**
@@ -232,7 +232,7 @@ A new module, `src/server/metadata/`, that turns an ISBN or a search query into 
   - **Only a work with no matched edition** falls back to the work's own fields, as before.
   - **Tests:** a mixed-language work, ISBN-10 conversion, no ISBN, a missing cover, and the fallbacks.
 
-### 4c follow-up: save the synopsis when adding by search or ISBN ⏭️ not started
+### 4c follow-up: save the synopsis when adding by search or ISBN ✅ built (2026-11-15)
 
 Asked by the user on 2026-11-15. The reader has just picked an exact provider record, so this is the most reliable moment to get its synopsis. Saving it now means Phase 5's enrichment and a future book details page find it in the database.
 
@@ -247,6 +247,26 @@ Asked by the user on 2026-11-15. The reader has just picked an exact provider re
    - The service: an empty description gets filled; an existing one is never overwritten; a private book is skipped; a provider failure leaves the add in place.
 
 **Done when:** a book added by search or ISBN from Open Library or Google Books has its synopsis in `Book.description` when the provider has one, without slowing or failing the add.
+
+**Outcome (2026-11-15):**
+- **Provider:** `openLibrary.fetchDescription(sourceId)`, an optional method on `MetadataProvider`.
+  - It refuses anything but `OL…W` or `OL…M` before a request.
+  - For an edition, it reads `works[0].key` from `/books/{M}.json`, accepting only a work key.
+  - It then reads `/works/{W}.json`, with the description as a string or `{ value }`, cleaned by `cleanDescription`.
+  - It goes through `fetchProviderJson`. Checked live: *The Midnight Library*'s English edition leads to its work's synopsis.
+- **Metadata service:**
+  - `findDescription(metadata)` uses the record's own description (Google), or else asks the provider (Open Library). A provider error counts as none.
+  - `findDescriptionByIsbn(isbn13)` is for a catalog book reused by its ISBN: the first provider that knows the ISBN and has a synopsis.
+- **Book service:** `fillMissingDescription(book, metadata?)` skips private books and books that already have a synopsis. It fills through `book.model.fillBookDescription`, which only updates a shared book whose description is null or empty, so it never overwrites. It logs rather than throws.
+- **When:** `addBookByIsbn` and `addBookFromProvider` now also return the provider record they used (`metadata`, undefined for a reused catalog book). The `addBookByIsbn` and `addSearchBook` controllers schedule `libraryService.saveSynopsis(added)` with Next's `after()`, so it runs once the response is sent and can't slow or fail the add.
+- **Tests:**
+  - The provider: string, object, missing, HTML and edition-to-work descriptions, and refused ids.
+  - `findDescription` and `findDescriptionByIsbn`.
+  - `fillMissingDescription`: fills, never overwrites, skips private books, logs failures.
+  - The model's update filter.
+  - That the controllers schedule the fill rather than run it inline.
+- **Deviation:** the plan said "after the add's transaction". It runs after the response instead (`after()`), which also keeps the extra Open Library requests off the add's wait.
+- **Not checked yet:** a real add, signed in, then reading `Book.description`.
 
 ## 4d — Scan the barcode
 

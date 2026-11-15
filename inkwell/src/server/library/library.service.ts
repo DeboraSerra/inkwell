@@ -1,6 +1,7 @@
 import "server-only";
 import { type BookFormat, DatePrecision, ReadingStatus, ReadOutcome, UserBookSource } from "@/generated/prisma/enums";
 import {
+  fillMissingDescription,
   fillMissingIsbn,
   findExistingBook,
   findOrCreateManualBook,
@@ -366,7 +367,8 @@ export async function addBookByIsbn(userId: string, isbn: string, choices: Looku
     return { ...result, book };
   });
   if (lookup.found === "provider") await fillMissingIsbn(added.book, lookup.metadata);
-  return added;
+  // The record it was found with, for saving the synopsis after the add.
+  return { ...added, metadata: lookup.found === "provider" ? lookup.metadata : undefined };
 }
 
 // Adds a search result with no ISBN by its provider record, looked up again
@@ -387,7 +389,13 @@ export async function addBookFromProvider(userId: string, ref: ProviderRef, choi
     return { ...result, book };
   });
   await fillMissingIsbn(added.book, metadata);
-  return added;
+  return { ...added, metadata };
+}
+
+// Saves a just-added book's synopsis, if its shared record has none. Meant to
+// run after the add's response is sent (see the controllers).
+export function saveSynopsis(added: { book: Parameters<typeof fillMissingDescription>[0]; metadata?: BookMetadata }) {
+  return fillMissingDescription(added.book, added.metadata);
 }
 
 export function getUserBook(userId: string, userBookId: string) {

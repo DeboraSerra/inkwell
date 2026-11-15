@@ -1,7 +1,14 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ProviderError } from "@/server/metadata/http";
-import { openLibrary, parseIsbnResponse, parseSearchResponse, searchQueryForId } from "@/server/metadata/open-library.provider";
+import {
+  openLibrary,
+  parseEditionWork,
+  parseIsbnResponse,
+  parseSearchResponse,
+  parseWorkDescription,
+  searchQueryForId,
+} from "@/server/metadata/open-library.provider";
 
 const fixture = (name: string): unknown =>
   JSON.parse(readFileSync(new URL(`./fixtures/metadata/${name}`, import.meta.url), "utf8"));
@@ -252,5 +259,73 @@ describe("parseSearchResponse with a matched edition", () => {
     await openLibrary.search("the midnight library", 10);
     const fields = new URL(String(fetchMock.mock.calls[0]?.[0 as never])).searchParams.get("fields") ?? "";
     expect(fields.split(",")).toEqual(expect.arrayContaining(["editions", "editions.key", "editions.isbn", "editions.cover_i"]));
+  });
+});
+
+describe("fetchDescription", () => {
+  const respondWith = (bodies: Record<string, unknown>) => {
+    const fetchMock = vi.fn(async (url: string) => {
+      const path = new URL(url).pathname;
+      return path in bodies ? new Response(JSON.stringify(bodies[path])) : new Response("{}", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  };
+
+  it.each([
+    ["a string", "A library between life and death."],
+    ["a text object", { type: "/type/text", value: "A library between life and death." }],
+  ])("reads the work's synopsis as %s", (_label, description) => {
+    expect(parseWorkDescription({ description })).toBe("A library between life and death.");
+  });
+
+  it.each([
+    ["no description", {}],
+    ["a number", { description: 42 }],
+    ["an object with no value", { description: { type: "/type/text" } }],
+    ["not an object", "nope"],
+  ])("has none for %s", (_label, json) => {
+    expect(parseWorkDescription(json)).toBeUndefined();
+  });
+
+  it("strips HTML from the synopsis", () => {
+    expect(parseWorkDescription({ description: "<p>Between <b>life</b> and death.</p>" })).toBe("Between life and death.");
+  });
+
+  it("reads an edition's work, and only a work key", () => {
+    expect(parseEditionWork({ works: [{ key: "/works/OL20965973W" }] })).toBe("OL20965973W");
+    expect(parseEditionWork({ works: [{ key: "/books/OL1M" }] })).toBeUndefined();
+    expect(parseEditionWork({ works: [] })).toBeUndefined();
+    expect(parseEditionWork(null)).toBeUndefined();
+  });
+
+  it("fetches a work's synopsis directly", async () => {
+    const fetchMock = respondWith({ "/works/OL20965973W.json": { description: "Between life and death." } });
+    await expect(openLibrary.fetchDescription?.("OL20965973W")).resolves.toBe("Between life and death.");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("goes from an edition to its work", async () => {
+    const fetchMock = respondWith({
+      "/books/OL61174737M.json": { works: [{ key: "/works/OL20965973W" }] },
+      "/works/OL20965973W.json": { description: { value: "Between life and death." } },
+    });
+    await expect(openLibrary.fetchDescription?.("OL61174737M")).resolves.toBe("Between life and death.");
+    expect(fetchMock.mock.calls.map(([url]) => new URL(url).pathname)).toEqual([
+      "/books/OL61174737M.json",
+      "/works/OL20965973W.json",
+    ]);
+  });
+
+  it("stops when the edition names no work", async () => {
+    const fetchMock = respondWith({ "/books/OL61174737M.json": { works: [] } });
+    await expect(openLibrary.fetchDescription?.("OL61174737M")).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["", "OL45", "../OL45W", "OL45W/../x", "ol45w"])("refuses %j without a request", async (id) => {
+    const fetchMock = respondWith({});
+    await expect(openLibrary.fetchDescription?.(id)).resolves.toBeUndefined();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

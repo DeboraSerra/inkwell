@@ -4,7 +4,7 @@
 // endpoint, so each one authenticates and validates its own input.
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
-import { userAgent } from "next/server";
+import { after, userAgent } from "next/server";
 import type { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import { requireUser } from "@/server/auth/auth.guard";
 import { DomainError } from "@/server/errors";
@@ -106,7 +106,10 @@ export async function addBookByIsbn(
   const { isbn, ...choices } = parsed.data;
   try {
     await consumeRateLimit(user.id, "ISBN_LOOKUP");
-    const { book, userBook, created } = await libraryService.addBookByIsbn(user.id, isbn, choices);
+    const added = await libraryService.addBookByIsbn(user.id, isbn, choices);
+    const { book, userBook, created } = added;
+    // After the response, so a slow provider never delays or fails the add.
+    after(() => libraryService.saveSynopsis(added));
     revalidatePath(SHELVES_PATH);
     const list = LIST_NAMES[userBook.status];
     return {
@@ -153,9 +156,12 @@ export async function addSearchBook(
   const { isbn, source, sourceId, ...choices } = parsed.data;
   try {
     await consumeRateLimit(user.id, "ISBN_LOOKUP");
-    const { book, userBook, created } = isbn
+    const added = isbn
       ? await libraryService.addBookByIsbn(user.id, isbn, { ...choices, source: "SEARCH" })
       : await libraryService.addBookFromProvider(user.id, { source, sourceId }, choices);
+    const { book, userBook, created } = added;
+    // After the response, so a slow provider never delays or fails the add.
+    after(() => libraryService.saveSynopsis(added));
     revalidatePath(SHELVES_PATH);
     const list = LIST_NAMES[userBook.status];
     return {

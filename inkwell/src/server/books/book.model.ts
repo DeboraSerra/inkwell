@@ -40,6 +40,17 @@ export function findOwnedBookByDedupeKey(ownerId: string, dedupeKey: string, db:
   return db.book.findFirst({ where: { dedupeKey, ownerId }, orderBy: { createdAt: "asc" } });
 }
 
+// Fills a blank synopsis on a shared catalog book, never overwriting one, so
+// a synopsis someone else saved (or Phase 5 wrote) stays. Returns whether it
+// changed.
+export async function fillBookDescription(bookId: string, description: string, db: Db = prisma) {
+  const { count } = await db.book.updateMany({
+    where: { id: bookId, ownerId: null, OR: [{ description: null }, { description: "" }] },
+    data: { description },
+  });
+  return count === 1;
+}
+
 // Fills a blank ISBN on a shared catalog book, never overwriting one. Returns
 // false when nothing changed, including when another book already holds that
 // ISBN (the unique key). Not for use inside a transaction, where the

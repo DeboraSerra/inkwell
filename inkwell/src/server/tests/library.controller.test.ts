@@ -6,6 +6,12 @@ import * as libraryService from "@/server/library/library.service";
 import { consumeRateLimit } from "@/server/rate-limit/rate-limit.service";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+// `after` needs a live request; here it just records what's scheduled.
+const scheduled = vi.hoisted(() => [] as (() => unknown)[]);
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (task: () => unknown) => scheduled.push(task),
+}));
 const request = vi.hoisted(() => ({ cookie: undefined as string | undefined, userAgent: "", set: vi.fn() }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({
@@ -36,6 +42,7 @@ const PHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKi
 const DESKTOP = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
 
 beforeEach(() => {
+  scheduled.length = 0;
   vi.resetAllMocks();
   request.cookie = undefined;
   request.userAgent = DESKTOP;
@@ -344,6 +351,11 @@ describe("add by ISBN", () => {
       );
       expect(state.message).toContain("to Finished");
       expect(consumeRateLimit).toHaveBeenCalledWith("user-1", "ISBN_LOOKUP");
+      // The synopsis is saved after the response, not as part of the add.
+      expect(service.saveSynopsis).not.toHaveBeenCalled();
+      expect(scheduled).toHaveLength(1);
+      await scheduled[0]();
+      expect(service.saveSynopsis).toHaveBeenCalledWith(added(ReadingStatus.FINISHED, true));
       expect(service.addBookByIsbn).toHaveBeenCalledWith("user-1", "0441013597", {
         formats: ["EBOOK"],
         status: "FINISHED",
@@ -439,6 +451,7 @@ describe("add from search", () => {
       service.addBookFromProvider.mockResolvedValue(added(ReadingStatus.WISHLIST, true));
       const state = await addSearchBook({}, form({ source: "GOOGLE_BOOKS", sourceId: "g1" }));
       expect(state.message).toContain("to Wishlist");
+      expect(scheduled).toHaveLength(1);
       expect(service.addBookFromProvider).toHaveBeenCalledWith(
         "user-1",
         { source: "GOOGLE_BOOKS", sourceId: "g1" },

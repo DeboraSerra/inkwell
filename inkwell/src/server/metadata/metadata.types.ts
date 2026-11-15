@@ -25,5 +25,8 @@ export type MetadataProvider = {
   // The record a search result came from, by its sourceId, for adding a
   // result that has no ISBN. The id is untrusted and checked by the provider.
   lookupId(sourceId: string): Promise<BookMetadata | null>;
+  // A record's synopsis, for a provider whose search and ISBN answers leave
+  // it out (Open Library). Undefined when there's none.
+  fetchDescription?(sourceId: string): Promise<string | undefined>;
   search(query: string, limit: number): Promise<BookMetadata[]>;
 };

@@ -110,3 +110,25 @@ export async function lookupById(source: MetadataSourceName, sourceId: string): 
   if (!metadata) return null;
   return fillGaps(metadata, PROVIDERS.filter((other) => other !== provider));
 }
+
+// A book's synopsis from the record it was found with: the record's own, or
+// for Open Library the one on its work, which costs a request or two. Best
+// effort, so a provider that's down just means no synopsis.
+export async function findDescription(metadata: BookMetadata): Promise<string | undefined> {
+  if (metadata.description) return metadata.description;
+  const provider = BY_SOURCE[metadata.source];
+  if (!provider?.fetchDescription) return undefined;
+  const describe = provider.fetchDescription;
+  return tryProvider(() => describe(metadata.sourceId), undefined);
+}
+
+// For a catalog book added by ISBN, which has no provider record at hand: the
+// first provider that knows the ISBN and has a synopsis for it.
+export async function findDescriptionByIsbn(isbn13: string): Promise<string | undefined> {
+  for (const provider of PROVIDERS) {
+    const metadata = await tryProvider(() => provider.lookupIsbn(isbn13), null);
+    const description = metadata ? await findDescription(metadata) : undefined;
+    if (description) return description;
+  }
+  return undefined;
+}

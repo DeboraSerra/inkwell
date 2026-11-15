@@ -43,7 +43,7 @@
 4. **[Phase 4 — Search and ISBN](phase-4-adding-books.md) in progress; ⏭️ next: 4d**
    - 4a — Metadata providers (Open Library, Google Books) ✅ done, plus the per-user rate limit
    - 4b — Add by ISBN ✅ done, at `/books/new`
-   - 4c — Search by title or author ✅ built, at `/books/new` (Search tab); not yet checked signed in (follow-up ⏭️: save the synopsis when adding by search or ISBN)
+   - 4c — Search by title or author ✅ done, at `/books/new` (Search tab), checked by the user (✅ follow-up built: the synopsis is saved after an add by search or ISBN)
    - 4d — Scan the barcode
 5. [Phase 5 — AI enrichment (Claude API)](phase-5-ai-enrichment.md)
 6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)

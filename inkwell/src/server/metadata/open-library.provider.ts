@@ -6,6 +6,7 @@ import type { BookMetadata, MetadataProvider } from "./metadata.types";
 import {
   cleanAuthors,
   cleanCoverUrl,
+  cleanDescription,
   cleanIsbn10,
   cleanIsbn13,
   cleanPageCount,
@@ -173,6 +174,34 @@ export function searchQueryForId(sourceId: string) {
   return sourceId.endsWith("W") ? `key:/works/${sourceId}` : `edition_key:${sourceId}`;
 }
 
+// An edition names its work; the work holds the synopsis.
+const editionRecord = z.object({ works: z.array(z.object({ key: field })).catch([]) });
+// The synopsis is a plain string or `{ type: "/type/text", value }`.
+const workRecord = z.object({
+  description: z.union([z.string(), z.object({ value: z.unknown() })]).optional().catch(undefined),
+});
+
+export function parseEditionWork(json: unknown) {
+  const parsed = editionRecord.safeParse(json);
+  const id = parsed.success ? keyToId(parsed.data.works.at(0)?.key) : undefined;
+  return id && OPEN_LIBRARY_ID.test(id) && id.endsWith("W") ? id : undefined;
+}
+
+export function parseWorkDescription(json: unknown) {
+  const parsed = workRecord.safeParse(json);
+  const description = parsed.success ? parsed.data.description : undefined;
+  return cleanDescription(typeof description === "object" ? description.value : description);
+}
+
+async function fetchDescription(sourceId: string) {
+  if (!OPEN_LIBRARY_ID.test(sourceId)) return undefined;
+  const workId = sourceId.endsWith("W")
+    ? sourceId
+    : parseEditionWork(await fetchProviderJson(PROVIDER, `${BASE}/books/${sourceId}.json`, headers()));
+  if (!workId) return undefined;
+  return parseWorkDescription(await fetchProviderJson(PROVIDER, `${BASE}/works/${workId}.json`, headers()));
+}
+
 async function search(query: string, limit: number) {
   const params = new URLSearchParams({ q: query, fields: SEARCH_FIELDS, limit: String(limit) });
   const json = await fetchProviderJson(PROVIDER, `${BASE}/search.json?${params}`, headers());
@@ -187,6 +216,7 @@ export const openLibrary: MetadataProvider = {
   },
 
   search,
+  fetchDescription,
 
   async lookupId(sourceId) {
     const query = searchQueryForId(sourceId);
