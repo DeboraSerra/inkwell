@@ -53,7 +53,7 @@ export const BooksShelf = () => {
 
         <ul className='grid grid-cols-1 gap-3 md:grid-cols-2'>
           {books.map((book) => (
-            <BookCard key={book.id} book={book} showList={filters.owned} />
+            <BookCard key={book.id} book={book} />
           ))}
         </ul>
         <div className='flex justify-between items-center flex-wrap-reverse gap-5 md:gap-3'>

@@ -98,16 +98,17 @@ export type AmazonDocDetails = {
   coverUrl?: string;
 };
 
-// A personal document belongs to one user, so it's only ever matched against
-// their own books. It has no ASIN: identifiers are for the shared catalog.
-// Documents imported before they were private are shared books already in
-// the reader's library, so those match first; a shared book only other users
-// have never does, so new documents stay private.
+// A personal document is matched in order: a book already in the reader's
+// library, then their own private documents, then the shared catalog, so a
+// document that is a published book (a PDF of a novel) uses the shared book,
+// as the user decided. Only a document with no match becomes a new private
+// book. It has no ASIN: identifiers are for the shared catalog.
 export async function findOrCreateAmazonDoc(ownerId: string, details: AmazonDocDetails, tx?: Tx) {
   const key = dedupeKey(details.title, details.authors);
   const existing =
     (await bookModel.findLibraryBookByDedupeKey(ownerId, key, tx)) ??
-    (await bookModel.findOwnedBookByDedupeKey(ownerId, key, tx));
+    (await bookModel.findOwnedBookByDedupeKey(ownerId, key, tx)) ??
+    (await bookModel.findBookByDedupeKey(key, tx));
   if (existing) return existing;
 
   const created = await bookModel.createBook(

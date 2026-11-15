@@ -26,12 +26,8 @@ function wordsWithPositions(text: string): PositionedWord[] {
 }
 
 // Selection comes from the shelf's selection context, and the actions from
-// useBookActions, so a card needs only its book. `showList` adds the book's
-// list, for a shelf that mixes lists (Owned).
-export function BookCard({
-  book,
-  showList = false,
-}: Readonly<{ book: ShelfBook; showList?: boolean }>) {
+// useBookActions, so a card needs only its book.
+export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
   const { isSelected, atLimit, toggle } = useShelfSelection();
   const selected = isSelected(book.id);
   const readDates = readDatesLabel(book.status, book.latestRead);

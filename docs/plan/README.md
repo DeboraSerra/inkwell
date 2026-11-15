@@ -26,7 +26,7 @@
    - [2a — Catalog](phase-2-data-model.md#phase-2a--catalog)
    - [2b — Library](phase-2-data-model.md#phase-2b--library)
    - [2c — Shelves](phase-2-data-model.md#phase-2c--shelves)
-3. **[Phase 3 — MVP: add books and browse them](phase-3-mvp.md) ✅ 3a–3d done; ✅ three fixes built (DNF, `&amp;`, shelf search); ⏭️ next: 3e, 3f** (Docs-tab fix not yet run on the real page)
+3. **[Phase 3 — MVP: add books and browse them](phase-3-mvp.md) ✅ 3a–3g and the fixes built and checked by the user (2026-11-15); ⏭️ next: close Phase 3**
    - 3a — Rework the model (formats, status as the list, read history) ✅ implemented
    - 3b — Add books manually ✅ implemented
    - 3c — Add books through the extension ✅ done, run on Amazon
@@ -35,10 +35,11 @@
    - **Fix: searching a shelf jumps back to TBR ✅ built:** search keeps the shelf and filters, and clearing the box removes `?q=`; browser check still to do signed in
    - **Fix: `&amp;` in imported titles ✅ built:** imports decode entities; the backfill fixed 5 titles locally and 41 on Supabase
    - **3e — Polish, before 4c:** ✅ show the account an import goes to (item 1); ✅ give the options page a favicon (item 2); ✅ redesign the options page (item 3); ✅ add a copy button for new API tokens (item 4, not yet clicked signed in); ✅ add a books-per-page select (5, 10, 20, 30, 50), default 10 on phones and 30 on desktop (item 5, not yet checked signed in); ✅ show the full title on hover (item 6); ✅ move to the next date part automatically (item 7); ✅ show read dates on shelf cards, with "+N" for earlier reads (item 8); ✅ add an audiobook length (item 9); ✅ add past reads from the dates area, with "latest" now by date (item 10); ✅ extension 2.2.0 built (item 11; screenshot retake and upload are the user's)
-   - **3f — Purchase dates, in progress:** app side built (column, parser, import, form field, and sorting by date added, purchase date, title, or last finished on Finished); the extension sends the date and 2.3.0 is built; deploying, the Chrome check, upload and re-import are the user's
+   - **3f — Purchase dates ✅ done:** column, parser, import, form field, and sorting by date added, purchase date, title, or last finished on Finished; extension 2.3.0 sends the date; deployed, uploaded and re-imported by the user on 2026-11-15
    - **Fix: re-importing Docs duplicates documents ✅ built:** the Docs import now matches the reader's own library first; `prisma/merge-duplicate-docs.ts` merges such pairs into the original entries, moved to the private book. The 88 on Supabase were merged by hand on 2026-11-15
    - **Change: a year alone shows in full ✅ (2026-11-15):** on shelf cards, a year-only date shows "2024", not "24"; dates with a month or day keep the two-digit year
-   - **3g — An "Owned" shelf ✅ built (not yet checked signed in):** a tab with every book owned in any format, across TBR, Reading, Finished and DNF; a view of status and formats, not a sixth list
+   - **Change: documents reuse the shared catalog ✅ built (2026-11-15):** a Docs import uses a matching shared book; only an unmatched document becomes private
+   - **3g — An "Owned" shelf ✅ done:** a tab with every book owned in any format, across TBR, Reading, Finished and DNF; a view of status and formats, not a sixth list
 4. [Phase 4 — Search and ISBN](phase-4-adding-books.md) in progress; 4c follows 3e and 3f
    - 4a — Metadata providers (Open Library, Google Books) ✅ done, plus the per-user rate limit
    - 4b — Add by ISBN ✅ done, at `/books/new`

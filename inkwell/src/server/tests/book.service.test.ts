@@ -116,12 +116,28 @@ describe("findOrCreateAmazonDoc", () => {
     expect(model.createBook).not.toHaveBeenCalled();
   });
 
-  it("then looks among the owner's own documents, never the shared catalog", async () => {
+  it("then looks among the owner's own documents, before the shared catalog", async () => {
     model.findOwnedBookByDedupeKey.mockResolvedValue(existing);
     await expect(service.findOrCreateAmazonDoc("user-1", doc, TX)).resolves.toBe(existing);
     expect(model.findOwnedBookByDedupeKey).toHaveBeenCalledWith("user-1", "my notes|", TX);
     expect(model.findBookByDedupeKey).not.toHaveBeenCalled();
     expect(model.createBook).not.toHaveBeenCalled();
+  });
+
+  it("uses a matching shared catalog book rather than creating a private one", async () => {
+    model.findBookByDedupeKey.mockResolvedValue(existing);
+    await expect(service.findOrCreateAmazonDoc("user-1", doc, TX)).resolves.toBe(existing);
+    expect(model.findBookByDedupeKey).toHaveBeenCalledWith("my notes|", TX);
+    expect(model.createBook).not.toHaveBeenCalled();
+  });
+
+  it("checks the reader's library, their documents, then the catalog, in that order", async () => {
+    model.createBook.mockResolvedValue(existing);
+    await service.findOrCreateAmazonDoc("user-1", doc, TX);
+    const order = [model.findLibraryBookByDedupeKey, model.findOwnedBookByDedupeKey, model.findBookByDedupeKey].map(
+      (fn) => fn.mock.invocationCallOrder[0],
+    );
+    expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 
   it("finds on a second run the document the first run created", async () => {
@@ -132,7 +148,7 @@ describe("findOrCreateAmazonDoc", () => {
     expect(model.createBook).toHaveBeenCalledTimes(1);
   });
 
-  it("creates a book owned by the user, without an ASIN", async () => {
+  it("creates a book owned by the user, without an ASIN, when nothing matches", async () => {
     model.createBook.mockResolvedValue(existing);
     await service.findOrCreateAmazonDoc("user-1", doc, TX);
     expect(model.createBook).toHaveBeenCalledWith(

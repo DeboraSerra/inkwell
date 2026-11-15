@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: ⏭️ next: closing Phase 3 (✅ 3g, the Owned shelf, is built but not yet checked signed in; ✅ the Docs re-import fix is built and the Supabase duplicates are merged; ✅ a year alone now shows in full), an "Owned" shelf (see the sections before "Done when"), then closing Phase 3. ✅ 3a–3f built; ✅ the DNF, `&amp;` and shelf-search fixes are built and the backfill is run locally and on Supabase (a signed-in browser check still needs you); ⏭️ next: 3e, then 3f.** 3a to 3d are committed, and the ["Done when"](#done-when) list was checked on 2026-11-08 (see "Checked" under it). The Docs-tab issue found during that check is fixed in the extension, but the fix hasn't been run on the real page yet.
+**Status: ⏭️ next: closing Phase 3. ✅ 3a–3g and every fix are built, and the user finished every signed-in, Chrome, deploy, upload and re-import check on 2026-11-15. ✅ Since then, Docs imports reuse a matching shared catalog book (see "Change: documents reuse the shared catalog"); that still needs a deploy.** 3a to 3d are committed, and the ["Done when"](#done-when) list was checked on 2026-11-08 (see "Checked" under it).
 
 Goal: add books manually or through the Chrome extension, move them between lists, and browse them with filters.
 
@@ -516,6 +516,7 @@ Added at the user's request on 2026-11-08, after the extension's store build was
      - **Still to do by the user:**
        - Load `dist/package/` unpacked in Chrome and run one import against the deployed site.
        - Upload the zip.
+       - **✅ Done by the user on 2026-11-15** (the screenshot retaken, and 2.3.0 uploaded).
 12. **Tests**, the same way as the Docs-tab fix and the store build:
    - Run the real `app.js` and `options.html` on temporary pages with a stand-in for Chrome's API. Cover: the account shown in the dialog, a 401 and an unreachable site stopping before scraping, batch errors keeping their wording, and the options page in both builds.
    - A visual check of the options page in light and dark.
@@ -661,6 +662,7 @@ So the purchase date gets its own column.
     2. Load `dist/package/` in Chrome and run one import, on both the Books and Docs tabs.
     3. Upload the 2.3.0 zip, once 2.2.0's review allows, or after cancelling that pending review.
     4. Run one import over the whole library, so books already imported get their purchase dates.
+  - **✅ All four done by the user on 2026-11-15.**
 - **Not verified:** the shelf controls and the forms signed in.
 
 **Done when:**
@@ -713,7 +715,18 @@ Reported by the user on 2026-11-14: running the extension again on the Docs tab 
 - **Deviation:** the script is tested through its pure rules (with a simulated second run), not on throwaway database rows.
 - **Run locally:** a dry run on the local database found 0 pairs, so there was nothing to merge there.
 - **Supabase:** the user merged the duplicates by hand on 2026-11-15, so the script wasn't run there. It stays in `prisma/` for any copies found later; a dry run should now find none.
-- **Still to do by the user:** deploy the app, then re-run the extension on the Docs tab and check that nothing is added.
+- **✅ Checked by the user on 2026-11-15:** deployed, and a Docs re-import added nothing.
+
+## Change: documents reuse the shared catalog ✅ built (2026-11-15)
+
+Decided by the user on 2026-11-15, after the Docs fix. It answers the open Nov 1 question and replaces the "never match another user's shared books here" line in the fix above.
+
+- **Rule:** a Docs import uses a matching shared catalog book when one exists, instead of creating a private one. Only a document with no match becomes private.
+- **Order in `findOrCreateAmazonDoc`:** the reader's library (`findLibraryBookByDedupeKey`), then their own private documents (`findOwnedBookByDedupeKey`), then the shared catalog (`findBookByDedupeKey`, which never returns private books), and only then a new private book.
+- **The Nov 1 documents** are shared books already in the reader's library, so they match first and stay as they are. No data is changed.
+- **Briefly built, then dropped:** a version that made matched shared books private (claiming the book, or moving the entry to a private copy). The user redirected before it was finished, and it was removed.
+- **Tests (`book.service.test.ts`):** a catalog match is used rather than creating a book; the reader's own documents come before the catalog; the three lookups run in order; a book is created only when nothing matches.
+- **Still to do by the user:** deploy.
 
 ## Change: a year alone shows in full ✅ (with the Docs fix, before closing Phase 3)
 
@@ -777,7 +790,7 @@ Asked by the user on 2026-11-14: a shelf with every book owned in at least one f
   - `library.controller.test.ts`: `loadShelf` on Owned.
   - Losing the last format is already covered in `status.rules.test.ts`.
 - **Deviation:** the plan suggested making status "optional, or a list". It's optional, plus an explicit `owned` flag. "No status" alone already means every book, including the Wishlist, in other callers.
-- **Not checked yet:** the tab in the browser, because the dev server's browser isn't signed in.
+- **✅ Checked by the user, signed in, on 2026-11-15.** The user later removed the list badge from the cards, and the `showList` prop went with it.
 
 ## Done when
 
@@ -808,8 +821,8 @@ The user ran six steps by hand, signed in. The local database was then read, wit
   - `/pdocs/` pre-selects Docs and sends `docs`.
   - An unknown address defaults to Books, and picking Docs by hand sends `docs`.
   - Cancel sends nothing.
-- **Still to do:** run it once on the real Docs tab, choosing Docs, and check that the documents arrive as private books.
-- **Still to decide:** whether to turn the Nov 1 documents into private books. That changes data, so it needs the user's go-ahead.
+- **✅ Done (2026-11-15):** run on the real Docs tab, choosing Docs, by the user.
+- **✅ Decided (2026-11-15):** the Nov 1 documents stay shared. Documents now reuse a matching shared book (see "Change: documents reuse the shared catalog").
 - Also fixed: a malformed closing tag in `extension/options.html` (`<output/>` instead of `</output>`).
 
 **Also found:** 80 of the 230 Amazon catalog books have no ASIN, so a re-import can only match them by title and author. They're probably from before ASIN capture.
