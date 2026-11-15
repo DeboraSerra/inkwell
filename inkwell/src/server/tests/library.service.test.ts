@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BookFormat, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
 import {
   fillMissingDescription,
+  fillMissingDetails,
   fillMissingIsbn,
   findExistingBook,
   findOrCreateManualBook,
@@ -1111,6 +1112,7 @@ describe("add by ISBN", () => {
       expect(result.created).toBe(true);
       expect(result.metadata).toBe(metadata);
       expect(fillMissingIsbn).toHaveBeenCalledWith(catalogBook(), metadata);
+      expect(fillMissingDetails).toHaveBeenCalledWith(catalogBook(), metadata);
     });
 
     it("puts a book with no format on the Wishlist and records the search source", async () => {
@@ -1127,6 +1129,7 @@ describe("add by ISBN", () => {
       lookup.mockResolvedValue({ found: "catalog", book: catalogBook() });
       const result = await service.addBookByIsbn(USER, ISBN, { formats: [EBOOK] });
       expect(result.metadata).toBeUndefined();
+      expect(fillMissingDetails).not.toHaveBeenCalled();
       expect(findOrCreateMetadataBook).not.toHaveBeenCalled();
       expect(fillMissingIsbn).not.toHaveBeenCalled();
     });
@@ -1187,20 +1190,14 @@ describe("add by ISBN", () => {
   describe("previewSearchResult", () => {
     const ref = { source: "OPEN_LIBRARY" as const, sourceId: "OL1W" };
 
-    it("previews a result with an ISBN by that ISBN", async () => {
-      lookup.mockResolvedValue({ found: "provider", metadata });
-      const preview = await service.previewSearchResult(USER, ref, ISBN);
-      // Both, so the add form sends the ISBN and the ref it requires.
-      expect(preview).toMatchObject({ isbn13: ISBN, ref, title: "Dune" });
-      expect(lookupById).not.toHaveBeenCalled();
-    });
-
-    it("falls back to the provider record when no provider knows the ISBN", async () => {
-      lookup.mockResolvedValue({ found: "none", isbn13: ISBN });
-      vi.mocked(lookupById).mockResolvedValue({ ...metadata, isbn13: undefined });
-      const preview = await service.previewSearchResult(USER, ref, ISBN);
+    it("previews the exact record picked, never by its ISBN, and keeps both", async () => {
+      // Two records share Alchemised's ISBN; only the picked one has authors.
+      const picked = { ...metadata, sourceId: "OL1W", title: "Alchemised", authors: ["SenLinYu"] };
+      vi.mocked(lookupById).mockResolvedValue(picked);
+      const preview = await service.previewSearchResult(USER, ref);
+      expect(lookup).not.toHaveBeenCalled();
       expect(lookupById).toHaveBeenCalledWith("OPEN_LIBRARY", "OL1W");
-      expect(preview).toMatchObject({ ref, isbn13: undefined, title: "Dune" });
+      expect(preview).toMatchObject({ ref, isbn13: ISBN, title: "Alchemised", authors: ["SenLinYu"] });
     });
 
     it("previews a result without an ISBN by its record, and shows a library match", async () => {
@@ -1210,6 +1207,21 @@ describe("add by ISBN", () => {
       const preview = await service.previewSearchResult(USER, ref);
       expect(lookup).not.toHaveBeenCalled();
       expect(preview).toMatchObject({ ref, from: "CATALOG", inLibrary: { status: DNF, formats: [EBOOK] } });
+    });
+
+    it("shows the record's details where the matched catalog book is blank", async () => {
+      vi.mocked(lookupById).mockResolvedValue({ ...metadata, authors: ["SenLinYu"], pageCount: 1040 });
+      vi.mocked(findExistingBook).mockResolvedValue(
+        catalogBook({ title: "ALCHEMISED", authors: [], pageCount: null, coverUrl: null }),
+      );
+      const preview = await service.previewSearchResult(USER, ref);
+      expect(preview).toMatchObject({
+        from: "CATALOG",
+        title: "ALCHEMISED",
+        authors: ["SenLinYu"],
+        pageCount: 1040,
+        coverUrl: metadata.coverUrl,
+      });
     });
 
     it("says so when the record is gone", async () => {
@@ -1236,6 +1248,7 @@ describe("add by ISBN", () => {
       expect(result.created).toBe(true);
       expect(result.metadata).toBe(noIsbn);
       expect(fillMissingIsbn).toHaveBeenCalledWith(catalogBook({ isbn13: null }), noIsbn);
+      expect(fillMissingDetails).toHaveBeenCalledWith(catalogBook({ isbn13: null }), noIsbn);
     });
 
     it("only adds formats when the matched book is already in the library", async () => {

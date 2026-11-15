@@ -28,21 +28,14 @@ describe("parseIsbnBook audiobook length", () => {
 
 // What the Search tab's add form sends, for each kind of preview.
 describe("parseSearchBook", () => {
-  it("accepts a result previewed by its ISBN, which carries its ref too", () => {
-    const parsed = parseSearchBook(
-      form({ isbn: "9780441013593", source: "OPEN_LIBRARY", sourceId: "OL893414W", formats: ["EBOOK"] }),
-    );
-    expect(parsed.success && parsed.data).toMatchObject({
-      isbn: "9780441013593",
-      source: "OPEN_LIBRARY",
-      sourceId: "OL893414W",
-      formats: ["EBOOK"],
-    });
+  it("reads the picked record and the reader's choices", () => {
+    const parsed = parseSearchBook(form({ source: "OPEN_LIBRARY", sourceId: "OL60695609M", formats: ["EBOOK"] }));
+    expect(parsed.success && parsed.data).toMatchObject({ source: "OPEN_LIBRARY", sourceId: "OL60695609M", formats: ["EBOOK"] });
   });
 
-  it("accepts a result with no ISBN, by its ref alone", () => {
-    const parsed = parseSearchBook(form({ source: "GOOGLE_BOOKS", sourceId: "g1-x_Y" }));
-    expect(parsed.success && parsed.data).toMatchObject({ isbn: undefined, source: "GOOGLE_BOOKS", formats: [] });
+  it("ignores an ISBN, which never chooses the book", () => {
+    const parsed = parseSearchBook(form({ source: "GOOGLE_BOOKS", sourceId: "g1-x_Y", isbn: "9780593972717" }));
+    expect(parsed.success && parsed.data).not.toHaveProperty("isbn");
   });
 
   it.each([

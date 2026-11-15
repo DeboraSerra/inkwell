@@ -131,18 +131,17 @@ export async function previewSearchResult(result: unknown): Promise<SearchPrevie
   const user = await requireUser();
   const parsed = searchResultSchema.safeParse(result);
   if (!parsed.success) return { error: "Choose a search result." };
-  const { isbn13, ...ref } = parsed.data;
   try {
     await consumeRateLimit(user.id, "ISBN_LOOKUP");
-    return { preview: await libraryService.previewSearchResult(user.id, ref, isbn13) };
+    return { preview: await libraryService.previewSearchResult(user.id, parsed.data) };
   } catch (error) {
     if (error instanceof DomainError) return { error: error.message };
     throw error;
   }
 }
 
-// Adds a search result: by its ISBN when the preview had one, or else by its
-// provider record. Either way it's recorded as found by search.
+// Adds a search result by the record the reader picked, recorded as found by
+// search.
 export async function addSearchBook(
   _prev: AddIsbnBookState,
   formData: FormData,
@@ -153,12 +152,10 @@ export async function addSearchBook(
   const parsed = parseSearchBook(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message, values };
 
-  const { isbn, source, sourceId, ...choices } = parsed.data;
+  const { source, sourceId, ...choices } = parsed.data;
   try {
     await consumeRateLimit(user.id, "ISBN_LOOKUP");
-    const added = isbn
-      ? await libraryService.addBookByIsbn(user.id, isbn, { ...choices, source: "SEARCH" })
-      : await libraryService.addBookFromProvider(user.id, { source, sourceId }, choices);
+    const added = await libraryService.addBookFromProvider(user.id, { source, sourceId }, choices);
     const { book, userBook, created } = added;
     // After the response, so a slow provider never delays or fails the add.
     after(() => libraryService.saveSynopsis(added));

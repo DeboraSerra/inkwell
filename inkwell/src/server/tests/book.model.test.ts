@@ -34,3 +34,29 @@ describe("fillBookDescription", () => {
     await expect(model.fillBookDescription("b1", "x")).resolves.toBe(false);
   });
 });
+
+describe("fillBookBlanks", () => {
+  it("only fills fields that are still blank, on a shared book", async () => {
+    await expect(
+      model.fillBookBlanks("b1", { authors: ["SenLinYu"], dedupeKey: "k", authorSearch: "s", pageCount: 1040, coverUrl: "c" }),
+    ).resolves.toBe(true);
+    expect(updateMany).toHaveBeenLastCalledWith({
+      where: {
+        id: "b1",
+        ownerId: null,
+        AND: [
+          { authors: { isEmpty: true } },
+          { pageCount: null },
+          { OR: [{ coverUrl: null }, { coverUrl: "" }] },
+        ],
+      },
+      data: { authors: ["SenLinYu"], dedupeKey: "k", authorSearch: "s", pageCount: 1040, coverUrl: "c" },
+    });
+  });
+
+  it("does nothing with nothing to fill", async () => {
+    updateMany.mockClear();
+    await expect(model.fillBookBlanks("b1", {})).resolves.toBe(false);
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+});

@@ -317,6 +317,26 @@ describe("fetchDescription", () => {
     ]);
   });
 
+  it("uses the edition's own synopsis without asking its work", async () => {
+    const fetchMock = respondWith({
+      "/books/OL62430938M.json": {
+        description: { type: "/type/text", value: "A dark, gothic fantasy." },
+        works: [{ key: "/works/OL45882131W" }],
+      },
+      "/works/OL45882131W.json": { title: "Alchemised" },
+    });
+    await expect(openLibrary.fetchDescription?.("OL62430938M")).resolves.toBe("A dark, gothic fantasy.");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("has none when neither the edition nor its work has one", async () => {
+    respondWith({
+      "/books/OL62430938M.json": { works: [{ key: "/works/OL45882131W" }] },
+      "/works/OL45882131W.json": { title: "Alchemised" },
+    });
+    await expect(openLibrary.fetchDescription?.("OL62430938M")).resolves.toBeUndefined();
+  });
+
   it("stops when the edition names no work", async () => {
     const fetchMock = respondWith({ "/books/OL61174737M.json": { works: [] } });
     await expect(openLibrary.fetchDescription?.("OL61174737M")).resolves.toBeUndefined();

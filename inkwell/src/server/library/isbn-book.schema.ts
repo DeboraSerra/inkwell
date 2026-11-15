@@ -89,25 +89,17 @@ export const providerRefFields = {
   sourceId: z.string("Choose a search result.").regex(/^[\w-]{1,64}$/, "Choose a search result."),
 };
 
-export const searchResultSchema = z.object({
-  ...providerRefFields,
-  isbn13: z.string().regex(/^\d{13}$/).optional(),
-});
+export const searchResultSchema = z.object(providerRefFields);
 
-// A search result is added by its ISBN when the preview had one, or else by
-// its provider record.
-const searchBookSchema = z
-  .object({ ...providerRefFields, isbn: isbnField.optional(), ...choiceFields })
-  .transform(toChoices);
+// A search result is added by the provider record the reader picked.
+const searchBookSchema = z.object({ ...providerRefFields, ...choiceFields }).transform(toChoices);
 
 export function parseSearchBook(formData: FormData) {
-  const isbn = formData.get("isbn");
   return searchBookSchema.safeParse({
     ...manualBookValues(formData),
     formats: formData.getAll("formats"),
     source: formData.get("source"),
     sourceId: formData.get("sourceId"),
-    isbn: typeof isbn === "string" && isbn ? isbn : undefined,
   });
 }
 

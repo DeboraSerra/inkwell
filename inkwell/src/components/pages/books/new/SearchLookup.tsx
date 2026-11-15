@@ -149,7 +149,6 @@ export default function SearchLookup({
       const { preview: found, error } = await previewSearchResult({
         source: result.source,
         sourceId: result.sourceId,
-        isbn13: result.isbn13,
       });
       if (found) setPreview(found);
       else setPreviewError(error ?? "That book couldn't be opened.");

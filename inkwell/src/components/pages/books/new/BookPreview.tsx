@@ -110,7 +110,8 @@ export function AddPreviewedBook({
   const submitLabel = inLibrary ? "Add formats" : "Add book";
   return (
     <form key={state.submission} action={formAction}>
-      {preview.isbn13 && <input type='hidden' name='isbn' value={preview.isbn13} />}
+      {/* A search result is added by its record, an ISBN lookup by its ISBN. */}
+      {!preview.ref && preview.isbn13 && <input type='hidden' name='isbn' value={preview.isbn13} />}
       {preview.ref && (
         <>
           <input type='hidden' name='source' value={preview.ref.source} />

@@ -3,6 +3,7 @@ import { MetadataSource } from "@/generated/prisma/enums";
 import type { Tx } from "@/server/db";
 import { NotFoundError } from "@/server/errors";
 import * as bookModel from "./book.model";
+import { catalogBlanksFrom, type CatalogDetails } from "./catalog-blanks.rules";
 import { authorSearchText, dedupeKey } from "./dedupe";
 import { findDescription, findDescriptionByIsbn } from "@/server/metadata/metadata.service";
 import type { BookMetadata } from "@/server/metadata/metadata.types";
@@ -174,6 +175,22 @@ export async function fillMissingIsbn(book: CatalogBook, metadata: BookMetadata)
     isbn13: metadata.isbn13,
     ...(book.isbn10 || !metadata.isbn10 ? {} : { isbn10: metadata.isbn10 }),
   });
+}
+
+// A provider record that matched a catalog book fills that book's blank
+// details (authors, cover, pages…), never overwriting one, so a book first
+// added from a poor record gets better as better records are added. Only
+// provider records do this; manual adds and imports never touch the catalog.
+// Best effort, like the ISBN fill.
+export async function fillMissingDetails(book: CatalogDetails & { id: string }, metadata: BookMetadata) {
+  const blanks = catalogBlanksFrom(book, metadata);
+  if (Object.keys(blanks).length === 0) return false;
+  try {
+    return await bookModel.fillBookBlanks(book.id, blanks);
+  } catch (error) {
+    console.warn("Filling a catalog book's details failed", error);
+    return false;
+  }
 }
 
 type DescribedBook = CatalogBook & { description: string | null };

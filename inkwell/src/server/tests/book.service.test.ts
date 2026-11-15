@@ -268,3 +268,38 @@ describe("fillMissingDescription", () => {
     warn.mockRestore();
   });
 });
+
+describe("fillMissingDetails", () => {
+  const poor = {
+    id: "b1",
+    ownerId: null,
+    title: "ALCHEMISED",
+    subtitle: null,
+    authors: [],
+    coverUrl: null,
+    pageCount: null,
+    publishedYear: null,
+    openLibraryId: "OL62430938M",
+    googleBooksId: null,
+  };
+  const picked = { source: "OPEN_LIBRARY" as const, sourceId: "OL60695609M", title: "Alchemised", authors: ["SenLinYu"] };
+
+  it("fills the catalog book's blanks from the record", async () => {
+    model.fillBookBlanks.mockResolvedValue(true);
+    await expect(service.fillMissingDetails(poor, picked)).resolves.toBe(true);
+    expect(model.fillBookBlanks).toHaveBeenCalledWith("b1", expect.objectContaining({ authors: ["SenLinYu"] }));
+  });
+
+  it("doesn't write when there's nothing to fill", async () => {
+    await expect(service.fillMissingDetails({ ...poor, authors: ["SenLinYu"] }, picked)).resolves.toBe(false);
+    expect(model.fillBookBlanks).not.toHaveBeenCalled();
+  });
+
+  it("logs a failure instead of throwing", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    model.fillBookBlanks.mockRejectedValue(new Error("database down"));
+    await expect(service.fillMissingDetails(poor, picked)).resolves.toBe(false);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});

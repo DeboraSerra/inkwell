@@ -174,9 +174,11 @@ export function searchQueryForId(sourceId: string) {
   return sourceId.endsWith("W") ? `key:/works/${sourceId}` : `edition_key:${sourceId}`;
 }
 
-// An edition names its work; the work holds the synopsis.
+// An edition names its work. Either can hold the synopsis: some editions have
+// their own while their work has none (Alchemised, OL62430938M).
 const editionRecord = z.object({ works: z.array(z.object({ key: field })).catch([]) });
-// The synopsis is a plain string or `{ type: "/type/text", value }`.
+// The synopsis is a plain string or `{ type: "/type/text", value }`, on an
+// edition or a work record alike.
 const workRecord = z.object({
   description: z.union([z.string(), z.object({ value: z.unknown() })]).optional().catch(undefined),
 });
@@ -193,13 +195,19 @@ export function parseWorkDescription(json: unknown) {
   return cleanDescription(typeof description === "object" ? description.value : description);
 }
 
+const fetchWorkDescription = async (workId: string) =>
+  parseWorkDescription(await fetchProviderJson(PROVIDER, `${BASE}/works/${workId}.json`, headers()));
+
+// An edition's own synopsis first, since it describes that edition; then its
+// work's.
 async function fetchDescription(sourceId: string) {
   if (!OPEN_LIBRARY_ID.test(sourceId)) return undefined;
-  const workId = sourceId.endsWith("W")
-    ? sourceId
-    : parseEditionWork(await fetchProviderJson(PROVIDER, `${BASE}/books/${sourceId}.json`, headers()));
-  if (!workId) return undefined;
-  return parseWorkDescription(await fetchProviderJson(PROVIDER, `${BASE}/works/${workId}.json`, headers()));
+  if (sourceId.endsWith("W")) return fetchWorkDescription(sourceId);
+  const edition = await fetchProviderJson(PROVIDER, `${BASE}/books/${sourceId}.json`, headers());
+  const own = parseWorkDescription(edition);
+  if (own) return own;
+  const workId = parseEditionWork(edition);
+  return workId ? fetchWorkDescription(workId) : undefined;
 }
 
 async function search(query: string, limit: number) {

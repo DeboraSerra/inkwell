@@ -266,7 +266,28 @@ Asked by the user on 2026-11-15. The reader has just picked an exact provider re
   - The model's update filter.
   - That the controllers schedule the fill rather than run it inline.
 - **Deviation:** the plan said "after the add's transaction". It runs after the response instead (`after()`), which also keeps the extra Open Library requests off the add's wait.
-- **Not checked yet:** a real add, signed in, then reading `Book.description`.
+- **Fix (2026-11-15), found by the user:** *Alchemised*, added by search, got no synopsis.
+  - **Cause:** Open Library has it on the edition (OL62430938M), and its work (OL45882131W) has none. `fetchDescription` only read the work's.
+  - **Fix:** it now reads the edition's own synopsis first, and asks the work only when the edition has none.
+  - **Tests:** the edition's own synopsis, with no work request, and neither having one.
+  - **To fill that book:** add it again by ISBN or search. That only adds formats, and the fill runs again.
+- **Fix (2026-11-15), found by the user:** a picked search result was replaced by another record with the same ISBN.
+  - **What happened:** the user picked *Alchemised* by SenLinYu (Open Library edition OL60695609M). It was added from OL62430938M ("ALCHEMISED", no authors), which shares ISBN 9780593972717.
+  - **Cause:** a result with an ISBN was previewed and added by that ISBN, and Open Library's ISBN lookup answers with whichever record it picks.
+  - **Fix:** a search result is now always previewed and added from the exact record picked (`lookupById`, then `addBookFromProvider`). That record's ISBN is still shown, and still matches a book already in the catalog. `searchResultSchema` and `parseSearchBook` no longer take an ISBN. The add form sends an ISBN only from the ISBN tab, and `addSearchBook` never calls `addBookByIsbn`.
+  - **Tests:** updated for the picked record winning, and an ISBN sent with a search add being ignored.
+- **Still wrong in the user's library:** the *Alchemised* catalog book added before this fix kept "ALCHEMISED" and no authors. A re-add by search, with the right record, matched that book by ISBN and reused it unchanged.
+- **Change (2026-11-15), decided by the user: provider records fill a matched catalog book's blanks.**
+  - **Rule (`books/catalog-blanks.rules.ts`, `catalogBlanksFrom`):** a search or ISBN add whose provider record matches a catalog book fills that book's blank subtitle, authors, cover, page count, year, and the provider's own id. Filling the authors also rebuilds the dedupe key and author search from them.
+  - **Never overwrites:** a detail that's there stays, and the title is never a blank, so "ALCHEMISED" stays in capitals. Private books are never touched.
+  - **Only provider records:** manual adds and Amazon imports never fill the shared catalog.
+  - **Where:** `book.service.fillMissingDetails`, after `fillMissingIsbn`, in `addBookByIsbn` (provider path) and `addBookFromProvider`. It's best effort and logs failures.
+  - **Model:** `book.model.fillBookBlanks` re-checks every field it fills is still blank in the same update, so a race can't overwrite.
+  - **Preview:** a matched catalog book's blanks show the record's values, as the add will save them.
+  - **Tests:**
+    - The rule: the *Alchemised* case, nothing overwritten, private books, ids by source.
+    - The model's update filter, `fillMissingDetails`, the two adds calling it, and the preview.
+  - **For the user's book:** adding *Alchemised* again by search fills in SenLinYu and the page count and year, and keeps everything else.
 
 ## 4d — Scan the barcode
 

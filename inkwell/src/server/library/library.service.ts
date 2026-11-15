@@ -2,6 +2,7 @@ import "server-only";
 import { type BookFormat, DatePrecision, ReadingStatus, ReadOutcome, UserBookSource } from "@/generated/prisma/enums";
 import {
   fillMissingDescription,
+  fillMissingDetails,
   fillMissingIsbn,
   findExistingBook,
   findOrCreateManualBook,
@@ -250,14 +251,16 @@ async function previewLookup(userId: string, lookup: FoundLookup): Promise<IsbnP
   const catalog = match && !match.ownerId ? match : null;
   const userBook = catalog ? await libraryModel.findUserBookByBookId(userId, catalog.id) : null;
 
+  // A catalog book's blanks show what the provider's record would fill them
+  // with, as adding does (fillMissingDetails).
   const details = catalog
     ? {
         title: catalog.title,
-        subtitle: catalog.subtitle ?? undefined,
-        authors: catalog.authors,
-        coverUrl: catalog.coverUrl ?? undefined,
-        pageCount: catalog.pageCount ?? undefined,
-        publishedYear: catalog.publishedYear ?? undefined,
+        subtitle: catalog.subtitle || metadata?.subtitle,
+        authors: catalog.authors.length ? catalog.authors : (metadata?.authors ?? []),
+        coverUrl: catalog.coverUrl || metadata?.coverUrl,
+        pageCount: catalog.pageCount ?? metadata?.pageCount,
+        publishedYear: catalog.publishedYear ?? metadata?.publishedYear,
       }
     : // A catalog lookup always has a shared book, so only a provider's gets here.
       (metadata as BookMetadata);
@@ -284,19 +287,14 @@ export async function previewIsbn(userId: string, isbn: string): Promise<IsbnPre
   return { found: true, preview: { ...preview, isbn13 } };
 }
 
-// A search result, shown the way an ISBN lookup is. One with an ISBN is looked
-// up by it, for the edition's own details; one without, or whose ISBN no
-// provider knows, by its provider record, which adding then uses too. The
-// preview always keeps the result's ref, which the search form sends back.
-export async function previewSearchResult(userId: string, ref: ProviderRef, isbn13?: string) {
-  if (isbn13) {
-    const byIsbn = await previewIsbn(userId, isbn13);
-    if (byIsbn.found) return { ...byIsbn.preview, ref };
-  }
+// A search result, shown the way an ISBN lookup is, from the exact record the
+// reader picked. Never by its ISBN: several records can share one, and the
+// ISBN lookup may answer with another, poorer one (Alchemised's has no
+// authors). The record's ISBN still matches a book already in the catalog.
+export async function previewSearchResult(userId: string, ref: ProviderRef) {
   const metadata = await lookupById(ref.source, ref.sourceId);
   if (!metadata) throw new NotFoundError("That book is no longer available. Try searching again.");
-  const preview = await previewLookup(userId, { found: "provider", metadata });
-  return { ...preview, isbn13: undefined, ref };
+  return { ...(await previewLookup(userId, { found: "provider", metadata })), ref };
 }
 
 export type SearchResult = ProviderRef & {
@@ -366,13 +364,16 @@ export async function addBookByIsbn(userId: string, isbn: string, choices: Looku
     );
     return { ...result, book };
   });
-  if (lookup.found === "provider") await fillMissingIsbn(added.book, lookup.metadata);
+  if (lookup.found === "provider") {
+    await fillMissingIsbn(added.book, lookup.metadata);
+    await fillMissingDetails(added.book, lookup.metadata);
+  }
   // The record it was found with, for saving the synopsis after the add.
   return { ...added, metadata: lookup.found === "provider" ? lookup.metadata : undefined };
 }
 
-// Adds a search result with no ISBN by its provider record, looked up again
-// here so the catalog only holds what the provider said. It dedupes like any
+// Adds a search result by the record the reader picked, looked up again here
+// so the catalog only holds what the provider said. It dedupes like any
 // provider book: by ISBN if the record has one, then by title and authors.
 export async function addBookFromProvider(userId: string, ref: ProviderRef, choices: LookupChoices) {
   const { formats, status, dates, audioMinutes, pastReads, acquired } = choices;
@@ -389,6 +390,7 @@ export async function addBookFromProvider(userId: string, ref: ProviderRef, choi
     return { ...result, book };
   });
   await fillMissingIsbn(added.book, metadata);
+  await fillMissingDetails(added.book, metadata);
   return { ...added, metadata };
 }
 

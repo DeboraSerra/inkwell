@@ -398,24 +398,13 @@ describe("add from search", () => {
       service.previewSearchResult.mockResolvedValue(preview);
       await expect(previewSearchResult({ source: "GOOGLE_BOOKS", sourceId: "g1" })).resolves.toEqual({ preview });
       expect(consumeRateLimit).toHaveBeenCalledWith("user-1", "ISBN_LOOKUP");
-      expect(service.previewSearchResult).toHaveBeenCalledWith("user-1", { source: "GOOGLE_BOOKS", sourceId: "g1" }, undefined);
-    });
-
-    it("passes a result's ISBN along", async () => {
-      service.previewSearchResult.mockResolvedValue(preview);
-      await previewSearchResult({ source: "OPEN_LIBRARY", sourceId: "OL1W", isbn13: "9780441013593" });
-      expect(service.previewSearchResult).toHaveBeenCalledWith(
-        "user-1",
-        { source: "OPEN_LIBRARY", sourceId: "OL1W" },
-        "9780441013593",
-      );
+      expect(service.previewSearchResult).toHaveBeenCalledWith("user-1", { source: "GOOGLE_BOOKS", sourceId: "g1" });
     });
 
     it.each([
       ["nothing", undefined],
       ["an unknown source", { source: "AMAZON", sourceId: "x" }],
       ["an id with a slash", { source: "GOOGLE_BOOKS", sourceId: "a/b" }],
-      ["a bad ISBN", { source: "GOOGLE_BOOKS", sourceId: "g1", isbn13: "123" }],
     ])("rejects %s without a lookup", async (_label, input) => {
       await expect(previewSearchResult(input)).resolves.toEqual({ error: "Choose a search result." });
       expect(consumeRateLimit).not.toHaveBeenCalled();
@@ -431,20 +420,20 @@ describe("add from search", () => {
   });
 
   describe("addSearchBook", () => {
-    it("adds a result with an ISBN through the ISBN path, as found by search", async () => {
-      service.addBookByIsbn.mockResolvedValue(added(ReadingStatus.TO_READ, true));
+    it("adds the picked record even when an ISBN is sent, never by the ISBN", async () => {
+      service.addBookFromProvider.mockResolvedValue(added(ReadingStatus.TO_READ, true));
       const state = await addSearchBook(
         {},
-        form({ source: "OPEN_LIBRARY", sourceId: "OL1W", isbn: "9780441013593", formats: "EBOOK", title: "Fake" }),
+        form({ source: "OPEN_LIBRARY", sourceId: "OL60695609M", isbn: "9780593972717", formats: "EBOOK", title: "Fake" }),
       );
       expect(state.message).toContain("to TBR");
       expect(consumeRateLimit).toHaveBeenCalledWith("user-1", "ISBN_LOOKUP");
-      expect(service.addBookByIsbn).toHaveBeenCalledWith(
+      expect(service.addBookFromProvider).toHaveBeenCalledWith(
         "user-1",
-        "9780441013593",
-        expect.objectContaining({ formats: ["EBOOK"], source: "SEARCH" }),
+        { source: "OPEN_LIBRARY", sourceId: "OL60695609M" },
+        expect.objectContaining({ formats: ["EBOOK"] }),
       );
-      expect(service.addBookFromProvider).not.toHaveBeenCalled();
+      expect(service.addBookByIsbn).not.toHaveBeenCalled();
     });
 
     it("adds a result without an ISBN by its provider record", async () => {
