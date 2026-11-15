@@ -16,6 +16,13 @@ export const SHELVES = [
   { slug: "dnf", status: ReadingStatus.DNF },
 ].map((shelf) => ({ ...shelf, label: LIST_NAMES[shelf.status] }));
 
+// Every book owned in any format, whatever its list. It's a view across the
+// lists, not a sixth one: it has no status, so it's never a target for moves.
+export const OWNED_SHELF = { slug: "owned", label: "Owned" } as const;
+
+// The shelf tabs, in order: the five lists, then Owned.
+export const SHELF_TABS: readonly { slug: string; label: string }[] = [...SHELVES, OWNED_SHELF];
+
 // The shelves a book's "Mark as" menu offers: only moves the status rules allow.
 export const moveTargets = (book: ReadingState) =>
   SHELVES.filter(({ status }) => status !== book.status && canTransition(book, status));
@@ -63,25 +70,37 @@ export const SHELF_SORTS = [
   "read-asc",
 ] as const;
 export type ShelfSort = (typeof SHELF_SORTS)[number];
-// Finished opens on the books read most recently; every other shelf on the
-// books bought most recently. The default stays out of the URL.
-export const defaultSortFor = (status: ReadingStatus): ShelfSort =>
-  status === ReadingStatus.FINISHED ? "read-desc" : "acquired-desc";
+// Each shelf's opening order, chosen by the user: Finished by the books read
+// most recently; Wishlist, Reading and DNF by the books added most recently;
+// TBR and Owned (no status) by the books bought most recently. The default
+// stays out of the URL.
+const DEFAULT_SORTS: Record<ReadingStatus, ShelfSort> = {
+  TO_READ: "acquired-desc",
+  WISHLIST: "added-desc",
+  READING: "added-desc",
+  FINISHED: "read-desc",
+  DNF: "added-desc",
+};
+export const defaultSortFor = (status?: ReadingStatus): ShelfSort =>
+  status ? DEFAULT_SORTS[status] : "acquired-desc";
 
 // Only finished books have a finish date to sort by.
 export const sortsReadDates = (sort: ShelfSort) => sort === "read-desc" || sort === "read-asc";
 
-const parseShelfSort = (value: unknown, status: ReadingStatus): ShelfSort => {
+const parseShelfSort = (value: unknown, status?: ReadingStatus): ShelfSort => {
   const sort = SHELF_SORTS.find((allowed) => allowed === value);
   if (!sort || (sortsReadDates(sort) && status !== ReadingStatus.FINISHED)) return defaultSortFor(status);
   return sort;
 };
 
-const statusOf = (slug: string) => (SHELVES.find((shelf) => shelf.slug === slug) ?? SHELVES[0]).status;
+const statusOf = (slug: string) => SHELVES.find((shelf) => shelf.slug === slug)?.status;
 
 export type ShelfFilters = {
   shelf: string;
-  status: ReadingStatus;
+  // The list shown, or undefined on Owned, which shows every list.
+  status?: ReadingStatus;
+  // Only books with at least one format (the Owned shelf).
+  owned: boolean;
   formats: BookFormat[];
   search: string;
   page: number;
@@ -106,7 +125,9 @@ export function searchParamsRecord(query: URLSearchParams): ShelfParams {
 }
 
 export function parseShelfFilters(params: ShelfParams): ShelfFilters {
-  const shelf = SHELVES.find(({ slug }) => slug === list(params.shelf)[0]) ?? SHELVES[0];
+  const slug = list(params.shelf)[0];
+  const owned = slug === OWNED_SHELF.slug;
+  const shelf = owned ? { ...OWNED_SHELF, status: undefined } : (SHELVES.find((it) => it.slug === slug) ?? SHELVES[0]);
   const known = Object.values(BookFormat) as string[];
   const formats = list(params.format).filter((format) => known.includes(format)) as BookFormat[];
   const search = String(list(params.q)[0] ?? "").trim().slice(0, MAX_SEARCH_LENGTH);
@@ -114,6 +135,7 @@ export function parseShelfFilters(params: ShelfParams): ShelfFilters {
   return {
     shelf: shelf.slug,
     status: shelf.status,
+    owned,
     formats: [...new Set(formats)],
     search,
     page: Number.isSafeInteger(page) && page >= 1 ? page : 1,

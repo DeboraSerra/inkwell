@@ -315,6 +315,8 @@ export type UserBookFilters = {
   status?: ReadingStatus | ReadingStatus[];
   // Owned in any of these formats.
   formats?: BookFormat[];
+  // Owned in at least one format, whatever the list (the Owned shelf).
+  owned?: boolean;
   source?: UserBookSource;
   // Matches the title or any author's first or last name, ignoring case and accents.
   search?: string;
@@ -348,6 +350,7 @@ const toUserBookFilter = (filters: UserBookFilters) => {
   return {
     status: toArray(filters.status),
     formats: filters.formats?.length ? filters.formats : undefined,
+    owned: filters.owned || undefined,
     source: filters.source,
     search: text
       ? { text, normalized: normalizeTitle(text), author: normalizeAuthorName(text), surname: normalizeAuthor(text) }
@@ -429,7 +432,7 @@ async function findInOrder(userId: string, ids: string[]) {
 // empties the page being viewed. Only the allowed page sizes are used.
 export async function listShelfPage(
   userId: string,
-  filters: Pick<UserBookFilters, "status" | "formats" | "search" | "sort">,
+  filters: Pick<UserBookFilters, "status" | "owned" | "formats" | "search" | "sort">,
   requestedPage = 1,
   requestedSize: number = DEFAULT_SHELF_PAGE_SIZE,
 ) {

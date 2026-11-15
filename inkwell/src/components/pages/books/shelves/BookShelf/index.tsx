@@ -23,14 +23,18 @@ export const BooksShelf = () => {
   } = useLoadedShelf();
 
   if (books.length === 0) {
-    const label = LIST_NAMES[filters.status];
+    const label = filters.status ? LIST_NAMES[filters.status] : undefined;
     return filters.search || filters.formats.length > 0 ? (
       <p className='py-10 text-center text-muted-foreground'>
-        No books on {label} match these filters.
+        {label
+          ? `No books on ${label} match these filters.`
+          : "No owned books match these filters."}
       </p>
     ) : (
       <div className='flex flex-col items-center gap-3 py-10 text-muted-foreground'>
-        <p>Nothing on {label} yet.</p>
+        <p>
+          {label ? `Nothing on ${label} yet.` : "You don't own any books yet."}
+        </p>
         <Button
           render={<Link href='/books/new' />}
           nativeButton={false}
@@ -49,7 +53,7 @@ export const BooksShelf = () => {
 
         <ul className='grid grid-cols-1 gap-3 md:grid-cols-2'>
           {books.map((book) => (
-            <BookCard key={book.id} book={book} />
+            <BookCard key={book.id} book={book} showList={filters.owned} />
           ))}
         </ul>
         <div className='flex justify-between items-center flex-wrap-reverse gap-5 md:gap-3'>

@@ -2,7 +2,7 @@
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { shelfHref, SHELVES } from "@/server/library/shelf-filters";
+import { SHELF_TABS, shelfHref } from "@/server/library/shelf-filters";
 import Link from "next/link";
 import { useBooksContext } from "../../context";
 import { BooksShelf } from "./BookShelf";
@@ -41,7 +41,7 @@ export const BooksShelves = () => {
           variant='line'
           className='h-auto! max-w-full flex-wrap justify-start'
         >
-          {SHELVES.map((it) => (
+          {SHELF_TABS.map((it) => (
             <TabsTrigger
               key={it.slug}
               value={it.slug}

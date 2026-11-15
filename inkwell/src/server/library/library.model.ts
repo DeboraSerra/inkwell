@@ -57,6 +57,8 @@ export type UserBookFilter = {
   status?: ReadingStatus[];
   // Owned in any of these formats.
   formats?: BookFormat[];
+  // Owned in at least one format. Ticked formats already imply it.
+  owned?: boolean;
   source?: UserBookSource;
   // Raw text matched against the title and its normalized form against the
   // dedupe key. `author` is matched against any author's name, and `surname`
@@ -64,6 +66,11 @@ export type UserBookFilter = {
   // Authors are searched in the catalog and in the reader's own list.
   search?: { text: string; normalized: string; author: string; surname: string };
 };
+
+function formatsWhere({ formats, owned }: UserBookFilter) {
+  if (formats) return { hasSome: formats };
+  return owned ? { isEmpty: false } : undefined;
+}
 
 export type UserBookQuery = UserBookFilter & {
   // By date added (the default, newest first), purchase date or title.
@@ -84,7 +91,7 @@ const userBookWhere = (userId: string, query: UserBookFilter) => {
   return {
     userId,
     status: query.status ? { in: query.status } : undefined,
-    formats: query.formats ? { hasSome: query.formats } : undefined,
+    formats: formatsWhere(query),
     source: query.source,
     OR: search
       ? [

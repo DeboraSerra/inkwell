@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: ⏭️ next: 3g (✅ the Docs re-import fix is built and the Supabase duplicates are merged; ✅ a year alone now shows in full), an "Owned" shelf (see the sections before "Done when"), then closing Phase 3. ✅ 3a–3f built; ✅ the DNF, `&amp;` and shelf-search fixes are built and the backfill is run locally and on Supabase (a signed-in browser check still needs you); ⏭️ next: 3e, then 3f.** 3a to 3d are committed, and the ["Done when"](#done-when) list was checked on 2026-11-08 (see "Checked" under it). The Docs-tab issue found during that check is fixed in the extension, but the fix hasn't been run on the real page yet.
+**Status: ⏭️ next: closing Phase 3 (✅ 3g, the Owned shelf, is built but not yet checked signed in; ✅ the Docs re-import fix is built and the Supabase duplicates are merged; ✅ a year alone now shows in full), an "Owned" shelf (see the sections before "Done when"), then closing Phase 3. ✅ 3a–3f built; ✅ the DNF, `&amp;` and shelf-search fixes are built and the backfill is run locally and on Supabase (a signed-in browser check still needs you); ⏭️ next: 3e, then 3f.** 3a to 3d are committed, and the ["Done when"](#done-when) list was checked on 2026-11-08 (see "Checked" under it). The Docs-tab issue found during that check is fixed in the extension, but the fix hasn't been run on the real page yet.
 
 Goal: add books manually or through the Chrome extension, move them between lists, and browse them with filters.
 
@@ -629,7 +629,7 @@ So the purchase date gets its own column.
   - The edit dialog clears the date when the field is emptied.
   - **Shown only while a format is ticked,** at the user's request, since only an owned book was acquired. `FormatsField` reports whether any format is ticked (`onOwnedChange`, on mount too, so the add form's remount after a submit starts in step). The edit dialog tracks its own checkboxes and starts over each time it opens. The server matches: `parseAcquired(formats, …)` ignores the date with no format, so an edit that unticks every format clears it. Checked in the browser on a temporary page.
 - **✅ Shelves, as the user chose:** a sort menu kept in the URL as `?sort=`:
-  - **Defaults, chosen by the user:** Finished opens on Read newest first, and every other shelf on Purchase newest first (`defaultSortFor`). The default is left out of the URL. Shelf tabs don't carry the sort, so each shelf opens on its own default. Within a shelf, filters, search and paging keep the chosen order.
+  - **Defaults, chosen by the user:** Finished opens on Read newest first, and every other shelf on Purchase newest first (`defaultSortFor`). **Changed on 2026-11-15, at the user's request:** Wishlist, Reading and DNF now open on Newest added; TBR and Owned stay on Purchase newest first, and Finished on Read newest first. The default is left out of the URL. Shelf tabs don't carry the sort, so each shelf opens on its own default. Within a shelf, filters, search and paging keep the chosen order.
   - Added newest first (`added-desc`) and oldest first (`added-asc`).
   - Purchase newest first (`acquired-desc`) and oldest first (`acquired-asc`), with books with no purchase date last either way.
   - Title A to Z (`title-asc`) and Z to A (`title-desc`), by the catalog title.
@@ -732,7 +732,7 @@ Asked by the user on 2026-11-14. On shelf cards, a date known only to the year s
 - **✅ Tests:** `read-label.rules.test.ts` covers "2024" and "2000", Reading, Finished and DNF ("Started 2019", "Stopped 2024") with a year alone, both range shapes, and the unchanged month and day cases.
 - **Deviations:** none. Not checked in the browser: there's no signed-in session for the dev server, and the label comes straight from the tested rule.
 
-## 3g — An "Owned" shelf (after the fixes above, before closing Phase 3)
+## 3g — An "Owned" shelf ✅ built (after the fixes above, before closing Phase 3)
 
 Asked by the user on 2026-11-14: a shelf with every book owned in at least one format, whatever its status: not started (TBR), Reading, Finished or DNF. Wishlist books aren't owned by definition, so they never appear.
 
@@ -753,6 +753,31 @@ Asked by the user on 2026-11-14: a shelf with every book owned in at least one f
 5. **Tests:** parsing `?shelf=owned`, the query (no status, formats not empty), the count, the menus never offering Owned as a target, and a book leaving Owned when its last format is removed.
 
 **Done when:** an "Owned" tab lists every book owned in any format across TBR, Reading, Finished and DNF, with search, format filters, sorting and paging, and each card shows which list it's on.
+
+### Outcome (2026-11-15)
+
+- **✅ Filters (`shelf-filters.ts`):**
+  - `OWNED_SHELF` (`?shelf=owned`) and `SHELF_TABS` (the five lists, then Owned) are added. `SHELVES` stays the five lists, so `moveTargets` and "Move selected to" never offer Owned.
+  - `ShelfFilters.status` is optional (undefined on Owned), and a new `owned` flag is set only on Owned.
+  - Owned opens on Purchase, newest first, and ignores the "Read" sorts.
+- **✅ Query:** `owned` goes through `listShelfPage` to the model's `UserBookFilter`.
+  - With no ticked formats, it filters `formats: { isEmpty: false }`. Ticked formats use `hasSome`, which already implies owned.
+  - There's no status filter, and the count and the listing share the filter.
+- **✅ UI:**
+  - The tab is added.
+  - On Owned, "Move selected to" offers all five lists, since none is the current one.
+  - Empty states: "You don't own any books yet." and "No owned books match these filters."
+  - On Owned only, each card shows a small badge with its list (`BookCard`'s `showList`).
+  - Unticking a book's last format takes it off Owned on the next refresh, and a TBR book moves to the Wishlist, as `changeFormats` already does.
+- **✅ Tests:**
+  - `shelf-filters.test.ts`: parsing, links, default sort, no read sorts, tab order, never a move target.
+- **Later the same day, at the user's request:** Wishlist, Reading and DNF open on Newest added (`DEFAULT_SORTS` in `shelf-filters.ts`). Owned stays on Purchase newest first, as does TBR. Each shelf's default and its link are tested.
+  - `library.model.test.ts`: list and count with `isEmpty: false` and no status, and ticked formats.
+  - `library.service.test.ts`: Owned passed to count and listing.
+  - `library.controller.test.ts`: `loadShelf` on Owned.
+  - Losing the last format is already covered in `status.rules.test.ts`.
+- **Deviation:** the plan suggested making status "optional, or a list". It's optional, plus an explicit `owned` flag. "No status" alone already means every book, including the Wishlist, in other callers.
+- **Not checked yet:** the tab in the browser, because the dev server's browser isn't signed in.
 
 ## Done when
 

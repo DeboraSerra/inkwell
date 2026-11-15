@@ -38,7 +38,7 @@
    - **3f — Purchase dates, in progress:** app side built (column, parser, import, form field, and sorting by date added, purchase date, title, or last finished on Finished); the extension sends the date and 2.3.0 is built; deploying, the Chrome check, upload and re-import are the user's
    - **Fix: re-importing Docs duplicates documents ✅ built:** the Docs import now matches the reader's own library first; `prisma/merge-duplicate-docs.ts` merges such pairs into the original entries, moved to the private book. The 88 on Supabase were merged by hand on 2026-11-15
    - **Change: a year alone shows in full ✅ (2026-11-15):** on shelf cards, a year-only date shows "2024", not "24"; dates with a month or day keep the two-digit year
-   - **3g — An "Owned" shelf, after the two items above:** a tab with every book owned in any format, across TBR, Reading, Finished and DNF; a view of status and formats, not a sixth list
+   - **3g — An "Owned" shelf ✅ built (not yet checked signed in):** a tab with every book owned in any format, across TBR, Reading, Finished and DNF; a view of status and formats, not a sixth list
 4. [Phase 4 — Search and ISBN](phase-4-adding-books.md) in progress; 4c follows 3e and 3f
    - 4a — Metadata providers (Open Library, Google Books) ✅ done, plus the per-user rate limit
    - 4b — Add by ISBN ✅ done, at `/books/new`

@@ -571,6 +571,14 @@ describe("listShelfPage", () => {
     );
   });
 
+  it("lists and counts the Owned shelf with no status and owned books only", async () => {
+    showing(1);
+    await service.listShelfPage(USER, { owned: true, formats: [], sort: "acquired-desc" });
+    const filter = { status: undefined, formats: undefined, owned: true };
+    expect(model.countUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining(filter));
+    expect(model.listUserBooks).toHaveBeenCalledWith(USER, expect.objectContaining(filter));
+  });
+
   it.each([
     [0, 1, 1],
     [30, 1, 1],
