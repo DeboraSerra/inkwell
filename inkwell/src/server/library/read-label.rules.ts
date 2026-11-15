@@ -8,12 +8,12 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 // A shelf book's latest read, with only the dates that are known.
 export type ShelfRead = { started?: PartialDate; ended?: PartialDate };
 
-// "24", "Oct 24" or "5 Oct 25", with the year's last two digits: never a day
-// or month that isn't known. Read dates are calendar dates stored in UTC, so
-// they're read in UTC too.
+// "2024", "Oct 24" or "5 Oct 25": never a day or month that isn't known. A
+// year alone is shown in full, since two digits on their own read like a day.
+// Read dates are calendar dates stored in UTC, so they're read in UTC too.
 export function formatPartialDate({ date, precision }: PartialDate) {
+  if (precision === DatePrecision.YEAR) return String(date.getUTCFullYear());
   const year = String(date.getUTCFullYear() % 100).padStart(2, "0");
-  if (precision === DatePrecision.YEAR) return year;
   const month = `${MONTHS[date.getUTCMonth()]} ${year}`;
   return precision === DatePrecision.MONTH ? month : `${date.getUTCDate()} ${month}`;
 }

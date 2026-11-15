@@ -11,10 +11,10 @@ describe("formatPartialDate", () => {
     ["2025-10-05", DAY, "5 Oct 25"],
     ["2025-01-31", DAY, "31 Jan 25"],
     ["2024-10-01", MONTH, "Oct 24"],
-    ["2024-01-01", YEAR, "24"],
+    ["2024-01-01", YEAR, "2024"],
     ["2019-12-01", MONTH, "Dec 19"],
     ["2005-03-01", MONTH, "Mar 05"],
-    ["2000-01-01", YEAR, "00"],
+    ["2000-01-01", YEAR, "2000"],
   ] as const)("shows %s at %s precision as %j", (iso, precision, text) => {
     expect(formatPartialDate(at(iso, precision))).toBe(text);
   });
@@ -35,8 +35,12 @@ describe("readDatesLabel", () => {
     ["Finished with only a start", FINISHED, { started: start }, "5 Oct 25"],
     ["DNF with both dates", DNF, { started: start, ended: at("2025-10-20") }, "Started 5 Oct 25 · Stopped 20 Oct 25"],
     ["DNF with only a start", DNF, { started: start }, "Started 5 Oct 25"],
-    ["DNF with only a stop", DNF, { ended: at("2024-01-01", YEAR) }, "Stopped 24"],
-    ["a year-only finished read", FINISHED, { started: at("2019-01-01", YEAR), ended: at("2019-03-01", MONTH) }, "19 – Mar 19"],
+    ["DNF with only a stop", DNF, { ended: at("2024-01-01", YEAR) }, "Stopped 2024"],
+    ["DNF with a year-only start", DNF, { started: at("2019-01-01", YEAR) }, "Started 2019"],
+    ["Reading since a year alone", READING, { started: at("2019-01-01", YEAR) }, "2019"],
+    ["Finished in a year alone", FINISHED, { ended: at("2019-01-01", YEAR) }, "2019"],
+    ["a year-only finished read", FINISHED, { started: at("2019-01-01", YEAR), ended: at("2019-03-01", MONTH) }, "2019 – Mar 19"],
+    ["a finished read across two years", FINISHED, { started: at("2018-01-01", YEAR), ended: at("2019-01-01", YEAR) }, "2018 – 2019"],
   ] as const)("labels %s", (_name, status, read, label) => {
     expect(readDatesLabel(status, read)).toBe(label);
   });

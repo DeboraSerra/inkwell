@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: ✅ 3a–3d done; ✅ the DNF, `&amp;` and shelf-search fixes are built and the backfill is run locally and on Supabase (a signed-in browser check still needs you); ⏭️ next: 3e, then 3f.** 3a to 3d are committed, and the ["Done when"](#done-when) list was checked on 2026-11-08 (see "Checked" under it). The Docs-tab issue found during that check is fixed in the extension, but the fix hasn't been run on the real page yet.
+**Status: ⏭️ next: the Docs re-import duplicates fix (✅ a year alone now shows in full), then 3g, an "Owned" shelf (see the sections before "Done when"), then closing Phase 3. ✅ 3a–3f built; ✅ the DNF, `&amp;` and shelf-search fixes are built and the backfill is run locally and on Supabase (a signed-in browser check still needs you); ⏭️ next: 3e, then 3f.** 3a to 3d are committed, and the ["Done when"](#done-when) list was checked on 2026-11-08 (see "Checked" under it). The Docs-tab issue found during that check is fixed in the extension, but the fix hasn't been run on the real page yet.
 
 Goal: add books manually or through the Chrome extension, move them between lists, and browse them with filters.
 
@@ -421,6 +421,7 @@ Added at the user's request on 2026-11-08, after the extension's store build was
    - **✅ Built (2026-11-14):**
      - **Rules:** `library/read-label.rules.ts` (pure) has `formatPartialDate` and `readDatesLabel(status, read)`.
        - **Years show their last two digits, at the user's request:** "24", "Oct 24", "5 Oct 25", and "05" for 2005. Read in UTC.
+         - **Changed on 2026-11-15 (see "Change: a year alone shows in full" below):** a date known only to the year shows the full year, "2024", not "24".
        - **Wording, as the user changed it:** Reading and Finished show bare dates ("5 Oct 25", "5 Oct 25 – 12 Nov 25", "Nov 25"), without "Started" or "Finished". DNF keeps "Started … · Stopped …".
        - A read with no dates, and every Wishlist or TBR book, shows nothing.
      - **Data:** `ShelfBook` gets `latestRead` (only the known dates, each with its precision) and `earlierReads`, the number of other reads. Both come from the reads the shelf query already loads, so there's no extra query.
@@ -666,6 +667,73 @@ So the purchase date gets its own column.
 - Importing from Amazon saves each book's purchase date, and re-importing fills it in for books already imported, without reordering the shelves.
 - A book added by hand can have an acquired date, including just a year.
 - The shelves can be sorted by purchase date, either way round (the year filter was dropped at the user's request).
+
+## Fix: re-importing Docs duplicates documents (do first, before closing Phase 3)
+
+Reported by the user on 2026-11-14: running the extension again on the Docs tab added a second copy of documents already in the library, on TBR, including ones already moved to Finished.
+
+**What happened.** Read on Supabase without changing anything:
+- **88 duplicated documents.** Each original is a *shared* catalog book with no ASIN, 51 on Finished and 37 on TBR. Each copy is a new *private* book with the same title, authors and dedupe key, on TBR. All came from Amazon imports.
+- **Five other same-title pairs** have different ASINs and authors (for example two *The Great Gatsby* editions). They're different books and aren't part of this.
+
+**Cause.** `findOrCreateAmazonDoc` (`books/book.service.ts`) only looks for a match among the user's own *private* books (`findOwnedBookByDedupeKey`). These documents were imported as shared books: either before private documents existed (the Nov 1 run), or on Nov 8, when the Docs tab wasn't recognised. That's the "still to decide" item under "Checked (2026-11-08)". The Docs import never sees the shared copy already in the library, so it creates a private book. That's a different `bookId`, so `addBookToLibrary` adds a second library entry on the shelf the formats call for, which is TBR.
+
+**Fix:**
+1. **Match the reader's own library first.** Before creating a private book, `findOrCreateAmazonDoc` reuses a book *already in this user's library* with the same dedupe key, whether shared or private. Then a re-import only adds formats, and the acquired date when it's earlier, as for any book. Never match another user's shared books by title here, so documents stay private for new imports.
+   - Model: a lookup such as `findLibraryBookByDedupeKey(userId, dedupeKey)` on `Book` joined through `UserBook` with `userId`, preferring the user's private copy, then the oldest.
+2. **Clean up the 88 pairs,** with a one-off script modelled on the earlier backfills (`prisma/merge-duplicate-docs.ts`). It changes data, so it runs only with the user's go-ahead: on the local database first if it has any, then on Supabase. A dry run lists every pair first. For each pair:
+   - **Keep the original library entry,** with its status, reads, `addedAt` and place on the shelf, and merge the copy's formats into it.
+   - **Keep the earlier acquired date** of the two.
+   - **Delete the duplicate library entry,** which has no reads of its own (the script checks that, and skips any pair where it isn't true).
+   - **Decide with the user which book the kept entry points to.** This settles the open Nov 1 question:
+     - *Keep it on the shared book,* which changes the least.
+     - Or *point it at the private copy,* so the document becomes private as intended, then delete the shared catalog book if no other user has it.
+   - It's idempotent, and it reports how many pairs were merged and skipped.
+3. **Tests:**
+   - The service: a Docs re-import reuses a shared book already in the reader's library, reuses a private one, and never matches a shared book only another user has.
+   - The script: on throwaway rows, a pair is merged once and a second run changes nothing.
+   - An import run twice on the same Docs page adds nothing the second time.
+
+**Done when:** re-running the extension on the Docs tab adds no copies, and the 88 duplicates are merged into the originals, with the original shelves and reads kept.
+
+## Change: a year alone shows in full ✅ (with the Docs fix, before closing Phase 3)
+
+Asked by the user on 2026-11-14. On shelf cards, a date known only to the year shows two digits ("24"), which reads like a day.
+
+1. **Rule:** in `formatPartialDate` (`library/read-label.rules.ts`), a date with `YEAR` precision shows the full year ("2024", "Started 2019", "Stopped 2024"). Dates with a month or a day keep the two-digit year, as now ("Oct 24", "5 Oct 25").
+2. **Ranges:** a finished read keeps each date at its own precision, so "2019 – Mar 19".
+3. **Tests:** in `read-label.rules.test.ts`, a year alone ("2024", "2000"), each status's wording with a year alone, and month and day dates unchanged.
+
+**Done when:** a card with a year-only date shows four digits, and every other date looks as it does now.
+
+### Outcome (2026-11-15)
+
+- **✅ Rule:** `formatPartialDate` returns the full year for `YEAR` precision; month and day dates keep the two-digit year. It's the only formatter for shelf-card read dates, so Reading, Finished and DNF all pick it up.
+- **✅ Ranges:** each end keeps its own precision ("2019 – Mar 19", "2018 – 2019").
+- **✅ Tests:** `read-label.rules.test.ts` covers "2024" and "2000", Reading, Finished and DNF ("Started 2019", "Stopped 2024") with a year alone, both range shapes, and the unchanged month and day cases.
+- **Deviations:** none. Not checked in the browser: there's no signed-in session for the dev server, and the label comes straight from the tested rule.
+
+## 3g — An "Owned" shelf (after the fixes above, before closing Phase 3)
+
+Asked by the user on 2026-11-14: a shelf with every book owned in at least one format, whatever its status: not started (TBR), Reading, Finished or DNF. Wishlist books aren't owned by definition, so they never appear.
+
+**It's a view, not a list.** The five lists are still `UserBook.status`, and nothing new is stored. "Owned" is the same query with no status filter and `formats` not empty. The domain rule "there are five lists, and the list is the status" stays true; AGENTS.md should say Owned is a cross-list view.
+
+1. **Filters (`shelf-filters.ts`):**
+   - Add `{ slug: "owned", label: "Owned" }` as a tab after the five lists. `?shelf=owned` keeps working with search, the format filters (any of the ticked formats), books per page and paging.
+   - `ShelfFilters.status` becomes optional, or a list: none means every status. Keep the five lists where code needs a real status.
+2. **Query (`library.model.ts`, `library.service.ts`):** "owned" sends `formats: { isEmpty: false }` (or the ticked formats) and no status. The count and the listing use the same filter.
+3. **Places that assume one status per shelf:**
+   - **Tabs:** add Owned. Each shelf opens on its own default sort.
+   - **Sort:** default Purchase newest first. The "Read" orders stay Finished-only.
+   - **"Mark as" on a card** (`moveTargets`) lists only the five lists, never Owned.
+   - **"Move selected to"** offers all five lists. Books already on the chosen list are skipped and reported, as now.
+   - **A move or edit** leaves a book on Owned while it keeps a format. Unticking its last format takes it off Owned, and a not-started book then moves to the Wishlist, as the rules already say.
+   - **Empty state:** "You don't own any books yet", or "No owned books match these filters".
+4. **Cards:** since the shelf mixes lists, each card shows a small badge with its list (TBR, Reading, Finished, DNF), only on Owned. The read dates on cards already follow each book's status.
+5. **Tests:** parsing `?shelf=owned`, the query (no status, formats not empty), the count, the menus never offering Owned as a target, and a book leaving Owned when its last format is removed.
+
+**Done when:** an "Owned" tab lists every book owned in any format across TBR, Reading, Finished and DNF, with search, format filters, sorting and paging, and each card shows which list it's on.
 
 ## Done when
 
