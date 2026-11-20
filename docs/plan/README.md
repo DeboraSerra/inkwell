@@ -40,13 +40,13 @@
    - **Change: a year alone shows in full ✅ (2026-11-15):** on shelf cards, a year-only date shows "2024", not "24"; dates with a month or day keep the two-digit year
    - **Change: documents reuse the shared catalog ✅ built (2026-11-15):** a Docs import uses a matching shared book; only an unmatched document becomes private
    - **3g — An "Owned" shelf ✅ done:** a tab with every book owned in any format, across TBR, Reading, Finished and DNF; a view of status and formats, not a sixth list
-4. **[Phase 4 — Search and ISBN](phase-4-adding-books.md) built; ⏭️ closing it needs the 4d real-phone check**
+4. [Phase 4 — Search and ISBN](phase-4-adding-books.md) ✅ closed on 2026-11-15 ("Done when" 21 of 21; scanning checked on a laptop and a phone)
    - 4a — Metadata providers (Open Library, Google Books) ✅ done, plus the per-user rate limit
    - 4b — Add by ISBN ✅ done, at `/books/new`
    - 4c — Search by title or author ✅ done, at `/books/new` (Search tab), checked by the user (✅ follow-up built: the synopsis is saved after an add by search or ISBN)
-   - 4d — Scan the barcode ✅ built (photo, decoded in the browser); real-phone check still to do
-   - 4d follow-up — Live scanning ✅ built: "Scan live" reads the barcode from the camera's video, phone or laptop; real-device check still to do
-5. [Phase 5 — AI enrichment (Claude API)](phase-5-ai-enrichment.md)
+   - 4d — Scan the barcode ✅ done (photo, decoded in the browser)
+   - 4d follow-up — Live scanning ✅ done: "Scan live" reads the barcode from the camera's video, phone or laptop
+5. [Phase 5 — AI enrichment (Claude API)](phase-5-ai-enrichment.md) ⏭️ next
 6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)
 7. [Phase 7 — Quality and deploy](phase-7-quality-deploy.md)
 8. [Later / nice to have](later.md)

@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-**Status: in progress.** 4a and 4b are done and committed. ✅ 4c is done (2026-11-15), checked by the user; its synopsis follow-up is built. ✅ 4d is built; its real-phone check is still to do before Phase 4 closes. Phase 3 closed on 2026-11-15 ([phase-3-mvp.md](phase-3-mvp.md#closed-2026-11-15)). Phase 4 was started at the user's request before Phase 3's "Done when" list was checked.
+**Status: ✅ closed on 2026-11-15.** 4a to 4d and their follow-ups are done. The "Done when" list passed end to end (see "Checked" under it), and the user checked barcode scanning, photo and live, on a laptop and on a phone. Phase 3 closed on 2026-11-15 ([phase-3-mvp.md](phase-3-mvp.md#closed-2026-11-15)).
 
 Goal: add a book without typing its details. Search by title or author, type an ISBN, or photograph the barcode, then confirm, pick formats and add. The manual form stays as the last resort.
 
@@ -223,7 +223,7 @@ A new module, `src/server/metadata/`, that turns an ISBN or a search query into 
   - The service's search marking, preview paths and no-ISBN add.
   - The controller's preview and add, by ISBN and by record, with their validation.
 - **Deviation:** the plan didn't say which tab opens first. Search does, ahead of ISBN and Manual.
-- **Not checked yet:** the tab in the browser, signed in. The running server answers 401 to an unauthenticated search.
+- **✅ Checked by the user, signed in, on 2026-11-15.** The running server also answers 401 to an unauthenticated search.
 - **Fix (2026-11-15), found by the user:** adding a result that had an ISBN failed with "Choose a search result.". Its preview came from the ISBN lookup and dropped the result's `ref`, so the form sent no `source` or `sourceId`, which the search form requires. `previewSearchResult` now always keeps the `ref`, and adding still uses the ISBN when there is one. The test that had asserted the missing `ref` now expects it. New `parseSearchBook` tests check what the form sends for each kind of preview.
 - **Fix (2026-11-15), found by the user:** choosing *The Midnight Library*, found in English, opened another language's edition with another cover.
   - **Cause:** Open Library's search returns works. The result took the first ISBN in the work's list, which mixes every edition (here a Turkish one, 978605…), and the preview looked that ISBN up.
@@ -289,7 +289,7 @@ Asked by the user on 2026-11-15. The reader has just picked an exact provider re
     - The model's update filter, `fillMissingDetails`, the two adds calling it, and the preview.
   - **For the user's book:** adding *Alchemised* again by search fills in SenLinYu and the page count and year, and keeps everything else. **✅ Checked by the user on 2026-11-15.**
 
-### Change: one book form for adding and editing ✅ built (2026-11-15, not yet checked signed in)
+### Change: one book form for adding and editing ✅ done (2026-11-15, checked by the user)
 
 Asked by the user, who added `book` and `canEdit` props to `AddBookForm`. The same form now serves the Manual, ISBN and Search tabs and the shelf's edit dialog.
 
@@ -314,9 +314,9 @@ Asked by the user, who added `book` and `canEdit` props to `AddBookForm`. The sa
   - The user saw the ISBN tab looking as before after a lookup: probably a book already in their library, whose form showed only the format checkboxes and the acquired date.
   - The form now always shows every field. For a book already in the library (`addFormatsOnly`), all details are locked, the status is hidden, and only formats and the acquired date can be added.
   - The card's cover, year, source and "Already in your library · View the shelf" moved into the form's new `header` slot (`PreviewHeader` in `BookPreview.tsx`). The ISBN and Search tabs no longer render the card. The user had already removed it from Search.
-- **Not checked yet:** the forms in the browser, signed in.
+- **✅ Checked by the user on 2026-11-15:** the ISBN and Search tabs and the edit dialog.
 
-## 4d — Scan the barcode ✅ built (2026-11-15); real-phone check still to do
+## 4d — Scan the barcode ✅ done (2026-11-15)
 
 A book's barcode is an EAN-13 starting with 978 or 979, which is its ISBN-13. Scanning only produces an ISBN and hands it to the ISBN tab (4b).
 
@@ -340,7 +340,7 @@ A book's barcode is an EAN-13 starting with 978 or 979, which is its ISBN-13. Sc
 ### 4d outcome (2026-11-15)
 
 - **Dependency:** `barcode-detector` **3.2.3**, pinned exactly. 3.2.4 came out the same day, too new under the two-week rule, and a caret range would have picked it up. It brings `zxing-wasm` 3.1.6 (2026-10-19). Both are MIT. The reader WASM is 947 KB, loaded only when a scan starts.
-  - `npm audit` now reports 7 findings, not 6. The new one is `fast-xml-parser` (low), through `firebase-admin` → `@google-cloud/storage`, not through this package. Flagged to the user; nothing changed.
+  - `npm audit` now reports 7 findings, not 6. The new one is `fast-xml-parser` (low), through `firebase-admin` → `@google-cloud/storage`, not through this package. Looked into on 2026-11-15: harmless here (storage is never imported), and fixed by `npm update fast-xml-parser` on or after 2026-11-17. Recorded in AGENTS.md's known findings.
 - **Serving the WASM from the app:** `scripts/copy-zxing-wasm.mjs` copies `zxing_reader.wasm` to `public/vendor/zxing-wasm/<version>/`. It runs from `postinstall` and `build`, and `/public/vendor/` is gitignored. The scanner points `prepareZXingModule`'s `locateFile` there. Checked: the dev server serves it (200, `application/wasm`) without a sign-in.
 - **Reading the photo (`components/pages/books/new/barcode-scan.ts`):** the photo goes onto a canvas scaled to at most 1,600 px on the long side. It's read with the browser's own `BarcodeDetector` when that supports `ean_13`, and otherwise with `barcode-detector/ponyfill`, imported dynamically at the first scan and cached. Nothing is uploaded.
 - **The rule (`books/barcode.rules.ts`, `readBookBarcode`):** it takes the first 13 digits of each run of 13 or more, so a 2- or 5-digit price add-on is ignored, whether reported separately or joined to the code. It accepts only a valid 978/979 ISBN-13. Any other valid EAN-13 gives "That isn't a book barcode."; nothing usable gives "Couldn't read a barcode. Try again closer, in good light, or type the ISBN." `books/isbn.ts` gains `isValidEan13`.
@@ -351,7 +351,7 @@ A book's barcode is an EAN-13 starting with 978 or 979, which is its ISBN-13. Sc
   - Step 5: scan on a real iPhone and a real Android phone (clean, curved, worn, with an add-on). Neither the camera nor the signed-in flow could be checked here.
   - Decide what to do about the new `fast-xml-parser` audit finding.
 
-### 4d follow-up: live scanning ✅ built (2026-11-15); real-device check still to do
+### 4d follow-up: live scanning ✅ done (2026-11-15)
 
 Asked by the user on 2026-11-15, replacing the "Later" item. Point the camera at a book and its ISBN is read from the video, with no photo to take. It's quicker for several books, and it's the only way to use a laptop's webcam, which a file input can't open.
 
@@ -394,6 +394,8 @@ Asked by the user on 2026-11-15, replacing the "Later" item. Point the camera at
   - The photo input (`ScanBarcodeButton`, now just the hidden input, clicked through a ref) and the live dialog (`LiveScanButton`, controlled by `open`) sit beside the menu, so they survive it closing.
   - "Scan live" shows only where a camera can open (`useCameraSupported`). The trigger shows a spinner while a photo is read.
   - The user's trigger, labels, variant and icon sizes are kept.
+  - **✅ Checked by the user on 2026-11-15:** the dropdown works.
+- **✅ Checked by the user on 2026-11-15:** scanning works on a laptop and on a phone.
 
 ## Env vars
 
@@ -432,6 +434,27 @@ Made with the user on 2026-11-08:
 - A 61st lookup within a minute is refused with a clear message, and works again a minute later.
 - A malformed or oversized provider response, a timeout, and an invalid ISBN all end in a clear message, never a crash.
 - Type check, lint, tests and build pass, and one user can't see another's private books through lookup or search.
+
+### Checked (2026-11-15)
+
+A one-off script ran each item against the local database and the live Open Library and Google Books APIs. It used two throwaway users, removed afterwards with the 3 catalog books the run created. Cases the live APIs can't produce on demand were simulated by intercepting the provider requests: Open Library missing a book, a broken or huge answer, a stalled provider, and a cover removed from Open Library's answer. 21 of 21 checks passed.
+
+| Done when | Result |
+|---|---|
+| ISBN-10 or ISBN-13, with or without hyphens, shows the right book; no format → Wishlist, a format → TBR | ✅ `9780441013593`, `978-0-441-01359-3`, `0441013597` and `0-441-01359-7` all showed *Dune* by Frank Herbert. Added with no format it went to the Wishlist; *The Hobbit* with Physical went to TBR. |
+| An ISBN already in the catalog makes no provider request | ✅ 0 requests, details from the catalog. |
+| Open Library missing → Google Books; neither → the manual form with the ISBN | ✅ With Open Library answering empty, *The Great Gatsby* came from Google Books (requests: Open Library, then Google). With both empty: not found, with the ISBN kept for "Fill in by hand". |
+| Searching "dune herbert" lists the book; adding a result works with and without an ISBN | ✅ 10 results, *Dune* first. Adding it saved ISBN 9780441013593 with source Search. *The epic of Gilgamesh* (Open Library OL14075051M, no ISBN) was added by its record, with no ISBN. |
+| Adding a book already in the library only adds formats and says which list | ✅ Re-adding *Dune* with Audiobook and "Finished" kept its list (TBR, after its first format) and only added the format. The message naming the list is the controller's, covered by unit tests. |
+| Photographing a barcode on an iPhone and an Android phone | ✅ Checked by the user, photo and live, on a laptop and a phone. The photo is read in the browser and never uploaded. |
+| A book Open Library knows without a cover gets Google's | ✅ *Pride and Prejudice* (9780141439518), with the cover removed from Open Library's answer, got a `books.google.com` cover. |
+| The 61st lookup in a minute is refused, and works a minute later | ✅ Refused at 61: "Too many lookups. Try again in a minute." (retry after 60 s). Allowed again after 61 s. |
+| A malformed or oversized response, a timeout and an invalid ISBN end in a clear message | ✅ Bad JSON, a 1.1 MB answer and a stalled provider (cut at the 5-second timeout, 10 s for both providers) each ended in "not found", with no crash. "123" gave "Enter a valid ISBN-10 or ISBN-13." |
+| Checks pass, and one user can't see another's private books through lookup or search | ✅ tsc, lint (the two known warnings), 1018 tests and the build pass. User A's private *Dune* never reached user B: B's search, preview and lookup all matched the shared catalog book, and B got no entry on A's private book. |
+
+**Noticed, not a failure:** `findBookByIsbn13` and `findBookByAsin` don't exclude private books. That's safe today, since private books never get an ISBN or ASIN (`fillMissingIsbn` and the blank fill both skip them). If private books ever get identifiers, these lookups must exclude other users' private books.
+
+**Phase 4 closed on 2026-11-15.** The `fast-xml-parser` audit finding is recorded as known and harmless in AGENTS.md, with an update due on or after 2026-11-17.
 
 ## Later
 

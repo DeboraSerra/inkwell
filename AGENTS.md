@@ -67,7 +67,8 @@ See `docs/plan/README.md` for live status. At the time of writing:
   - Docs imports: matched against the reader's library, then their own documents, then the shared catalog, and private only when unmatched. `prisma/merge-duplicate-docs.ts` merges duplicates; the 88 on Supabase were merged by hand. The catalog step still needs a deploy.
   - 3g: the "Owned" tab (`?shelf=owned`, `OWNED_SHELF` and `SHELF_TABS` in `library/shelf-filters.ts`, `formats: { isEmpty: false }`).
 - ✅ Phase 4c built: a Search tab on `/books/new` (`SearchLookup.tsx`, with the preview and add form shared in `BookPreview.tsx`), `GET /api/books/search` (`app/api/books/search/route.ts`), `lookupId` on each provider and `metadata.service.lookupById`, and `library.service` `searchForLibrary`, `previewSearchResult` and `addBookFromProvider`. Checked by the user. Follow-up built: after an add by search or ISBN, `after()` in the controller runs `saveSynopsis` → `books/book.service.fillMissingDescription` (Open Library via `fetchDescription`, an edition's work; never overwrites, skips private books).
-- ✅ Phase 4d built: "Scan barcode" on the ISBN tab (`ScanBarcodeButton.tsx`, `barcode-scan.ts`, `books/barcode.rules.ts`). The photo is read in the browser with `BarcodeDetector` or `barcode-detector` 3.2.3, and the WASM is served from `public/vendor/` by `scripts/copy-zxing-wasm.mjs`. Live scanning is built too (`LiveScanButton.tsx`: camera video in a dialog, read about 5 frames a second). Still to do: real-device checks for both.
+- ✅ Phase 4d built: "Scan barcode" on the ISBN tab (`ScanBarcodeButton.tsx`, `barcode-scan.ts`, `books/barcode.rules.ts`). The photo is read in the browser with `BarcodeDetector` or `barcode-detector` 3.2.3, and the WASM is served from `public/vendor/` by `scripts/copy-zxing-wasm.mjs`. Live scanning is built too (`LiveScanButton.tsx`: camera video in a dialog, read about 5 frames a second). Both checked by the user on a laptop and a phone.
+- ✅ Phase 4 closed on 2026-11-15 (`docs/plan/phase-4-adding-books.md`, "Checked": 21 of 21).
 - ⏭️ Next: Phase 5, AI enrichment (`docs/plan/phase-5-ai-enrichment.md`). Publishing the extension is in `docs/plan/phase-7-quality-deploy.md`
 
 ## Workflow rules
@@ -192,7 +193,9 @@ inkwell/src/
 
 - Use npm, run from `inkwell/`. npm here blocks dependency install scripts; `prisma generate` runs from the package's own `postinstall` and `build` scripts.
 - **Don't remove the `overrides` in `package.json`.** They patch vulnerable transitive dependencies that upstream hasn't fixed yet. Re-check them with `npm audit` when upgrading.
-- `npm audit` reports 6 low or moderate findings, all through the `shadcn` package (`deepmerge`, `minimatch` via `ts-morph`). Anything else is new and needs looking at. Never run `npm audit fix --force` without asking: it can silently downgrade packages (it once replaced ESLint 9 with 4.0.0 and broke linting).
+- `npm audit` reports 7 low or moderate findings. Anything else is new and needs looking at.
+  - **6 through the `shadcn` package** (`deepmerge`, `minimatch` via `ts-morph`).
+  - **1 in `fast-xml-parser` 5.11.2** (low, GHSA-474x-hrwr-fgx4), through `firebase-admin` → `@google-cloud/storage`. It's harmless here: storage is an optional dependency that Inkwell never imports (only `firebase-admin/app` and `/auth`), and the parser only reads Google Cloud Storage's own XML responses. **On or after 2026-11-17,** when the fix (5.12.0, released 2026-11-03) is two weeks old, run `npm update fast-xml-parser`. The storage client allows `^5.3.4`, so no override is needed. Then drop this line. Never run `npm audit fix --force` without asking: it can silently downgrade packages (it once replaced ESLint 9 with 4.0.0 and broke linting).
 - zod is approved for input validation (Phase 3).
 - `barcode-detector` (on `zxing-wasm`) is approved for barcode scanning (Phase 4d); load it only where the browser lacks `BarcodeDetector`.
 - Ask before adding significant dependencies, and pin to an exact or caret version of a release at least two weeks old.
