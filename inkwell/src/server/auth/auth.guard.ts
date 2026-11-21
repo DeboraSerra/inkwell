@@ -46,7 +46,7 @@ export async function getRequestUser(request: Request) {
 
 const digest = (value: string) => createHash("sha256").update(value).digest();
 
-// Vercel Cron sends "Authorization: Bearer <CRON_SECRET>". Without the secret
+// Vercel Schedules (path targets) send "Authorization: Bearer <CRON_SECRET>". Without the secret
 // set, no request passes. Compared as hashes, in constant time.
 export function isCronRequest(request: Request) {
   const secret = process.env.CRON_SECRET;
