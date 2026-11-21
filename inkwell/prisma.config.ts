@@ -9,7 +9,8 @@ export default defineConfig({
   },
   datasource: {
     // Migrations need a direct (non-pooled) connection on Supabase; the app
-    // itself uses the pooled DATABASE_URL at runtime.
-    url: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
+    // itself uses the pooled DATABASE_URL at runtime. `||` rather than `??`:
+    // an empty DIRECT_URL= line (as locally) must fall back too.
+    url: process.env.DIRECT_URL || process.env.DATABASE_URL,
   },
 });
