@@ -47,8 +47,16 @@
    - 4d — Scan the barcode ✅ done (photo, decoded in the browser)
    - 4d follow-up — Live scanning ✅ done: "Scan live" reads the barcode from the camera's video, phone or laptop
 5. [Phase 5 — AI enrichment (Claude API)](phase-5-ai-enrichment.md) ⏭️ next
+   - 5.0 — Security updates before 5a: Next 16.4.3 → 16.4.5 (seven moderate advisories), an `effect` override for a new Prisma CLI finding, and the due `fast-xml-parser` update ✅ done (2026-11-21)
+   - 5a — One add form: no tabs on `/books/new`, the search in the title field as a dropdown, and the ISBN lookup at the top of the form ⏭️ next
+     - 5a1 — ISBN at the top of the form
+     - 5a2 — ISBN lookup and scanning inside the form (the ISBN tab goes)
+     - 5a3 — Search in the title field, as a dropdown (the Search tab goes)
+     - 5a4 — One form, no tabs, and the old tab components removed
+   - 5b onward — AI enrichment and the synopsis for books added without a lookup (still to be split into steps)
 6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)
 7. [Phase 7 — Quality and deploy](phase-7-quality-deploy.md)
+   - Row-level security on every table (Supabase advisor, 2026-11-14) ✅ applied locally and on Supabase on 2026-11-21
 8. [Later / nice to have](later.md)
 
 ## Architecture

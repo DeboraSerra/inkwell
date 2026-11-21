@@ -46,7 +46,7 @@ Key files in `inkwell/`:
 
 See `docs/plan/README.md` for live status. At the time of writing:
 
-- ✅ Phase 0: security upgrades (Next 16.4, Prisma 7, npm `overrides`)
+- ✅ Phase 0: security upgrades (Next 16.4, Prisma 7, npm `overrides`). Next is 16.4.5 since Phase 5.0 (2026-11-21).
 - ✅ Phase 1: Firebase Google sign-in → httpOnly `__session` cookie; API tokens; `/settings`; `GET /api/me`
 - ✅ Phase 2a: shared `Book` catalog, `BookGenre`/`BookTrope`, dedupe and ISBN helpers, Vitest
 - ✅ Phase 2b: `UserBook` library, status/ownership rules (`src/server/library/status.rules.ts`), `library.service.ts` / `library.model.ts`
@@ -164,6 +164,7 @@ inkwell/src/
 - The connection URL belongs in `prisma.config.ts`, not in `schema.prisma`. At runtime, `DATABASE_URL` (Supabase's pooled connection) is used; migrations use `DIRECT_URL` when it's set.
 - `PrismaClient` requires the driver adapter. The singleton lives in `@/server/db` and only models may use it; never call `new PrismaClient()` anywhere else.
 - **Migrations are additive from now on.** Change `schema.prisma`, then create a new migration (`npx prisma migrate dev --name <change>`). If there's no interactive terminal, write `migration.sql` with `prisma migrate diff`. Never edit a migration that has already been applied.
+- **Every new table gets row-level security in the same migration** (`ALTER TABLE "<Name>" ENABLE ROW LEVEL SECURITY;`, no policies). Otherwise Supabase's Data API exposes it to anyone with the anon key. Prisma connects as the owner, which RLS doesn't apply to. Never add `FORCE ROW LEVEL SECURITY` or turn RLS off. `migrations-rls.test.ts` checks this.
 - After a schema change, run `npx prisma generate`. The generated client lives in `src/generated/prisma` and is gitignored.
 - The seed must stay idempotent (upsert by unique name). To run it: `npx prisma db seed`.
 - Store dates as UTC; reading-log and goal dates are calendar dates.
@@ -193,9 +194,11 @@ inkwell/src/
 
 - Use npm, run from `inkwell/`. npm here blocks dependency install scripts; `prisma generate` runs from the package's own `postinstall` and `build` scripts.
 - **Don't remove the `overrides` in `package.json`.** They patch vulnerable transitive dependencies that upstream hasn't fixed yet. Re-check them with `npm audit` when upgrading.
-- `npm audit` reports 7 low or moderate findings. Anything else is new and needs looking at.
-  - **6 through the `shadcn` package** (`deepmerge`, `minimatch` via `ts-morph`).
-  - **1 in `fast-xml-parser` 5.11.2** (low, GHSA-474x-hrwr-fgx4), through `firebase-admin` → `@google-cloud/storage`. It's harmless here: storage is an optional dependency that Inkwell never imports (only `firebase-admin/app` and `/auth`), and the parser only reads Google Cloud Storage's own XML responses. **On or after 2026-11-17,** when the fix (5.12.0, released 2026-11-03) is two weeks old, run `npm update fast-xml-parser`. The storage client allows `^5.3.4`, so no override is needed. Then drop this line. Never run `npm audit fix --force` without asking: it can silently downgrade packages (it once replaced ESLint 9 with 4.0.0 and broke linting).
+- `npm audit` reports 4 moderate findings, all **through the `shadcn` package** (one `minimatch` advisory, GHSA-g3hv-75wg-m249, via `ts-morph`). Anything else is new and needs looking at.
+- **Two exact-version overrides were added on 2026-11-21 (Phase 5.0),** pinned exactly because the next releases weren't two weeks old yet:
+  - `effect` 3.22.4: fixes a ReDoS (GHSA-7589-6fvf-x4pw) in the copy that `prisma` → `@prisma/config` pins at 3.20.0. Drop it once Prisma ships a fixed `@prisma/config`.
+  - `fast-xml-parser` 5.12.0: fixes GHSA-474x-hrwr-fgx4, through `firebase-admin` → `@google-cloud/storage`. 5.12.1 (2026-11-13) can replace it from 2026-11-27, but nothing requires that.
+- Never run `npm audit fix --force` without asking: it can silently downgrade packages. It once replaced ESLint 9 with 4.0.0 and broke linting, and today it would downgrade Prisma 7 to 6.12.
 - zod is approved for input validation (Phase 3).
 - `barcode-detector` (on `zxing-wasm`) is approved for barcode scanning (Phase 4d); load it only where the browser lacks `BarcodeDetector`.
 - Ask before adding significant dependencies, and pin to an exact or caret version of a release at least two weeks old.
