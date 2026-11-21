@@ -71,7 +71,8 @@ export type SearchResult = ProviderRef & {
 
 // The book form
 
-// The book a form starts from: a looked-up book on the ISBN and Search tabs,
+// The book a form starts from: a book found by the add form's ISBN lookup or
+// title search,
 // or a shelf book in the edit dialog. A shelf book fits as it is.
 export type BookFormBook = {
   title: string;

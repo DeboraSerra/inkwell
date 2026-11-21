@@ -26,7 +26,7 @@ describe("parseIsbnBook audiobook length", () => {
   });
 });
 
-// What the Search tab's add form sends, for each kind of preview.
+// What the add form sends for a found book, for each kind of preview.
 describe("parseSearchBook", () => {
   it("reads the picked record and the reader's choices", () => {
     const parsed = parseSearchBook(form({ source: "OPEN_LIBRARY", sourceId: "OL60695609M", formats: ["EBOOK"] }));

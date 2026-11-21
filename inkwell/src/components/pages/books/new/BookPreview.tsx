@@ -8,11 +8,10 @@ import type {
   IsbnPreview,
 } from "@/types/books.type";
 import Link from "next/link";
-import AddBookForm from "./AddBookForm";
 import type { AddAction } from "@/types/ui.type";
 
-// The looked-up book and the form that adds it: the Search tab, and the
-// ISBN lookup inside the book form.
+// A book found by the form's ISBN lookup or title search, as the form's
+// starting point.
 
 const SOURCE_NAMES: Record<IsbnPreview["from"], string | null> = {
   CATALOG: null,
@@ -58,9 +57,8 @@ export const previewBook = (preview: IsbnPreview): BookFormBook => ({
   formats: preview.inLibrary?.formats,
 });
 
-// Adds the previewed book with the shared book form. Only the ISBN, or the
-// provider's record id, identifies the book: the server looks it up again
-// itself. A book already in the library only gains formats.
+// Only the ISBN, or the provider's record id, identifies the book: the server
+// looks it up again itself.
 export const previewHidden = (preview: IsbnPreview): Record<string, string> =>
   preview.ref
     ? { source: preview.ref.source, sourceId: preview.ref.sourceId }
@@ -73,22 +71,3 @@ export const actionSubmit =
     const { error, message } = await action({}, formData);
     return { ok: !error, error, message };
   };
-
-export function AddPreviewedBook({
-  preview,
-  action,
-  onAdded,
-}: Readonly<{ preview: IsbnPreview; action: AddAction; onAdded: () => void }>) {
-  return (
-    <AddBookForm
-      book={previewBook(preview)}
-      canEdit={false}
-      submit={actionSubmit(action)}
-      hidden={previewHidden(preview)}
-      addFormatsOnly={Boolean(preview.inLibrary)}
-      header={<PreviewHeader preview={preview} />}
-      submitLabel={preview.inLibrary ? "Add formats" : "Add book"}
-      onDone={onAdded}
-    />
-  );
-}

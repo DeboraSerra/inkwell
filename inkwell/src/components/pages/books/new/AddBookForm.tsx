@@ -77,8 +77,8 @@ const manualAdd = actionSubmit(addManualBook);
 const isbnAdd = actionSubmit(addBookByIsbn);
 const searchAdd = actionSubmit(addSearchBook);
 
-// The one book form: adding by hand, by ISBN or by search (the default), adding
-// a book found on the Search tab, and editing a shelf book.
+// The one book form: adding by hand, by ISBN or by search on /books/new, and
+// editing a shelf book.
 // - `book` fills every field. `defaultIsbn` fills the ISBN of a blank form.
 // - `canEdit` false locks the catalog's title, subtitle and ISBN (disabled
 //   fields aren't sent); the reader's own authors, pages and cover stay
@@ -93,8 +93,8 @@ const searchAdd = actionSubmit(addSearchBook);
 //   be added to it.
 // - `header` goes above the fields, such as a looked-up book's cover.
 // - `lookups` turns on the ISBN lookup and scanning, and the search in the
-//   title (only on /books/new). A found book fills the form locked, as the
-//   Search tab's does, and is added by its ISBN or search record; "Not this
+//   title (only on /books/new). A found book fills the form with the catalog's
+//   details locked, and is added by its ISBN or search record; "Not this
 //   book" goes back to a blank form with the typed ISBN and title kept.
 export default function AddBookForm({
   defaultIsbn,

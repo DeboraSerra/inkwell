@@ -64,7 +64,7 @@ Asked by the user on 2026-11-21, as the first step of Phase 5. `/books/new` lose
 
 **Done when:** the Manual tab and the edit dialog show the ISBN first, and adding and editing still work.
 
-**Outcome (✅ built 2026-11-21):** in `AddBookForm.tsx`, the ISBN field now sits right after `header` (the looked-up book's preview on the ISBN and Search tabs) and above the cover. No other changes. tsc, lint, the 1,020 tests and the build pass. Checked by the user on 2026-11-21.
+**Outcome (✅ built 2026-11-21):** in `AddBookForm.tsx`, the ISBN field now sits right after `header` (the looked-up book's preview on the ISBN and Search tabs) and above the cover. No other changes. tsc, lint, the 1,020 tests and the build pass. Checked in the app by the user on 2026-11-21.
 
 ### 5a2 — ISBN lookup and scanning inside the form
 
@@ -89,7 +89,7 @@ Asked by the user on 2026-11-21, as the first step of Phase 5. `/books/new` lose
 - `BookPreview.tsx` exports `previewHidden` and `actionSubmit`, shared by the Search tab and the form.
 - Asked by the user on 2026-11-21: a book already in the library shows the formats the reader owns ticked and locked (`previewBook` fills `formats` from `inLibrary`; `FormatsField` gained `owned`). Unticking them couldn't remove them, since adding again only adds formats. This applies to the Search tab too.
 - The ISBN tab and `IsbnLookup.tsx` are removed; `AddBookTab` is `"search" | "manual"`. The Search tab's "Fill in by hand" still opens a blank Manual tab.
-- tsc, lint and the 1,020 tests pass. **`npm run build` wasn't run** (the permission was denied). **The user must:** run the build, and check the five "Done when" points in the app.
+- tsc, lint and the 1,020 tests pass. **`npm run build` wasn't run** (the permission was denied). Checked in the app by the user on 2026-11-21. `npm run build` is run once, at the end of 5a.
 
 ### 5a3 — Search in the title field
 
@@ -116,7 +116,7 @@ Asked by the user on 2026-11-21, as the first step of Phase 5. `/books/new` lose
 - `TitleSearchField.tsx` holds `useBookSearch` (now keyed by the query string) and the result row: a small cover, title, authors, year and the "In your library · List" badge, in the combobox's dropdown, with "Searching…", an error line and "No books found". Base UI does the arrow keys, Enter to pick and Escape; Enter otherwise never submits the form. Only typing changes the title, so closing the list without a pick keeps what was typed. The dropdown is capped at the screen width and its list scrolls.
 - `AddBookForm` (with `lookups`) shows it in place of the plain title. A picked result goes through `previewSearchResult` and fills the form as a found ISBN does; a preview with a `ref` saves through `addSearchBook`, one without through `addBookByIsbn`. "Not this book" keeps the typed title too.
 - The Search tab and `SearchLookup.tsx` are removed, with the `AddBookTab` and `SearchRequest` types. `AddBookTabs` has only the Manual tab until 5a4, and `AddPreviewedBook` in `BookPreview.tsx` is unused until 5a4 removes it.
-- tsc, lint and the 1,020 tests pass. **The user must:** run `npm run build`, and check the five "Done when" points in the app, on a phone too.
+- tsc, lint and the 1,020 tests pass. Checked in the app by the user on 2026-11-21. `npm run build` is run once, at the end of 5a.
 
 ### 5a4 — One form, no tabs
 
@@ -129,6 +129,13 @@ Asked by the user on 2026-11-21, as the first step of Phase 5. `/books/new` lose
 2. Every way of adding still works: by hand, by ISBN, by scanning and by search.
 3. The shelf's edit dialog still works.
 4. The user checks the page signed in, on a laptop and on a phone.
+
+**Outcome (✅ built 2026-11-21):**
+
+- `/books/new` (`components/pages/books/new/index.tsx`) renders `<AddBookForm lookups />` directly. `AddBookTabs.tsx` is removed; `IsbnLookup.tsx`, `SearchLookup.tsx`, the "Fill in by hand" buttons and `AddBookTab` already went in 5a2 and 5a3.
+- `BookPreview.tsx` stays for `PreviewHeader`, `previewBook`, `previewHidden` and `actionSubmit`, which the form uses; `AddPreviewedBook` is removed.
+- AGENTS.md: the `AddBookForm` rule now names `/books/new` and `lookups`, and the status has a 5a line. Stale "tab" comments in `books.type.tsx` and `isbn-book.schema.test.ts` are updated.
+- tsc, lint and the 1,020 tests pass. **The user must:** check the four "Done when" points signed in, on a laptop and a phone, and run `npm run build` for the whole of 5a.
 
 ## 5b onward — AI enrichment (to be split into steps)
 
