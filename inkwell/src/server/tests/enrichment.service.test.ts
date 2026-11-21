@@ -105,7 +105,7 @@ describe("enrichBook", () => {
   });
 
   it("reports a book enriched by another run meanwhile", async () => {
-    api.createMessage.mockResolvedValue(message({ genres: [], tropes: [], tags: [] }));
+    api.createMessage.mockResolvedValue(message({ genres: [], tropes: [], tags: ["desert"] }));
     model.saveEnrichment.mockResolvedValue(false);
     await expect(enrichBook("b1")).resolves.toBe("already-enriched");
   });

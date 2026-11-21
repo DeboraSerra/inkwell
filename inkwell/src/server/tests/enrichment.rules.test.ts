@@ -66,6 +66,12 @@ describe("normalizeTags", () => {
     expect(normalizeTags(["x".repeat(31), "y".repeat(30)])).toEqual(["y".repeat(30)]);
   });
 
+  it("drops tags naming a picked genre or trope", () => {
+    expect(normalizeTags(["Fantasy", "enemies  to lovers", "Romance"], ["Fantasy", "Enemies to Lovers"])).toEqual([
+      "romance",
+    ]);
+  });
+
   it("keeps at most 10", () => {
     expect(normalizeTags(Array.from({ length: 15 }, (_, i) => `tag ${i}`))).toHaveLength(MAX_TAGS);
   });
@@ -77,13 +83,14 @@ describe("enrichmentRequest", () => {
     expect(request.model).toBe(ENRICHMENT_MODEL);
     expect(request.output_config?.effort).toBe("low");
     const schema = request.output_config?.format?.schema as {
-      properties: Record<string, { items?: { enum?: string[] } }>;
+      properties: Record<string, { items?: { enum?: string[] }; minItems?: number }>;
       required: string[];
       additionalProperties: boolean;
     };
     expect(schema.additionalProperties).toBe(false);
     expect(schema.properties.genres.items?.enum).toEqual(lists.genres.map((g) => g.name));
     expect(schema.properties.tropes.items?.enum).toEqual(lists.tropes.map((t) => t.name));
+    expect(schema.properties.tags).toMatchObject({ minItems: 1 });
   });
 
   it("asks for a length only when there's no page count", () => {
@@ -125,24 +132,35 @@ describe("parseEnrichmentReply", () => {
     });
   });
 
+  it("keeps other genres and tropes as tags, but not the ones picked", () => {
+    const result = parseEnrichmentReply(
+      reply({ genres: ["Fantasy"], tropes: ["Enemies to Lovers"], tags: ["Romance", "fantasy", "Fae"] }),
+      book,
+      lists,
+    );
+    expect(result).toMatchObject({ ok: true, enrichment: { tags: ["romance", "fae"] } });
+  });
+
   it("drops names that aren't on the lists, whatever their case", () => {
     const result = parseEnrichmentReply(
-      reply({ genres: ["fantasy", "Grimdark", "FANTASY"], tropes: ["Chosen One"], tags: [] }),
+      reply({ genres: ["fantasy", "Grimdark", "FANTASY"], tropes: ["Chosen One"], tags: ["fae"] }),
       book,
       lists,
     );
     expect(result).toMatchObject({ ok: true, enrichment: { genreIds: ["g-fantasy"], tropeIds: [] } });
   });
 
-  it("keeps at most 3 genres and 6 tropes", () => {
+  it("keeps at most 1 genre and 1 trope, the first named", () => {
     const result = parseEnrichmentReply(
-      reply({ genres: lists.genres.map((g) => g.name), tropes: lists.tropes.map((t) => t.name), tags: [] }),
+      reply({ genres: lists.genres.map((g) => g.name), tropes: lists.tropes.map((t) => t.name), tags: ["fae"] }),
       book,
       lists,
     );
     if (!result.ok) throw new Error("expected a valid reply");
-    expect(result.enrichment.genreIds).toHaveLength(MAX_GENRES);
-    expect(result.enrichment.tropeIds).toHaveLength(MAX_TROPES);
+    expect(result.enrichment.genreIds).toEqual(["g-fantasy"]);
+    expect(result.enrichment.tropeIds).toEqual(["t-enemies"]);
+    expect(MAX_GENRES).toBe(1);
+    expect(MAX_TROPES).toBe(1);
   });
 
   it("uses the page count over the model's guess, and the guess without one", () => {
@@ -164,6 +182,7 @@ describe("parseEnrichmentReply", () => {
     ["text that isn't JSON", reply("Sure! Here are the genres")],
     ["JSON of the wrong shape", reply({ genres: "Fantasy" })],
     ["an unknown length", reply({ ...good, lengthCategory: "EPIC" })],
+    ["no tags", reply({ ...good, tags: [] })],
     ["a reply with no text", { stop_reason: "end_turn" as const, content: [] }],
   ])("fails on %s", (_label, message) => {
     expect(parseEnrichmentReply(message, book, lists)).toMatchObject({ ok: false });
