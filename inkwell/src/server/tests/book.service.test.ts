@@ -292,9 +292,26 @@ describe("fillMissingDescription", () => {
     expect(model.markDescriptionChecked).toHaveBeenCalledWith("b1");
   });
 
-  it("records a miss when the record has no synopsis", async () => {
+  it("records a miss when neither the record nor the ISBN has a synopsis", async () => {
     await expect(service.fillMissingDescription(shared, metadata)).resolves.toBe(false);
+    expect(findDescriptionByIsbn).toHaveBeenCalledWith("9780441013593");
     expect(model.fillBookDescription).not.toHaveBeenCalled();
+    expect(model.markDescriptionChecked).toHaveBeenCalledWith("b1");
+  });
+
+  it("falls back to the ISBN when the record has no synopsis", async () => {
+    vi.mocked(findDescriptionByIsbn).mockResolvedValue("From Google");
+    model.fillBookDescription.mockResolvedValue(true);
+    await expect(service.fillMissingDescription(shared, metadata)).resolves.toBe(true);
+    expect(findDescription).toHaveBeenCalledWith(metadata);
+    expect(model.fillBookDescription).toHaveBeenCalledWith("b1", "From Google");
+    expect(model.markDescriptionChecked).not.toHaveBeenCalled();
+  });
+
+  it("doesn't retry the ids of a checked book when its record misses", async () => {
+    await expect(service.fillMissingDescription({ ...shared, descriptionCheckedAt: new Date() }, metadata)).resolves.toBe(false);
+    expect(findDescription).toHaveBeenCalledWith(metadata);
+    expect(findDescriptionByIsbn).not.toHaveBeenCalled();
     expect(model.markDescriptionChecked).toHaveBeenCalledWith("b1");
   });
 

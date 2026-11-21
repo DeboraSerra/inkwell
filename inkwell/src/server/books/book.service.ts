@@ -180,18 +180,24 @@ async function findDescriptionByIds(book: DescribedBook) {
 }
 
 // Saves the synopsis of a just-added shared book that has none: from the
-// provider record it was found with, or else by its provider ids or ISBN. A
-// miss is recorded, so a book looked up without a record isn't tried again;
-// a record from a later add still gets its chance. Run after the add's
+// provider record it was found with, else by its provider ids or ISBN, since
+// another provider may have one (an Open Library record often has none, while
+// Google Books does). A miss is recorded, so the ids and ISBN aren't tried
+// again; a record from a later add still gets its chance. Run after the add's
 // response is sent; it never overwrites, skips private books, and logs rather
 // than throws, so it can't fail an add.
 export async function fillMissingDescription(book: DescribedBook, metadata?: BookMetadata) {
   if (book.ownerId || book.description) return false;
-  if (!metadata && book.descriptionCheckedAt) return false;
   try {
-    const description = metadata ? await findDescription(metadata) : await findDescriptionByIds(book);
+    let description = metadata ? await findDescription(metadata) : undefined;
+    let tried = Boolean(metadata);
+    if (!description && !book.descriptionCheckedAt) {
+      const byIds = await findDescriptionByIds(book);
+      if (byIds !== undefined) tried = true;
+      description = byIds ?? undefined;
+    }
     if (description) return await bookModel.fillBookDescription(book.id, description);
-    if (description !== undefined || metadata) await bookModel.markDescriptionChecked(book.id);
+    if (tried) await bookModel.markDescriptionChecked(book.id);
     return false;
   } catch (error) {
     console.warn("Saving a book's synopsis failed", error);
