@@ -214,6 +214,13 @@ export default function AddBookForm({
       ))}
       <FieldGroup>
         {header}
+        <TextField
+          name='isbn'
+          id={`${uid}-isbn`}
+          label='ISBN'
+          defaultValue={values?.isbn ?? defaultIsbn}
+          disabled={lockCatalog}
+        />
         <div className='flex gap-3'>
           <BookCover
             src={coverUrl}
@@ -290,13 +297,6 @@ export default function AddBookForm({
 
         {acquired}
 
-        <TextField
-          name='isbn'
-          id={`${uid}-isbn`}
-          label='ISBN'
-          defaultValue={values?.isbn ?? defaultIsbn}
-          disabled={lockCatalog}
-        />
         <TextField
           name='pageCount'
           id={`${uid}-pageCount`}

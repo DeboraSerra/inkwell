@@ -64,6 +64,8 @@ Asked by the user on 2026-11-21, as the first step of Phase 5. `/books/new` lose
 
 **Done when:** the Manual tab and the edit dialog show the ISBN first, and adding and editing still work.
 
+**Outcome (✅ built 2026-11-21):** in `AddBookForm.tsx`, the ISBN field now sits right after `header` (the looked-up book's preview on the ISBN and Search tabs) and above the cover. No other changes. tsc, lint, the 1,020 tests and the build pass. **The user must:** check the Manual tab and the shelf's edit dialog in the running app.
+
 ### 5a2 — ISBN lookup and scanning inside the form
 
 - **Move the logic out of the tab.** The lookup and scan controls in `IsbnLookup.tsx` move into a component the form uses, for example `IsbnLookupField.tsx`: the ISBN field with "Look up" and the "Scan barcode" dropdown (photo upload and live scan, as today) beside it. It's shown only when `lookups` is on.

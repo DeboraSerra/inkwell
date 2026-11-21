@@ -49,7 +49,7 @@
 5. [Phase 5 — AI enrichment (Claude API)](phase-5-ai-enrichment.md) ⏭️ next
    - 5.0 — Security updates before 5a: Next 16.4.3 → 16.4.5 (seven moderate advisories), an `effect` override for a new Prisma CLI finding, and the due `fast-xml-parser` update ✅ done (2026-11-21)
    - 5a — One add form: no tabs on `/books/new`, the search in the title field as a dropdown, and the ISBN lookup at the top of the form ⏭️ next
-     - 5a1 — ISBN at the top of the form
+     - 5a1 — ISBN at the top of the form ✅ built (2026-11-21), to be checked in the app
      - 5a2 — ISBN lookup and scanning inside the form (the ISBN tab goes)
      - 5a3 — Search in the title field, as a dropdown (the Search tab goes)
      - 5a4 — One form, no tabs, and the old tab components removed
