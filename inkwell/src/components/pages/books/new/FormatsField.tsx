@@ -5,7 +5,7 @@ import { useEffect, useId, useState } from "react";
 import { AudioLengthField } from "@/components/common/AudioLengthField";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TapTooltip } from "@/components/common/TapTooltip";
 import { BookFormat } from "@/generated/prisma/enums";
 
 const FORMATS = [
@@ -49,14 +49,9 @@ export function FormatsField({
     <FieldSet className='flex flex-col'>
       <FieldLegend variant='label' className='flex gap-1 items-center'>
         <span>Formats you own</span>
-        <Tooltip>
-          <TooltipTrigger aria-label='About formats'>
-            <Info size={16} />
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Leave these empty if you don’t own the book.</p>
-          </TooltipContent>
-        </Tooltip>
+        <TapTooltip label='About formats' content={<p>Leave these empty if you don’t own the book.</p>}>
+          <Info size={16} />
+        </TapTooltip>
       </FieldLegend>
       <div className='flex flex-col gap-x-5 gap-y-2'>
         {FORMATS.map(({ value, label }) => (

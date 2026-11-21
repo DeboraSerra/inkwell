@@ -266,11 +266,20 @@ Comes first, so enrichment can use the description.
 
 Asked by the user on 2026-11-22, to do later. Today the "Genre (Trope)" pill and the tag pills look the same. For example: filled for genre and trope, outlined for tags.
 
-### 5b5b — Tooltips that work on phones ⏭️ next
+### 5b5b — Tooltips that work on phones ✅ built (2026-11-22)
 
 Asked by the user on 2026-11-22, as the next step. A tooltip opens on hover or focus only, so a tap on a phone shows nothing; that includes the cards' "+N" tags and every other tooltip in the app. Each one either becomes a popover on touch screens, or shows its content another way. List every `Tooltip` use first.
 
 **Done when:** every tooltip's content can be read on a phone by tapping, and still shows on hover on a laptop.
+
+**Outcome (✅ built 2026-11-22):**
+
+- `components/common/TapTooltip.tsx`: a tooltip that a tap toggles. A mouse click keeps it open, and hover, focus, Escape and tapping elsewhere work as before. The click's default is stopped, so a trigger inside a label doesn't tick or focus the field.
+- **Used for:** the ⓘ hints in `TextField`, `StatusField` (status, each status, dates), `FormatsField` and `TitleSearchField` (all now with an `aria-label`), and the card's "+N" tags.
+- **Unchanged:**
+  - `BookTitle` already opened on tap.
+  - The "Add another read" button's tooltip only repeats its label, and tapping it adds the read.
+- tsc, lint and the 1,118 tests pass. **Not checked on a phone.**
 
 ### 5b6 — Edit them
 

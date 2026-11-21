@@ -2,7 +2,7 @@ import { Info } from "lucide-react";
 import type { ChangeEventHandler, KeyboardEventHandler, Ref } from "react";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TapTooltip } from "@/components/common/TapTooltip";
 
 export function TextField({
   name,
@@ -46,12 +46,9 @@ export function TextField({
           <span className='font-normal text-muted-foreground'>*</span>
         ) : null}
         {info && (
-          <Tooltip>
-            <TooltipTrigger>
-              <Info size={16} />
-            </TooltipTrigger>
-            <TooltipContent>{info}</TooltipContent>
-          </Tooltip>
+          <TapTooltip content={info} label={`About ${label}`}>
+            <Info size={16} />
+          </TapTooltip>
         )}
       </FieldLabel>
       <Input

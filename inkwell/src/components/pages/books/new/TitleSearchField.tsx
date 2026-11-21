@@ -20,7 +20,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TapTooltip } from "@/components/common/TapTooltip";
 
 const DEBOUNCE_MS = 400;
 const MIN_QUERY_LENGTH = 3;
@@ -148,17 +148,17 @@ export function TitleSearchField({
       <FieldLabel htmlFor={id}>
         Title
         <span className='font-normal text-muted-foreground'>*</span>
-        <Tooltip>
-          <TooltipTrigger>
-            <Info size={16} />
-          </TooltipTrigger>
-          <TooltipContent>
+        <TapTooltip
+          label='About the title search'
+          content={
             <p>
               Type a title or author to search Open Library and Google Books,
               or just the title to add it by hand.
             </p>
-          </TooltipContent>
-        </Tooltip>
+          }
+        >
+          <Info size={16} />
+        </TapTooltip>
       </FieldLabel>
       <Combobox
         items={results}

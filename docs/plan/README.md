@@ -60,7 +60,7 @@
      - 5b4 — Imports and the backlog through Message Batches, collected by a cron route ✅ built (2026-11-22)
      - 5b5 — Show genres, tropes, tags and length ✅ built (2026-11-22), on shelf cards
      - 5b5a — Tell genre and trope apart from tags on cards ⏳ pending
-     - 5b5b — Tooltips that work on phones ⏭️ next
+     - 5b5b — Tooltips that work on phones ✅ built (2026-11-22)
      - 5b6 — Edit them
      - 5b7 — Privacy policy and closing
 6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)

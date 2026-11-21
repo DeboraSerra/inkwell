@@ -2,11 +2,7 @@
 
 import { BookCover } from "@/components/common/BookCover";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { TapTooltip } from "@/components/common/TapTooltip";
 import { readDatesLabel } from "@/server/library/read-label.rules";
 import { shelfHref } from "@/server/library/shelf-filters";
 import type { ShelfBook } from "@/types/books.type";
@@ -113,17 +109,15 @@ export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
                 const moreThanMax = arr.length > MAX_TAGS_TO_SHOW;
                 if (moreThanMax && i === MAX_TAGS_TO_SHOW) {
                   return (
-                    <Tooltip key='more-tags'>
-                      <TooltipTrigger>
-                        <CardPill
-                          text={`+${arr.length - MAX_TAGS_TO_SHOW}`}
-                          label='More tags'
-                        />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className='max-w-xs'>{book.tags.join(", ")}</p>
-                      </TooltipContent>
-                    </Tooltip>
+                    <TapTooltip
+                      key='more-tags'
+                      content={<p className='max-w-xs'>{book.tags.join(", ")}</p>}
+                    >
+                      <CardPill
+                        text={`+${arr.length - MAX_TAGS_TO_SHOW}`}
+                        label='More tags'
+                      />
+                    </TapTooltip>
                   );
                 }
                 if (moreThanMax && i > MAX_TAGS_TO_SHOW) {

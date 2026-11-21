@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TapTooltip } from "@/components/common/TapTooltip";
 import type { ManualBookValues, ReadingState } from "@/types/library.type";
 import type { PastReadSet } from "@/types/ui.type";
 
@@ -103,18 +104,18 @@ export function StatusField({
           className='flex gap-1 items-center'
         >
           <span>Status</span>
-          <Tooltip>
-            <TooltipTrigger aria-label={`About status`}>
-              <Info size={16} />
-            </TooltipTrigger>
-            <TooltipContent>
+          <TapTooltip
+            label='About status'
+            content={
               <p>
                 Choose where you are with this book. If you haven’t started it,
                 it goes to your TBR when you own a format, or to your Wishlist
                 when you don’t.
               </p>
-            </TooltipContent>
-          </Tooltip>
+            }
+          >
+            <Info size={16} />
+          </TapTooltip>
         </FieldLegend>
         <RadioGroup
           name='status'
@@ -130,14 +131,9 @@ export function StatusField({
                 {label}
               </FieldLabel>
               {info && (
-                <Tooltip>
-                  <TooltipTrigger aria-label={`About ${label}`}>
-                    <Info size={16} />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{info}</p>
-                  </TooltipContent>
-                </Tooltip>
+                <TapTooltip label={`About ${label}`} content={<p>{info}</p>}>
+                  <Info size={16} />
+                </TapTooltip>
               )}
             </Field>
           ))}
@@ -149,17 +145,17 @@ export function StatusField({
         <div key={String(isNewRead)} className='col-span-2 flex flex-col gap-3'>
           <p className='flex gap-2 items-center'>
             Dates
-            <Tooltip>
-              <TooltipTrigger aria-label='About dates'>
-                <Info size={16} />
-              </TooltipTrigger>
-              <TooltipContent>
+            <TapTooltip
+              label='About dates'
+              content={
                 <p>
                   Optional. Fill in as much as you remember: just the year, the
                   month and year, or the full date.
                 </p>
-              </TooltipContent>
-            </Tooltip>
+              }
+            >
+              <Info size={16} />
+            </TapTooltip>
           </p>
 
           <div className='flex justify-between items-end'>
