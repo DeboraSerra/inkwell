@@ -2,8 +2,8 @@
 
 import { type ChangeEvent, type ClipboardEvent, type KeyboardEvent, useId, useRef } from "react";
 import { cleanPart, DATE_PARTS, isPartComplete, isSeparator, nextPart, PART_LENGTH, previousPart, splitPastedDate } from "./date-input";
-import { Field, FieldLabel, FieldLegend, FieldSet } from "./ui/field";
-import { Input } from "./ui/input";
+import { Field, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import type { DatePart } from "@/types/dates.type";
 
 const PARTS: { part: DatePart; suffix: string; label: string; placeholder: string; width: string }[] = [

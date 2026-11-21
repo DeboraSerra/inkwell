@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { googleBooks, parseVolume, parseIsbnResponse, parseVolumes } from "@/server/metadata/google-books.provider";
 
 const fixture = (name: string): unknown =>
-  JSON.parse(readFileSync(new URL(`./fixtures/metadata/${name}`, import.meta.url), "utf8"));
+  JSON.parse(readFileSync(new URL(`../fixtures/metadata/${name}`, import.meta.url), "utf8"));
 
 const DUNE = "9780441013593";
 

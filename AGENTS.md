@@ -58,12 +58,12 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 3c: extension import through `POST /api/imports/amazon` (`src/server/imports/`), run on the real Amazon page; the import dialog asks Books or Docs, since the Docs tab's address can't be relied on
 - ✅ Phase 3d: browse, filter and move books at `/books/shelves`
 - ✅ Phase 4a: metadata providers (Open Library, Google Books) and the per-user rate limit
-- ✅ Phase 4b: add by ISBN on `/books/new` (ISBN and Manual tabs); covers through `components/BookCover.tsx`, with Open Library and Google covers served by Next's image optimizer (`images.remotePatterns` in `next.config.ts`)
+- ✅ Phase 4b: add by ISBN on `/books/new` (ISBN and Manual tabs); covers through `components/common/BookCover.tsx`, with Open Library and Google covers served by Next's image optimizer (`images.remotePatterns` in `next.config.ts`)
 - ✅ Phase 3's "Done when" list checked on 2026-11-08
 - ✅ Three fixes before 3e (`docs/plan/phase-3-mvp.md`): moves to DNF from every list, shelf search keeping the shelf, and decoding `&amp;` in Amazon text (`books/text.ts`). `prisma/backfill-decode-entities.ts` was run locally and on Supabase on 2026-11-14. Checked signed in by the user
 - ✅ Phase 3 closed on 2026-11-15 (`docs/plan/phase-3-mvp.md`, "Closed"):
   - 3e polish: the import dialog shows the account, the options page is restyled, `/settings` has a token copy button, and shelves have a books-per-page select (`?per=`, the `shelfPerPage` cookie, or 10 on phones and 30 elsewhere).
-  - 3e polish, continued: clamped titles (`BookCard/BookTitle.tsx`), `PartialDateField` auto-advance (`components/date-input.ts`), read dates on cards with "+N" (`library/read-label.rules.ts`; a year alone in full), audiobook length (`library/audio-length.rules.ts`), past reads by date (`library/read-order.rules.ts`), and extension 2.2.0.
+  - 3e polish, continued: clamped titles (`BookCard/BookTitle.tsx`), `PartialDateField` auto-advance (`components/common/date-input.ts`), read dates on cards with "+N" (`library/read-label.rules.ts`; a year alone in full), audiobook length (`library/audio-length.rules.ts`), past reads by date (`library/read-order.rules.ts`), and extension 2.2.0.
   - 3f purchase dates: `UserBook.acquiredAt`, `imports/acquired-date.rules.ts`, the "Acquired" field, `?sort=`. Each shelf's default sort is in `DEFAULT_SORTS`: Finished by last read; Wishlist, Reading and DNF by newest added; TBR and Owned by newest purchase. Extension 2.3.0 sends `acquiredText` and is uploaded.
   - Docs imports: matched against the reader's library, then their own documents, then the shared catalog, and private only when unmatched. `prisma/merge-duplicate-docs.ts` merges duplicates; the 88 on Supabase were merged by hand. The catalog step still needs a deploy.
   - 3g: the "Owned" tab (`?shelf=owned`, `OWNED_SHELF` and `SHELF_TABS` in `library/shelf-filters.ts`, `formats: { isEmpty: false }`).
@@ -100,7 +100,7 @@ Other rules:
 - **The app-wide books context** (`components/pages/context`, mounted in the `(app)` layout) is the one exception to "services for reads": it holds the user and loads the current shelf on the client through the `loadShelf` server action. Client components read it with `useBooksContext()`, and call `refresh()` after a change. Client code imports only types from services.
 - **Anything exported from a `"use server"` file is a public endpoint.** Only put server actions in `*.controller.ts`, and make each one authenticate and validate. Shared request helpers belong in the guard, not in a controller.
 - **Errors:** services throw subclasses of `DomainError` (`NotFoundError`, `ValidationError`, `UnauthorizedError`, or module-specific ones such as `InvalidTransitionError extends ValidationError`). Controllers catch `DomainError` and show its message; anything else is a bug and is rethrown.
-- **A new feature** gets a folder in `src/server/<module>/` with `<entity>.model.ts`, `<module>.service.ts`, `<module>.controller.ts` (when it has mutations), `*.rules.ts` for pure logic. Its tests go in `src/server/tests/` (see "Directory layout" below), not in the module folder.
+- **A new feature** gets a folder in `src/server/<module>/` with `<entity>.model.ts`, `<module>.service.ts`, `<module>.controller.ts` (when it has mutations), `*.rules.ts` for pure logic. Its tests go in `src/server/tests/<module>/` (see "Directory layout" below), not in the module folder.
 - **Biome enforces these boundaries** (the `noRestrictedImports` overrides in `inkwell/biome.json`). Don't disable those rules; restructure instead.
 
 ## Directory layout (rule)
@@ -111,6 +111,9 @@ Follow this arrangement for all backend code and tests:
 inkwell/src/
 ├── app/                      # Next.js routes: pages, layouts, route handlers (controllers for HTTP)
 ├── components/               # Client components, in PascalCase (AddBookForm.tsx)
+│   ├── common/               # shared by more than one page: fields (TextField, PartialDateField…), BookCover
+│   ├── layout/, pages/       # the app shell, and one folder per page
+│   ├── tests/<folder>/       # component tests, by the folder of the file tested (tests/common/date-input.test.ts)
 │   └── ui/                   # shadcn components: vendored, not linted, don't edit by hand
 ├── config/                   # Firebase client and Admin SDK setup
 ├── lib/utils.ts              # shadcn's cn helper
@@ -127,13 +130,17 @@ inkwell/src/
     │   ├── <topic>.rules.ts         # pure logic
     │   ├── <name>.schema.ts         # zod input validation (never in a "use server" file)
     │   └── (auth only) auth.guard.ts
-    └── tests/                # ALL backend tests, flat
-        ├── <file-under-test>.test.ts   # e.g. library.service.test.ts, status.rules.test.ts
-        └── stubs/                      # test-only module stand-ins (e.g. server-only.ts)
+    └── tests/                # ALL backend tests, one folder per module
+        ├── <module>/<file-under-test>.test.ts   # e.g. library/library.service.test.ts
+        ├── prisma/                              # tests of prisma/migrations
+        ├── fixtures/                            # recorded provider responses
+        └── stubs/                               # test-only module stand-ins (e.g. server-only.ts)
 ```
 
-- **Every test file goes in `src/server/tests/`,** named after the file it tests (`<name>.test.ts`). Module folders contain no tests.
+- **Every test file goes in `src/server/tests/<module>/`,** the same folder name as the file it tests (`src/server/library/status.rules.ts` → `tests/library/status.rules.test.ts`), and is named after it. A route handler's test goes in its module's folder (`books-search.route.test.ts` in `tests/books/`). Module folders contain no tests.
 - **Tests import the code under test, and `vi.mock` it, through the `@/server/<module>/<file>` alias,** never by relative path. The alias resolves to the same file the service imports, so `vi.mock("@/server/library/library.model")` replaces it for `library.service.ts` too.
+- **Component tests go in `src/components/tests/<folder>/`,** by the folder of the file tested (`components/common/date-input.ts` → `components/tests/common/date-input.test.ts`, `components/pages/books/new/x.ts` → `components/tests/pages/books/new/x.test.ts`). Import through `@/components/…`.
+- **A component used by more than one page goes in `components/common/`;** one used by a single page stays in that page's folder.
 - Test-only stand-ins live in `src/server/tests/stubs/` and are wired up in `inkwell/vitest.config.ts`.
 
 ## Next.js 16 rules

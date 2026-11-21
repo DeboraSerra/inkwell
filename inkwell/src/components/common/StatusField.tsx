@@ -5,10 +5,10 @@ import { startsNewRead } from "@/server/library/status.rules";
 import { Info, PlusCircle } from "lucide-react";
 import { useId, useState } from "react";
 import { PartialDateField } from "./PartialDateField";
-import { Button } from "./ui/button";
-import { Field, FieldLabel, FieldLegend, FieldSet } from "./ui/field";
-import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { Field, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ManualBookValues, ReadingState } from "@/types/library.type";
 import type { PastReadSet } from "@/types/ui.type";
 

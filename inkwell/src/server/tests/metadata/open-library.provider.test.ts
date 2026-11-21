@@ -11,7 +11,7 @@ import {
 } from "@/server/metadata/open-library.provider";
 
 const fixture = (name: string): unknown =>
-  JSON.parse(readFileSync(new URL(`./fixtures/metadata/${name}`, import.meta.url), "utf8"));
+  JSON.parse(readFileSync(new URL(`../fixtures/metadata/${name}`, import.meta.url), "utf8"));
 
 const DUNE = "9780441013593";
 

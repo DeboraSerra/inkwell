@@ -1,6 +1,6 @@
 "use client";
 
-import { BookCover } from "@/components/BookCover";
+import { BookCover } from "@/components/common/BookCover";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { ShelfBook } from "@/types/books.type";
 import { readDatesLabel } from "@/server/library/read-label.rules";

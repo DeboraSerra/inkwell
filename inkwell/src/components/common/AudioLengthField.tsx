@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
-import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "./ui/field";
-import { Input } from "./ui/input";
+import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 
 // An audiobook's length as hours and minutes, sent as `audioHours` and
 // `audioMinutes`. Optional: leaving both empty means no length. With only one

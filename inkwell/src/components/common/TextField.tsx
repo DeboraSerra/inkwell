@@ -1,8 +1,8 @@
 import { Info } from "lucide-react";
 import type { ChangeEventHandler, KeyboardEventHandler, Ref } from "react";
-import { Field, FieldDescription, FieldLabel } from "./ui/field";
-import { Input } from "./ui/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function TextField({
   name,

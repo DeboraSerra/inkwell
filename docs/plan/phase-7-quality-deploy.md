@@ -12,7 +12,7 @@
 Supabase's security advisor reported `rls_disabled_in_public` (critical) on 2026-11-14. Supabase serves the `public` schema through its Data API, and anyone holding the project's anon key could read, change and delete every table, because row-level security was off.
 
 - **Built:** migration `20261121000000_enable_row_level_security` turns RLS on for all ten tables and `_prisma_migrations`, with no policies. That shuts out the Data API's `anon` and `authenticated` roles. Inkwell never uses the Data API: it connects through Prisma as the tables' owner, and RLS doesn't apply to the owner without `FORCE`, so the app is unaffected.
-- **Guard:** `src/server/tests/migrations-rls.test.ts` fails when a migration creates a table without enabling RLS, or turns it off.
+- **Guard:** `src/server/tests/prisma/migrations-rls.test.ts` fails when a migration creates a table without enabling RLS, or turns it off.
 - **Applied locally on 2026-11-21:** the local database was empty after its container was recreated, so all 11 migrations were applied and the seed run (28 genres, 71 tropes). RLS is on, and not forced, for every table, and the app's role owns them all. `prisma.config.ts` now falls back to `DATABASE_URL` when `DIRECT_URL` is empty, not only when it's missing.
 - **Applied on Supabase on 2026-11-21** by the user (`NODE_ENV=production npx prisma migrate deploy`). RLS is on for all 11 tables, and the app's pooled role owns them and still reads every row (1,349 library books).
 - **Production's `DATABASE_URL` must be the transaction pooler** (`*.pooler.supabase.com:6543`). The direct host (`db.<ref>.supabase.co`) is IPv6 only, and production failed with P1001 "Can't reach database server" while it pointed there. Fixed by the user on 2026-11-21.

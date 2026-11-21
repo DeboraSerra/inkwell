@@ -1,7 +1,7 @@
 "use client";
 
-import { BookCover } from "@/components/BookCover";
-import { PartialDateField } from "@/components/PartialDateField";
+import { BookCover } from "@/components/common/BookCover";
+import { PartialDateField } from "@/components/common/PartialDateField";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup } from "@/components/ui/field";
 import { ReadingStatus } from "@/generated/prisma/enums";
@@ -28,8 +28,8 @@ import {
   useState,
   useTransition,
 } from "react";
-import { StatusField } from "../../../StatusField";
-import { TextField } from "../../../TextField";
+import { StatusField } from "@/components/common/StatusField";
+import { TextField } from "@/components/common/TextField";
 import { toast } from "../../../ui/toast";
 import {
   actionSubmit,

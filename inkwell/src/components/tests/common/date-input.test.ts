@@ -6,7 +6,7 @@ import {
   nextPart,
   previousPart,
   splitPastedDate,
-} from "@/components/date-input";
+} from "@/components/common/date-input";
 
 describe("cleanPart", () => {
   it.each([

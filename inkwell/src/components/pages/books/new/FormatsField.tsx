@@ -2,7 +2,7 @@
 
 import { Info } from "lucide-react";
 import { useEffect, useId, useState } from "react";
-import { AudioLengthField } from "@/components/AudioLengthField";
+import { AudioLengthField } from "@/components/common/AudioLengthField";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";

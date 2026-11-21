@@ -1,6 +1,6 @@
 "use client";
 
-import { BookCover } from "@/components/BookCover";
+import { BookCover } from "@/components/common/BookCover";
 import {
   Combobox,
   ComboboxContent,
