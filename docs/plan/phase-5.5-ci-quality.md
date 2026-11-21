@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-⏳ Planned, waiting on the open questions. Asked by the user on 2026-11-22, to come before Phase 6.
+⏳ Planned, waiting on the open questions. Asked by the user on 2026-11-22, to come before Phase 6. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
 Phase 7 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 7 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
@@ -14,16 +14,34 @@ Phase 7 already listed GitHub Actions, `npm audit` in CI and Dependabot; they mo
 - **Secrets never reach CI logs.** The build gets placeholder values for the `NEXT_PUBLIC_*` and server variables; no real key is stored in GitHub except where a step truly needs it (none here).
 - Each step ends with `npx tsc --noEmit`, `npm run lint` and `npm test` passing locally, and the workflow passing on a pushed branch.
 
-## 5.5a — Test coverage
+## 5.5a — Missing tests
+
+Measured on 2026-11-22: these files have no test of their own.
+
+- **Server:**
+  - `auth/auth.controller.ts` (sign-in/out and API-token actions, `safeRedirectPath`),
+  - `auth/api-token.model.ts`, `auth/user.model.ts`, `rate-limit/rate-limit.model.ts`, `library/read-through.model.ts` (only partly covered through `library.model.test.ts`): recording-fake tests that every query is scoped by `userId`, as AGENTS.md asks,
+  - `auth/auth.guard.ts`: `getRequestUser` (Bearer token, cookie, neither) and `requireUser`,
+  - `metadata/http.ts` (timeout, size cap, cache, `ProviderError`),
+  - `enrichment/enrichment.schema.ts`,
+  - `errors.ts` (`domainErrorResponse` statuses),
+  - `app/api/me/route.ts`.
+- **Client logic** (no DOM needed): `components/pages/books/new/isbn-input.ts`, `barcode-scan.ts` (with `BarcodeDetector` stubbed), `hooks/useBookActions.ts` and `components/pages/context` (only with a React test setup, see below).
+- **Components:** no React component has a test. Testing them needs `@testing-library/react`, `@testing-library/user-event` and `jsdom` (open question 4). If approved, start with the riskiest: `AddBookForm` (edit vs add, locked fields, topics), `TopicFilter`, `ShelfFilterBar` (search, ✕, hidden fields), `TapTooltip`, `BookCard` pills.
+- Tests follow the layout rules: server tests in `src/server/tests/<module>/`, component tests in `src/components/tests/<folder>/`.
+
+**Done when:** every file above has a test. Coverage isn't measured yet; 5.5b sets its thresholds from the numbers these tests reach.
+
+## 5.5b — Test coverage
 
 - **Dependency:** `@vitest/coverage-v8`, the same major as `vitest` 5.
 - **`npm run test:coverage`** (`vitest run --coverage`), with coverage of `src/server/**` and `src/components/**/*.ts` (pure client helpers), excluding `src/generated`, `src/components/ui`, `src/server/tests` and `*.type.ts(x)`.
-- **Thresholds** set at today's numbers, rounded down (measured in this step), so coverage can't drop. They're raised as 5.5e adds tests.
-- **Reports:** text summary in the terminal, `lcov` for CI (and Sonar, if 5.5g is chosen); `coverage/` is gitignored.
+- **Thresholds** set at the numbers measured after 5.5a's tests, rounded down, so coverage can't drop from there.
+- **Reports:** text summary in the terminal, `lcov` for CI (and Sonar, if g is chosen); `coverage/` is gitignored.
 
 **Done when:** `npm run test:coverage` prints the summary and fails when a threshold isn't met.
 
-## 5.5b — Commit messages: husky and commitlint
+## 5.5c — Commit messages: husky and commitlint
 
 - **Dependencies:** `husky`, `@commitlint/cli`, `@commitlint/config-conventional`.
 - **`commitlint.config.mjs`** at the root: conventional commits, `header-max-length` 100 (the length used for this project's commit messages), types `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `build`, `ci`, `perf`, `revert`.
@@ -31,11 +49,11 @@ Phase 7 already listed GitHub Actions, `npm audit` in CI and Dependabot; they mo
   - `commit-msg`: `npx --no -- commitlint --edit "$1"`.
   - `pre-commit`: fast checks only, on staged files: Biome lint (`biome lint --staged` or `lint-staged`, open question 2). Not the full test run, so committing stays quick.
   - `pre-push` (optional, open question 3): `tsc` and `npm test`.
-- Hooks are a convenience; CI (5.5c) is what enforces.
+- Hooks are a convenience; CI (5.5d) is what enforces.
 
 **Done when:** a commit with a message like "updated stuff" is rejected, `feat(books): …` passes, and a staged file with a lint error stops the commit.
 
-## 5.5c — CI on GitHub Actions
+## 5.5d — CI on GitHub Actions
 
 `.github/workflows/ci.yml`, on every pull request and on pushes to `main` and `dev`:
 
@@ -52,31 +70,13 @@ Phase 7 already listed GitHub Actions, `npm audit` in CI and Dependabot; they mo
 
 **Done when:** a pull request shows each check, and a failing test, type error, lint error, broken build, missing migration, high audit finding or bad commit message turns it red.
 
-## 5.5d — Repository settings (the user does these on GitHub)
+## 5.5e — Repository settings (the user does these on GitHub)
 
 - **Branch protection on `main`:** pull requests only, the CI checks required, no force pushes.
 - **Secret scanning and push protection** turned on.
 - **Dependabot alerts** on.
 
 **Done when:** a direct push to `main` is refused and a PR can't merge with a red check.
-
-## 5.5e — Missing tests
-
-Measured on 2026-11-22: these files have no test of their own.
-
-- **Server:**
-  - `auth/auth.controller.ts` (sign-in/out and API-token actions, `safeRedirectPath`),
-  - `auth/api-token.model.ts`, `auth/user.model.ts`, `rate-limit/rate-limit.model.ts`, `library/read-through.model.ts` (only partly covered through `library.model.test.ts`): recording-fake tests that every query is scoped by `userId`, as AGENTS.md asks,
-  - `auth/auth.guard.ts`: `getRequestUser` (Bearer token, cookie, neither) and `requireUser`,
-  - `metadata/http.ts` (timeout, size cap, cache, `ProviderError`),
-  - `enrichment/enrichment.schema.ts`,
-  - `errors.ts` (`domainErrorResponse` statuses),
-  - `app/api/me/route.ts`.
-- **Client logic** (no DOM needed): `components/pages/books/new/isbn-input.ts`, `barcode-scan.ts` (with `BarcodeDetector` stubbed), `hooks/useBookActions.ts` and `components/pages/context` (only with a React test setup, see below).
-- **Components:** no React component has a test. Testing them needs `@testing-library/react`, `@testing-library/user-event` and `jsdom` (open question 4). If approved, start with the riskiest: `AddBookForm` (edit vs add, locked fields, topics), `TopicFilter`, `ShelfFilterBar` (search, ✕, hidden fields), `TapTooltip`, `BookCard` pills.
-- Tests follow the layout rules: server tests in `src/server/tests/<module>/`, component tests in `src/components/tests/<folder>/`.
-
-**Done when:** every file above has a test, and the coverage thresholds from 5.5a are raised to the new numbers.
 
 ## Suggested additions (open question 5: pick any)
 
@@ -99,9 +99,9 @@ Measured on 2026-11-22: these files have no test of their own.
 
 ## Open questions
 
-1. **Approve the dev dependencies** for 5.5a–5.5b: `@vitest/coverage-v8`, `husky`, `@commitlint/cli`, `@commitlint/config-conventional`.
+1. **Approve the dev dependencies** for 5.5b–5.5c: `@vitest/coverage-v8`, `husky`, `@commitlint/cli`, `@commitlint/config-conventional`.
 2. **Pre-commit lint:** Biome's own `--staged` (no extra dependency) or `lint-staged`?
 3. **Pre-push hook** with `tsc` and tests: yes, or leave it to CI?
-4. **React component tests** in 5.5e: approve `@testing-library/react`, `@testing-library/user-event` and `jsdom`, or keep 5.5e to non-UI code for now?
+4. **React component tests** in 5.5a: approve `@testing-library/react`, `@testing-library/user-event` and `jsdom`, or keep 5.5a to non-UI code for now?
 5. **Which of f–p** to include.
 6. **Phase numbering:** this is "Phase 5.5" so the existing Phases 6–10 and their links keep their numbers. Rename it to Phase 6 and renumber the rest instead?
