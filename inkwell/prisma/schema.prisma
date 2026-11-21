@@ -58,7 +58,9 @@ model RateLimit {
 // user's status, shelves and notes about it live in per-user tables.
 // ---------------------------------------------------------------------------
 
+// Page-count thresholds are in src/server/enrichment/enrichment.rules.ts.
 enum LengthCategory {
+  NOVELLA
   SHORT
   MEDIUM
   LONG
@@ -106,6 +108,8 @@ model Book {
   descriptionCheckedAt DateTime?
   tags           String[]
   aiEnrichedAt   DateTime?
+  // Failed enrichment calls or invalid replies; the book is skipped after 3.
+  aiAttempts     Int             @default(0)
   metadataSource MetadataSource
   genres         BookGenre[]
   tropes         BookTrope[]

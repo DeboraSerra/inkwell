@@ -36,6 +36,7 @@ Key files in `inkwell/`:
 | `src/server/books/` | Shared catalog: `isbn.ts` and `dedupe.ts` (pure), `book.model.ts`, `book.service.ts` (`findExistingBook`) |
 | `src/server/library/` | Per-user library: `status.rules.ts` (statuses, formats and read changes; pure), `library.model.ts`, `read-through.model.ts`, `library.service.ts`, `library.controller.ts`, `manual-book.schema.ts` (zod) |
 | `src/server/metadata/` | Book details from Open Library and Google Books (Phase 4a): `metadata.service.ts` (`lookupIsbn`, `searchBooks`, `lookupById`), one `*.provider.ts` per source, `sanitize.ts` (pure cleaners for untrusted fields), `http.ts` (timeout, size cap, day-long cache) |
+| `src/server/enrichment/` | AI enrichment (Phase 5b): `enrichment.rules.ts` (request and reply parsing; pure), `enrichment.schema.ts` (zod for the reply), `enrichment.model.ts`, `enrichment.service.ts` (`enrichBook`). The Anthropic client is `src/config/anthropic.ts` |
 | `src/server/rate-limit/` | Per-user request limits counted in Postgres: `consumeRateLimit` throws `RateLimitError` (HTTP 429) |
 | `src/types/` | **Every named type and interface**, one file per module: `books.type.tsx` (catalog, shelf books, lookups, search, the book form), `library.type.ts`, `shelf.type.ts`, `dates.type.ts`, `imports.type.ts`, `metadata.type.ts`, `auth.type.ts`, `rate-limit.type.ts`, `server.type.ts` (`Db`, `Tx`, error codes), `ui.type.ts` (components and hooks), and `index.tsx` (`ShelfType`, `UserType`). See "Types live in `src/types/`" below. |
 | `prisma/schema.prisma`, `prisma/migrations/` | Database schema and migrations |
@@ -70,6 +71,7 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 4d built: "Scan barcode" on the ISBN tab (`ScanBarcodeButton.tsx`, `barcode-scan.ts`, `books/barcode.rules.ts`). The photo is read in the browser with `BarcodeDetector` or `barcode-detector` 3.2.3, and the WASM is served from `public/vendor/` by `scripts/copy-zxing-wasm.mjs`. Live scanning is built too (`LiveScanButton.tsx`: camera video in a dialog, read about 5 frames a second). Both checked by the user on a laptop and a phone.
 - ✅ Phase 4 closed on 2026-11-15 (`docs/plan/phase-4-adding-books.md`, "Checked": 21 of 21).
 - ✅ Phase 5a built (2026-11-21): one add form on `/books/new`, with no tabs. The ISBN field is first, with "Look up" and "Scan barcode" (`IsbnLookupField.tsx`); the title searches as you type in a dropdown (`TitleSearchField.tsx`, shadcn's `ui/combobox.tsx`); a found book fills the form locked, with "Not this book" to start again. `AddBookTabs.tsx`, `IsbnLookup.tsx` and `SearchLookup.tsx` are gone; the tabs mentioned in the Phase 4 lines above no longer exist.
+- ✅ Phase 5b1–5b2 built (2026-11-21): the synopsis lookup by provider id or ISBN after a manual add (`Book.descriptionCheckedAt`), and `enrichment/enrichment.service.enrichBook` (Haiku 5.5, structured output, curated lists only), not yet wired in.
 - ⏭️ Next: Phase 5, AI enrichment (`docs/plan/phase-5-ai-enrichment.md`). Publishing the extension is in `docs/plan/phase-7-quality-deploy.md`
 
 ## Workflow rules
@@ -200,7 +202,8 @@ inkwell/src/
   - `effect` 3.22.4: fixes a ReDoS (GHSA-7589-6fvf-x4pw) in the copy that `prisma` → `@prisma/config` pins at 3.20.0. Drop it once Prisma ships a fixed `@prisma/config`.
   - `fast-xml-parser` 5.12.0: fixes GHSA-474x-hrwr-fgx4, through `firebase-admin` → `@google-cloud/storage`. 5.12.1 (2026-11-13) can replace it from 2026-11-27, but nothing requires that.
 - Never run `npm audit fix --force` without asking: it can silently downgrade packages. It once replaced ESLint 9 with 4.0.0 and broke linting, and today it would downgrade Prisma 7 to 6.12.
-- zod is approved for input validation (Phase 3).
+- zod is approved for input validation (Phase 3). It isn't listed in `package.json` yet; it resolves through `shadcn`.
+- `@anthropic-ai/sdk` 1.6.0 is approved for AI enrichment (Phase 5b2). The client lives in `src/config/anthropic.ts`.
 - `barcode-detector` (on `zxing-wasm`) is approved for barcode scanning (Phase 4d); load it only where the browser lacks `BarcodeDetector`.
 - Ask before adding significant dependencies, and pin to an exact or caret version of a release at least two weeks old.
 

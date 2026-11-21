@@ -171,7 +171,7 @@ Comes first, so enrichment can use the description.
 - **Known limit:** a provider that's down counts as a miss (`tryProvider`), so a book added during an outage is marked and not retried.
 - The import path waits for 5b4. tsc, lint and the 1,031 tests pass.
 
-### 5b2 — The enrichment service, not yet wired in
+### 5b2 — The enrichment service, not yet wired in ✅ built (2026-11-21)
 
 - **Dependency:** `@anthropic-ai/sdk`, a release at least two weeks old (needs the user's approval, see open question 8).
 - **`src/server/enrichment/`:**
@@ -182,6 +182,18 @@ Comes first, so enrichment can use the description.
 - **Tests** (in `src/server/tests/`): the rules exhaustively; the service with the SDK and the model mocked (an off-list genre is dropped, a `USER` row stays, a private book is refused, a refusal counts as a failed attempt).
 
 **Done when:** the tests pass and one real call, run by hand on a local book, fills its genres, tropes, tags and length.
+
+**Outcome (✅ built 2026-11-21):**
+
+- **Decided by the user on 2026-11-21:** `@anthropic-ai/sdk` approved (pinned at 1.6.0, released 2026-11-05). Length: NOVELLA under 150 pages, SHORT 150–249, MEDIUM 250–500, LONG over 500; without a page count the model guesses. No confidence score and no Sonnet retry; the retry moved to [Phase 8](phase-8-subscriptions.md), for subscribers.
+- Migration `20261121130000_add_book_ai_attempts`: `NOVELLA` added to `LengthCategory`, and `Book.aiAttempts Int @default(0)`. **Not applied yet.**
+- `src/config/anthropic.ts` (server-only): a client created on first use (30 s timeout, 2 retries), `createMessage`, and the error checks.
+- `enrichment/enrichment.rules.ts` builds the request: Haiku 5.5 at low effort, a JSON schema whose genre and trope items are enums of the curated names, the book as JSON data in the user message, and the synopsis capped at 3,000 characters. It also parses the reply: anything but `end_turn`, or JSON that fails `enrichment.schema.ts`, is a failure. Names are matched to the lists case-insensitively, with at most 3 genres and 6 tropes, and tags are normalized. The page count wins over the model's length guess.
+- `enrichment.model.ts`: `saveEnrichment` first sets `aiEnrichedAt` only on a shared, unenriched book. Rows are added with `skipDuplicates` and `source: AI`, and tags and length are filled only while blank. `recordFailedAttempt` increments `aiAttempts`.
+- `enrichment.service.ts` `enrichBook(bookId)`: a private book throws; an enriched book or one with 3 attempts makes no call. A failed call or an invalid reply counts an attempt. A missing or rejected key (401/403) and anything that isn't an API error is rethrown without counting.
+- `scripts/enrich-book.ts` for the hand-run call (`--dry-run` prints the request). `.env.example` has `ANTHROPIC_API_KEY`.
+- tsc, lint and the 1,072 tests pass. **Not done:** the real call (it needs the key and the migration).
+- **The user must:** apply the migration (`npx prisma migrate deploy`, locally and on Supabase), add `ANTHROPIC_API_KEY` to `.env.local`, then run `npx tsx --conditions=react-server scripts/enrich-book.ts <bookId>` on a shared book.
 
 ### 5b3 — Enrich single adds inline
 
@@ -224,12 +236,12 @@ Comes first, so enrichment can use the description.
 
 1. **Where do a reader's genre, trope and tag edits go?** `BookGenre`, `BookTrope` and `Book.tags` are on the shared catalog, so one reader's edit would change the book for everyone, which AGENTS.md forbids for per-user state. Recommended: per-user override tables (for example `UserBookGenre` and `UserBookTrope` with an added or removed flag, plus `UserBook.tags`), shown over the catalog's, as `UserBook.authors` already does. The catalog then holds only AI rows. This is an architectural change, so it needs your approval.
 2. **Private documents:** recommended to skip them entirely. The other option is a per-user setting to opt in.
-3. **Length thresholds:** recommended SHORT under 200 pages, MEDIUM 200 to 400, LONG over 400. Without a page count: let the model guess (recommended), or leave it empty.
-4. **The Sonnet retry on low confidence** in the original requirements: recommended to drop it for now. A model's own confidence score isn't reliable, and it would double the work. Keep a `confidence` field in the reply only if you want to see it.
+3. ~~**Length thresholds**~~ Decided 2026-11-21: NOVELLA under 150, SHORT under 250, MEDIUM 250 to 500, LONG over 500; the model guesses without a page count.
+4. ~~**The Sonnet retry on low confidence**~~ Decided 2026-11-21: dropped, with no confidence field; moved to [Phase 8](phase-8-subscriptions.md) for subscribers.
 5. **Cron schedule:** Vercel's Hobby plan runs a cron at most once a day, so an import would wait up to a day for its genres. Is once a day fine, or is the project on Pro (which allows every few minutes)?
 6. **Synopsis for Amazon imports:** accept that most imports stay without one (recommended, it keeps the "sure match only" rule), or look for another sure match for ASINs later.
 7. **Where to show them:** recommended in the edit dialog, plus up to 3 genre chips on shelf cards. Or only in the dialog.
-8. **Approvals:** adding `@anthropic-ai/sdk`, and sending the 1,349 existing catalog books' titles, authors and descriptions to Anthropic for the backfill.
+8. **Approvals:** ~~adding `@anthropic-ai/sdk`~~ (approved 2026-11-21), and sending the 1,349 existing catalog books' titles, authors and descriptions to Anthropic for the backfill.
 
 ### Original requirements
 
