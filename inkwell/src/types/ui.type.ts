@@ -13,8 +13,6 @@ export type AddAction = (
   formData: FormData,
 ) => Promise<AddIsbnBookState>;
 
-export type AddBookTab = "search" | "manual";
-
 export type BooksContextProps = {
   user: UserType;
   filters: ShelfFilters;
@@ -37,10 +35,6 @@ export type SearchState =
   | { kind: "loading" }
   | { kind: "results"; results: SearchResult[] }
   | { kind: "error"; message: string };
-
-// What to search for. A new object with the same text searches again, as
-// after adding a book, so the results show it as in the library.
-export type SearchRequest = { text: string };
 
 export type ShelfSelectionValue = {
   selected: string[];

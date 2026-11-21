@@ -10,6 +10,7 @@ import { splitAudioLength } from "@/server/library/audio-length.rules";
 import {
   addBookByIsbn,
   addManualBook,
+  addSearchBook,
 } from "@/server/library/library.controller";
 import type {
   BookFormBook,
@@ -38,6 +39,7 @@ import {
 } from "./BookPreview";
 import { FormatsField } from "./FormatsField";
 import { IsbnLookupField } from "./IsbnLookupField";
+import { TitleSearchField } from "./TitleSearchField";
 import { applyIsbnFormat } from "./isbn-input";
 
 const REQUIRED_FIELDS = [
@@ -73,9 +75,10 @@ export const bookFormValues = (
 
 const manualAdd = actionSubmit(addManualBook);
 const isbnAdd = actionSubmit(addBookByIsbn);
+const searchAdd = actionSubmit(addSearchBook);
 
-// The one book form: adding by hand or by ISBN (the default), adding a book
-// found on the Search tab, and editing a shelf book.
+// The one book form: adding by hand, by ISBN or by search (the default), adding
+// a book found on the Search tab, and editing a shelf book.
 // - `book` fills every field. `defaultIsbn` fills the ISBN of a blank form.
 // - `canEdit` false locks the catalog's title, subtitle and ISBN (disabled
 //   fields aren't sent); the reader's own authors, pages and cover stay
@@ -89,9 +92,10 @@ const isbnAdd = actionSubmit(addBookByIsbn);
 //   locked, without the status, and only formats and the acquired date can
 //   be added to it.
 // - `header` goes above the fields, such as a looked-up book's cover.
-// - `lookups` turns on the ISBN lookup and scanning (only on /books/new). A
-//   found book fills the form as the Search tab's does and is added by ISBN;
-//   "Not this book" goes back to a blank form with the ISBN kept.
+// - `lookups` turns on the ISBN lookup and scanning, and the search in the
+//   title (only on /books/new). A found book fills the form locked, as the
+//   Search tab's does, and is added by its ISBN or search record; "Not this
+//   book" goes back to a blank form with the typed ISBN and title kept.
 export default function AddBookForm({
   defaultIsbn,
   book,
@@ -123,17 +127,21 @@ export default function AddBookForm({
 }>) {
   // Unique per form: the add page keeps several forms mounted at once.
   const uid = useId();
-  // The book the ISBN lookup found, which stands in for the props below.
+  // The book the ISBN lookup or title search found, which stands in for the
+  // props below.
   const [found, setFound] = useState<IsbnPreview | null>(null);
-  // The ISBN a blank form starts from, kept by "Not this book".
+  // The ISBN and title a blank form starts from, kept by "Not this book".
   const [isbnDraft, setIsbnDraft] = useState(defaultIsbn);
+  const [titleDraft, setTitleDraft] = useState("");
   const preview = lookups ? found : null;
   const formBook = preview ? previewBook(preview) : book;
   const formCanEdit = preview ? false : canEdit;
   const formAddFormatsOnly = preview
     ? Boolean(preview.inLibrary)
     : addFormatsOnly;
-  const formSubmit = preview ? isbnAdd : submit;
+  // A search result is added by its record, a looked-up ISBN by the ISBN.
+  const lookupAdd = preview?.ref ? searchAdd : isbnAdd;
+  const formSubmit = preview ? lookupAdd : submit;
   const formHidden = preview ? previewHidden(preview) : hidden;
   const formSubmitLabel = preview?.inLibrary ? "Add formats" : submitLabel;
   const values = bookFormValues(formBook);
@@ -164,8 +172,13 @@ export default function AddBookForm({
     setMissing([]);
   };
 
-  const handleFound = (next: IsbnPreview, isbn: string) => {
+  const handleIsbnFound = (next: IsbnPreview, isbn: string) => {
     setIsbnDraft(isbn);
+    resetLookup(next);
+  };
+
+  const handleTitleFound = (next: IsbnPreview, title: string) => {
+    setTitleDraft(title);
     resetLookup(next);
   };
 
@@ -201,6 +214,7 @@ export default function AddBookForm({
         setSubmission((count) => count + 1);
         setFound(null);
         setIsbnDraft(defaultIsbn);
+        setTitleDraft("");
         setCoverUrl(bookFormValues(book)?.coverUrl ?? "");
       }
       onDone?.();
@@ -279,7 +293,7 @@ export default function AddBookForm({
           <IsbnLookupField
             id={`${uid}-isbn`}
             defaultValue={isbnDraft}
-            onFound={handleFound}
+            onFound={handleIsbnFound}
           />
         ) : (
           <TextField
@@ -300,15 +314,24 @@ export default function AddBookForm({
             disabled={lockReader}
           />
         </div>
-        <TextField
-          name='title'
-          id={`${uid}-title`}
-          label='Title'
-          required
-          invalid={missing.includes("title")}
-          defaultValue={values?.title}
-          disabled={lockCatalog}
-        />
+        {lookups && !preview ? (
+          <TitleSearchField
+            id={`${uid}-title`}
+            defaultValue={titleDraft}
+            invalid={missing.includes("title")}
+            onFound={handleTitleFound}
+          />
+        ) : (
+          <TextField
+            name='title'
+            id={`${uid}-title`}
+            label='Title'
+            required
+            invalid={missing.includes("title")}
+            defaultValue={values?.title}
+            disabled={lockCatalog}
+          />
+        )}
         <TextField
           name='subtitle'
           id={`${uid}-subtitle`}

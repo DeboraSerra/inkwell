@@ -51,7 +51,7 @@
    - 5a — One add form: no tabs on `/books/new`, the search in the title field as a dropdown, and the ISBN lookup at the top of the form ⏭️ next
      - 5a1 — ISBN at the top of the form ✅ done (2026-11-21)
      - 5a2 — ISBN lookup and scanning inside the form (the ISBN tab goes) ✅ built (2026-11-21), to be checked in the app
-     - 5a3 — Search in the title field, as a dropdown (the Search tab goes)
+     - 5a3 — Search in the title field, as a dropdown (the Search tab goes) ✅ built (2026-11-21), to be checked in the app
      - 5a4 — One form, no tabs, and the old tab components removed
    - 5b onward — AI enrichment and the synopsis for books added without a lookup (still to be split into steps)
 6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)

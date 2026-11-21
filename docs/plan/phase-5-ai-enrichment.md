@@ -110,6 +110,14 @@ Asked by the user on 2026-11-21, as the first step of Phase 5. `/books/new` lose
 4. The results can be used with the keyboard alone, and the dropdown fits a phone screen.
 5. The edit dialog's title is a plain field, without the search.
 
+**Outcome (✅ built 2026-11-21):**
+
+- `npx shadcn add combobox` added `ui/combobox.tsx`, with `ui/input-group.tsx` and `ui/textarea.tsx` as its dependencies (the existing `button` and `input` were left as they were).
+- `TitleSearchField.tsx` holds `useBookSearch` (now keyed by the query string) and the result row: a small cover, title, authors, year and the "In your library · List" badge, in the combobox's dropdown, with "Searching…", an error line and "No books found". Base UI does the arrow keys, Enter to pick and Escape; Enter otherwise never submits the form. Only typing changes the title, so closing the list without a pick keeps what was typed. The dropdown is capped at the screen width and its list scrolls.
+- `AddBookForm` (with `lookups`) shows it in place of the plain title. A picked result goes through `previewSearchResult` and fills the form as a found ISBN does; a preview with a `ref` saves through `addSearchBook`, one without through `addBookByIsbn`. "Not this book" keeps the typed title too.
+- The Search tab and `SearchLookup.tsx` are removed, with the `AddBookTab` and `SearchRequest` types. `AddBookTabs` has only the Manual tab until 5a4, and `AddPreviewedBook` in `BookPreview.tsx` is unused until 5a4 removes it.
+- tsc, lint and the 1,020 tests pass. **The user must:** run `npm run build`, and check the five "Done when" points in the app, on a phone too.
+
 ### 5a4 — One form, no tabs
 
 - `/books/new` renders `AddBookForm` with `lookups` directly. `AddBookTabs.tsx`, `SearchLookup.tsx`, `IsbnLookup.tsx` and the "Fill in by hand" buttons are removed once nothing uses them, and `AddBookTab` leaves `src/types/ui.type.ts`. `BookPreview.tsx` is kept only if the form still uses `previewBook` or `PreviewHeader`.
