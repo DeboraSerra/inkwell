@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
 import type { PositionedWord } from "@/types/ui.type";
+import type { ReactNode } from "react";
 
 function wordsWithPositions(text: string): PositionedWord[] {
   const words: PositionedWord[] = [];
@@ -9,6 +9,11 @@ function wordsWithPositions(text: string): PositionedWord[] {
     position += word.length + 1;
   }
   return words;
+}
+
+function capitalizeFirstLetter(text: string): string {
+  if (!text) return text;
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 const PILL =
@@ -23,12 +28,22 @@ export function CardPill({
   action,
   onClick,
   children,
-}: Readonly<{ text: string; label?: string; action?: string; onClick?: () => void; children?: ReactNode }>) {
+  capitalize = false,
+}: Readonly<{
+  text: string;
+  label?: string;
+  action?: string;
+  onClick?: () => void;
+  children?: ReactNode;
+  capitalize?: boolean;
+}>) {
   const content = (
     <>
       {label && <span className='sr-only'>{label}: </span>}
       {wordsWithPositions(text).map(({ word, start }) => (
-        <small key={start}>{word}</small>
+        <small key={start}>
+          {capitalize ? capitalizeFirstLetter(word) : word}
+        </small>
       ))}
       {children}
     </>
@@ -39,7 +54,7 @@ export function CardPill({
       type='button'
       title={action}
       onClick={onClick}
-      className={`${PILL} cursor-pointer text-left hover:border-chip-selected hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+      className={`${PILL} cursor-pointer text-left hover:border-chip-selected/60 hover:bg-chip-selected/20 hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring`}
     >
       {content}
       {action && <span className='sr-only'>, {action}</span>}

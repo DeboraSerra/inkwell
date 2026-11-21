@@ -136,6 +136,7 @@ export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
                     label='Tag'
                     action='Search this tag'
                     onClick={() => searchTag(tag)}
+                    capitalize
                   />
                 );
               })}
