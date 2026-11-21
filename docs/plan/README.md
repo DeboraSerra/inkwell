@@ -63,7 +63,7 @@
      - 5b5b — Tooltips that work on phones ✅ built (2026-11-22)
      - 5b6 — Edit them ✅ built (2026-11-22)
      - 5b7 — Privacy policy and closing ✅ built (2026-11-22)
-5.5. [Phase 5.5 — CI, code quality and missing tests](phase-5.5-ci-quality.md) ⏳ planned, waiting on its open questions: coverage, husky and commitlint, GitHub Actions (checks, build, migrations, audit), missing tests
+5.5. [Phase 5.5 — CI, code quality and missing tests](phase-5.5-ci-quality.md) 🚧 in progress: 5.5a missing tests ✅ built (2026-11-22); coverage, husky and commitlint, GitHub Actions (checks, build, migrations, audit) wait on its open questions
 6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)
 7. [Phase 7 — Quality and deploy](phase-7-quality-deploy.md)
    - Row-level security on every table (Supabase advisor, 2026-11-14) ✅ applied locally and on Supabase on 2026-11-21

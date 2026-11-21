@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-⏳ Planned, waiting on the open questions. Asked by the user on 2026-11-22, to come before Phase 6. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 5.5a ✅ built (2026-11-22); 5.5b–5.5e wait on the open questions. Asked by the user on 2026-11-22, to come before Phase 6. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
 Phase 7 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 7 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
@@ -14,7 +14,7 @@ Phase 7 already listed GitHub Actions, `npm audit` in CI and Dependabot; they mo
 - **Secrets never reach CI logs.** The build gets placeholder values for the `NEXT_PUBLIC_*` and server variables; no real key is stored in GitHub except where a step truly needs it (none here).
 - Each step ends with `npx tsc --noEmit`, `npm run lint` and `npm test` passing locally, and the workflow passing on a pushed branch.
 
-## 5.5a — Missing tests
+## 5.5a — Missing tests ✅ built (2026-11-22)
 
 Measured on 2026-11-22: these files have no test of their own.
 
@@ -31,6 +31,18 @@ Measured on 2026-11-22: these files have no test of their own.
 - Tests follow the layout rules: server tests in `src/server/tests/<module>/`, component tests in `src/components/tests/<folder>/`.
 
 **Done when:** every file above has a test. Coverage isn't measured yet; 5.5b sets its thresholds from the numbers these tests reach.
+
+### Outcome
+
+Every file above has a test, run and committed one set at a time. The suite went from 1,162 to 1,339 tests.
+
+- **Server:** `tests/errors.test.ts` (at the tests root, as `errors.ts` is at the server root), `enrichment/enrichment.schema.test.ts`, `auth/auth.guard.test.ts` (extended with `getRequestUser`, `requireUser` and the session cookie), `auth/auth.controller.test.ts` (`safeRedirectPath` through `signIn`), `auth/me.route.test.ts`, `auth/api-token.model.test.ts`, `auth/user.model.test.ts`, `rate-limit/rate-limit.model.test.ts`, `library/read-through.model.test.ts`, `metadata/http.test.ts`.
+- **Client logic:** `components/tests/pages/books/new/isbn-input.test.ts` and `barcode-scan.test.ts`.
+- **React (question 4 approved):** dev dependencies `jsdom` 31.0.0, `@testing-library/react` 16.3.3, `@testing-library/user-event` 14.6.8 and `@testing-library/dom` 10.4.2 (Testing Library's peer dependency), pinned exactly. `npm audit` still shows only the 4 moderate `shadcn` findings.
+  - `vitest.config.ts` has two projects: `node` (`*.test.ts`) and `dom` (`*.test.tsx`, jsdom, `components/tests/setup.ts`, which unmounts after each test and stubs `ResizeObserver`).
+  - Tests: `components/tests/hooks/useBookActions.test.tsx` (`src/hooks` has no components folder, so its tests sit in `components/tests/hooks/`), `pages/context/context.test.tsx`, `pages/books/new/AddBookForm.test.tsx`, `pages/books/shelves/BookShelf/TopicFilter/TopicFilter.test.tsx`, `pages/books/shelves/BookShelf/ShelfFilterBar.test.tsx`, `common/TapTooltip.test.tsx` and `pages/books/shelves/BookCard/BookCard.test.tsx`.
+  - `ShelfFilterBar`'s tests fake only `setTimeout` and use `fireEvent`: Testing Library's async helpers wait on a real timer, so `user-event` hangs under fake timers.
+- **Found, not changed:** `CardPill` puts each word in its own `<small>` with no space between them, so the text (and, in jsdom, the accessible name) reads "WarCollege" and "Fantasy(EnemiestoLovers)". Browsers may add spaces between flex items when they compute the name, but copied text has none. The card tests compare the words, not the name.
 
 ## 5.5b — Test coverage
 
