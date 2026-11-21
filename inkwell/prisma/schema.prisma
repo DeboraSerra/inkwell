@@ -107,6 +107,9 @@ model Book {
   // When a synopsis was last looked for and not found, so it isn't retried.
   descriptionCheckedAt DateTime?
   tags           String[]
+  // The tags as one lower-case string, for partial tag search; see
+  // tagSearchText in src/server/books/dedupe.ts.
+  tagSearch      String          @default("")
   aiEnrichedAt   DateTime?
   // Failed enrichment calls or invalid replies; the book is skipped after 3.
   aiAttempts     Int             @default(0)
@@ -127,6 +130,7 @@ model Genre {
   name        String      @unique
   description String?
   books       BookGenre[]
+  tropes      GenreTrope[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }
@@ -136,8 +140,21 @@ model Trope {
   name        String      @unique
   description String?
   books       BookTrope[]
+  genres      GenreTrope[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+}
+
+// Which genres a trope belongs to (curated in assets/lists/tropes.ts, kept in
+// sync by the seed), so the shelf filter can show a genre's tropes.
+model GenreTrope {
+  genre   Genre  @relation(fields: [genreId], references: [id], onDelete: Cascade)
+  genreId String
+  trope   Trope  @relation(fields: [tropeId], references: [id], onDelete: Cascade)
+  tropeId String
+
+  @@id([genreId, tropeId])
+  @@index([tropeId])
 }
 
 model BookGenre {
