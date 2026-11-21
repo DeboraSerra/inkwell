@@ -9,6 +9,19 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["src/**/*.test.ts"],
+    projects: [
+      // Server code and pure client helpers run in Node.
+      { extends: true, test: { name: "node", include: ["src/**/*.test.ts"] } },
+      // React components and hooks run in a simulated browser.
+      {
+        extends: true,
+        test: {
+          name: "dom",
+          include: ["src/**/*.test.tsx"],
+          environment: "jsdom",
+          setupFiles: ["src/components/tests/setup.ts"],
+        },
+      },
+    ],
   },
 });
