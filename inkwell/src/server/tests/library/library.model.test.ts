@@ -142,7 +142,18 @@ describe("listUserBooks search", () => {
       search: { text: "!!", normalized: "", author: "", surname: "", tag: "!!" },
     });
     expect(calls[0].args.where).toMatchObject({
-      OR: [{ book: { OR: [{ title: { contains: "!!", mode: "insensitive" } }, { tagSearch: { contains: "!!" } }] } }],
+      OR: [
+        {
+          book: {
+            OR: [
+              { title: { contains: "!!", mode: "insensitive" } },
+              { tagSearch: { contains: "!!" } },
+              { genres: { some: { genre: { name: { contains: "!!", mode: "insensitive" } } } } },
+              { tropes: { some: { trope: { name: { contains: "!!", mode: "insensitive" } } } } },
+            ],
+          },
+        },
+      ],
     });
   });
 
@@ -153,6 +164,20 @@ describe("listUserBooks search", () => {
     });
     const where = calls[0].args.where as { OR: { book?: { OR: unknown[] } }[] };
     expect(where.OR.at(-1)?.book?.OR).toContainEqual({ tagSearch: { contains: "school" } });
+  });
+
+  it("finds part of a genre or trope name, ignoring case", async () => {
+    await model.listUserBooks(USER, {
+      take: 10,
+      search: { text: "lovers", normalized: "lovers", author: "lovers", surname: "lovers", tag: "lovers" },
+    });
+    const where = calls[0].args.where as { OR: { book?: { OR: unknown[] } }[] };
+    expect(where.OR.at(-1)?.book?.OR).toEqual(
+      expect.arrayContaining([
+        { genres: { some: { genre: { name: { contains: "lovers", mode: "insensitive" } } } } },
+        { tropes: { some: { trope: { name: { contains: "lovers", mode: "insensitive" } } } } },
+      ]),
+    );
   });
 });
 

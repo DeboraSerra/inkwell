@@ -178,7 +178,7 @@ export type UserBookFilters = {
   owned?: boolean;
   source?: UserBookSource;
   // Matches the title, any author's first or last name (ignoring case and
-  // accents), or part of a tag.
+  // accents), or part of a tag, genre or trope.
   search?: string;
   // The book has any of these genres, and any of these tropes, by name.
   genres?: string[];

@@ -102,6 +102,9 @@ const userBookWhere = (userId: string, query: UserBookFilter) => {
                 ...authorMatches,
                 // Part of any one tag (tagSearchText).
                 ...(search.tag ? [{ tagSearch: { contains: search.tag } }] : []),
+                // Part of the name of any genre or trope attached to the book.
+                { genres: { some: { genre: { name: { contains: search.text, mode: "insensitive" as const } } } } },
+                { tropes: { some: { trope: { name: { contains: search.text, mode: "insensitive" as const } } } } },
               ],
             },
           },

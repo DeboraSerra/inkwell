@@ -2,10 +2,11 @@
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { BookFormat } from "@/generated/prisma/enums";
 import { shelfHref } from "@/server/library/shelf-filters";
 import type { ShelfFilters, TopicLists } from "@/types/shelf.type";
+import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   type ChangeEvent,
@@ -121,6 +122,13 @@ export function ShelfFilterBar({
     else runSearch("");
   };
 
+  const input = useRef<HTMLInputElement>(null);
+  const clearSearch = () => {
+    setText("");
+    runSearch("");
+    input.current?.focus();
+  };
+
   // Enter searches without waiting. The form also works without JavaScript,
   // through its hidden fields; this stops that native submission.
   const submitSearch = (event: SubmitEvent<HTMLFormElement>) => {
@@ -147,14 +155,27 @@ export function ShelfFilterBar({
           {tropes.map((trope) => (
             <input key={trope} type='hidden' name='trope' value={trope} />
           ))}
-          <Input
-            name='q'
-            type='search'
-            aria-label='Search by title, author or tag'
-            placeholder='Search by title, author or tag'
-            value={text}
-            onChange={changeText}
-          />
+          {/* Its own ✕, since mobile browsers don't show the native one; the
+              native one is hidden so desktop doesn't show two. */}
+          <InputGroup>
+            <InputGroupInput
+              ref={input}
+              name='q'
+              type='search'
+              aria-label='Search by title, author, genre, trope or tag'
+              placeholder='Search by title, author, genre or tag'
+              value={text}
+              onChange={changeText}
+              className='[&::-webkit-search-cancel-button]:appearance-none'
+            />
+            {text && (
+              <InputGroupAddon align='inline-end'>
+                <InputGroupButton size='icon-xs' aria-label='Clear the search' onClick={clearSearch}>
+                  <X />
+                </InputGroupButton>
+              </InputGroupAddon>
+            )}
+          </InputGroup>
         </form>
       </search>
 
