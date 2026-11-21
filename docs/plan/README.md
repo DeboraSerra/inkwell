@@ -64,8 +64,10 @@
 6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)
 7. [Phase 7 — Quality and deploy](phase-7-quality-deploy.md)
    - Row-level security on every table (Supabase advisor, 2026-11-14) ✅ applied locally and on Supabase on 2026-11-21
-8. [Phase 8 — Paid subscriptions](phase-8-subscriptions.md) ⏳ idea: free plan limits (Amazon import pages, books, journal, lookups, API tokens) and a Sonnet 5.5 retry of weak AI enrichment, for subscribers
-9. [Later / nice to have](later.md)
+8. [Phase 8 — Mobile API](phase-8-mobile-api.md) ⏳ planned, when a mobile app is: Firebase ID tokens in `getRequestUser`, a versioned JSON API (`/api/v1`) over the existing services, OpenAPI
+9. [Phase 9 — Mobile app](phase-9-mobile-app.md) ⏳ planned, after Phase 8: native app or PWA to decide; sign-in, shelves, adding with camera scanning, journal, store release
+10. [Phase 10 — Paid subscriptions](phase-10-subscriptions.md) ⏳ idea: free plan limits (Amazon import pages, books, journal, lookups, API tokens) and a Sonnet 5.5 retry of weak AI enrichment, for subscribers
+11. [Later / nice to have](later.md)
 
 ## Architecture
 

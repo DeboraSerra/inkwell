@@ -1,4 +1,4 @@
-# Phase 8 — Paid subscriptions
+# Phase 10 — Paid subscriptions
 
 [← Plan overview](README.md)
 

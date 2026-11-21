@@ -186,7 +186,7 @@ Comes first, so enrichment can use the description.
 
 **Outcome (✅ built 2026-11-21):**
 
-- **Decided by the user on 2026-11-21:** `@anthropic-ai/sdk` approved (pinned at 1.6.0, released 2026-11-05). Length: NOVELLA under 150 pages, SHORT 150–249, MEDIUM 250–500, LONG over 500; without a page count the model guesses. No confidence score and no Sonnet retry; the retry moved to [Phase 8](phase-8-subscriptions.md), for subscribers.
+- **Decided by the user on 2026-11-21:** `@anthropic-ai/sdk` approved (pinned at 1.6.0, released 2026-11-05). Length: NOVELLA under 150 pages, SHORT 150–249, MEDIUM 250–500, LONG over 500; without a page count the model guesses. No confidence score and no Sonnet retry; the retry moved to [Phase 10](phase-10-subscriptions.md), for subscribers.
 - Migration `20261121130000_add_book_ai_attempts`: `NOVELLA` added to `LengthCategory`, and `Book.aiAttempts Int @default(0)`. **Not applied yet.**
 - `src/config/anthropic.ts` (server-only): a client created on first use (30 s timeout, 2 retries), `createMessage`, and the error checks.
 - `enrichment/enrichment.rules.ts` builds the request: Haiku 5.5 at low effort, a JSON schema whose genre and trope items are enums of the curated names, the book as JSON data in the user message, and the synopsis capped at 3,000 characters. It also parses the reply: anything but `end_turn`, or JSON that fails `enrichment.schema.ts`, is a failure. Names are matched to the lists case-insensitively, with at most 1 genre and 1 trope (asked by the user on 2026-11-21; the first valid name the model gives is kept). Tags may name other genres and tropes that also fit, as well as free-form keywords, but never the genre or trope picked, and tags are normalized. The page count wins over the model's length guess.
@@ -245,7 +245,7 @@ Comes first, so enrichment can use the description.
 1. **Where do a reader's genre, trope and tag edits go?** `BookGenre`, `BookTrope` and `Book.tags` are on the shared catalog, so one reader's edit would change the book for everyone, which AGENTS.md forbids for per-user state. Recommended: per-user override tables (for example `UserBookGenre` and `UserBookTrope` with an added or removed flag, plus `UserBook.tags`), shown over the catalog's, as `UserBook.authors` already does. The catalog then holds only AI rows. This is an architectural change, so it needs your approval.
 2. **Private documents:** recommended to skip them entirely. The other option is a per-user setting to opt in.
 3. ~~**Length thresholds**~~ Decided 2026-11-21: NOVELLA under 150, SHORT under 250, MEDIUM 250 to 500, LONG over 500; the model guesses without a page count.
-4. ~~**The Sonnet retry on low confidence**~~ Decided 2026-11-21: dropped, with no confidence field; moved to [Phase 8](phase-8-subscriptions.md) for subscribers.
+4. ~~**The Sonnet retry on low confidence**~~ Decided 2026-11-21: dropped, with no confidence field; moved to [Phase 10](phase-10-subscriptions.md) for subscribers.
 5. **Cron schedule:** Vercel's Hobby plan runs a cron at most once a day, so an import would wait up to a day for its genres. Is once a day fine, or is the project on Pro (which allows every few minutes)?
 6. **Synopsis for Amazon imports:** accept that most imports stay without one (recommended, it keeps the "sure match only" rule), or look for another sure match for ASINs later.
 7. **Where to show them:** recommended in the edit dialog, plus up to 3 genre chips on shelf cards. Or only in the dialog.
