@@ -13,7 +13,7 @@ export type AddAction = (
   formData: FormData,
 ) => Promise<AddIsbnBookState>;
 
-export type AddBookTab = "search" | "isbn" | "manual";
+export type AddBookTab = "search" | "manual";
 
 export type BooksContextProps = {
   user: UserType;
@@ -58,5 +58,5 @@ export type SignInMode = "signIn" | "signUp" | "reset";
 // browser's own or the `barcode-detector` package's.
 export type BarcodeReader = { detect(image: HTMLCanvasElement): Promise<{ rawValue: string }[]> };
 
-// How the ISBN tab's last book was scanned: from a photo, or the live camera.
+// How the ISBN lookup's last book was scanned: from a photo, or the live camera.
 export type ScanMethod = "photo" | "live";

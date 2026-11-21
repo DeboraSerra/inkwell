@@ -64,7 +64,7 @@ Asked by the user on 2026-11-21, as the first step of Phase 5. `/books/new` lose
 
 **Done when:** the Manual tab and the edit dialog show the ISBN first, and adding and editing still work.
 
-**Outcome (✅ built 2026-11-21):** in `AddBookForm.tsx`, the ISBN field now sits right after `header` (the looked-up book's preview on the ISBN and Search tabs) and above the cover. No other changes. tsc, lint, the 1,020 tests and the build pass. **The user must:** check the Manual tab and the shelf's edit dialog in the running app.
+**Outcome (✅ built 2026-11-21):** in `AddBookForm.tsx`, the ISBN field now sits right after `header` (the looked-up book's preview on the ISBN and Search tabs) and above the cover. No other changes. tsc, lint, the 1,020 tests and the build pass. Checked by the user on 2026-11-21.
 
 ### 5a2 — ISBN lookup and scanning inside the form
 
@@ -81,6 +81,15 @@ Asked by the user on 2026-11-21, as the first step of Phase 5. `/books/new` lose
 3. "Not this book" goes back to a blank form.
 4. A book already in the library offers only "Add formats".
 5. The edit dialog shows a plain ISBN field, without the lookup.
+
+**Outcome (✅ built 2026-11-21):**
+
+- `IsbnLookupField.tsx` holds what `IsbnLookup.tsx` did: the ISBN field, "Look up" and the "Scan barcode" dropdown (photo and live). It has no form of its own, since it sits inside the book form, so Enter in the field looks up instead of submitting. `TextField` gained an `onKeyDown` prop for that.
+- `AddBookForm` gained `lookups`, set only by the Manual tab. A found book stands in for the form's props (`previewBook`, `previewHidden`, locked catalog fields, `addBookByIsbn`, "Add formats" when it's already in the library) and remounts the form. "Not this book" sits beside the preview header and remounts a blank form with the looked-up ISBN kept. A successful add starts blank.
+- `BookPreview.tsx` exports `previewHidden` and `actionSubmit`, shared by the Search tab and the form.
+- Asked by the user on 2026-11-21: a book already in the library shows the formats the reader owns ticked and locked (`previewBook` fills `formats` from `inLibrary`; `FormatsField` gained `owned`). Unticking them couldn't remove them, since adding again only adds formats. This applies to the Search tab too.
+- The ISBN tab and `IsbnLookup.tsx` are removed; `AddBookTab` is `"search" | "manual"`. The Search tab's "Fill in by hand" still opens a blank Manual tab.
+- tsc, lint and the 1,020 tests pass. **`npm run build` wasn't run** (the permission was denied). **The user must:** run the build, and check the five "Done when" points in the app.
 
 ### 5a3 — Search in the title field
 

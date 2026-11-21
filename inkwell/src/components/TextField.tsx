@@ -1,5 +1,5 @@
 import { Info } from "lucide-react";
-import type { ChangeEventHandler, Ref } from "react";
+import type { ChangeEventHandler, KeyboardEventHandler, Ref } from "react";
 import { Field, FieldDescription, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
@@ -16,6 +16,7 @@ export function TextField({
   id = name,
   ref,
   onChange,
+  onKeyDown,
   autoComplete,
   disabled = false
 }: Readonly<{
@@ -32,6 +33,7 @@ export function TextField({
   id?: string;
   ref?: Ref<HTMLInputElement>;
   onChange?: ChangeEventHandler<HTMLInputElement>;
+  onKeyDown?: KeyboardEventHandler<HTMLInputElement>;
   autoComplete?: string;
   disabled?: boolean
 }>) {
@@ -63,6 +65,7 @@ export function TextField({
         inputMode={inputMode}
         autoComplete={autoComplete}
         onChange={onChange}
+        onKeyDown={onKeyDown}
         aria-describedby={hint ? hintId : undefined}
         disabled={disabled}
       />

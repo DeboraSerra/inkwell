@@ -2,13 +2,17 @@
 
 import { SHELVES, shelfHref } from "@/server/library/shelf-filters";
 import { LIST_NAMES } from "@/server/library/status.rules";
-import type { BookFormBook, IsbnPreview } from "@/types/books.type";
+import type {
+  BookFormBook,
+  BookFormResult,
+  IsbnPreview,
+} from "@/types/books.type";
 import Link from "next/link";
 import AddBookForm from "./AddBookForm";
 import type { AddAction } from "@/types/ui.type";
 
-// The looked-up book and the form that adds it, shared by the ISBN and
-// Search tabs.
+// The looked-up book and the form that adds it: the Search tab, and the
+// ISBN lookup inside the book form.
 
 const SOURCE_NAMES: Record<IsbnPreview["from"], string | null> = {
   CATALOG: null,
@@ -50,29 +54,37 @@ export const previewBook = (preview: IsbnPreview): BookFormBook => ({
   coverUrl: preview.coverUrl,
   pageCount: preview.pageCount,
   isbn13: preview.isbn13,
+  // Already in the library: the formats the reader owns, shown ticked.
+  formats: preview.inLibrary?.formats,
 });
 
 // Adds the previewed book with the shared book form. Only the ISBN, or the
 // provider's record id, identifies the book: the server looks it up again
 // itself. A book already in the library only gains formats.
+export const previewHidden = (preview: IsbnPreview): Record<string, string> =>
+  preview.ref
+    ? { source: preview.ref.source, sourceId: preview.ref.sourceId }
+    : { isbn: preview.isbn13 ?? "" };
+
+// An add action as the book form's `submit`.
+export const actionSubmit =
+  (action: AddAction) =>
+  async (formData: FormData): Promise<BookFormResult> => {
+    const { error, message } = await action({}, formData);
+    return { ok: !error, error, message };
+  };
+
 export function AddPreviewedBook({
   preview,
   action,
   onAdded,
 }: Readonly<{ preview: IsbnPreview; action: AddAction; onAdded: () => void }>) {
-  const hidden: Record<string, string> = preview.ref
-    ? { source: preview.ref.source, sourceId: preview.ref.sourceId }
-    : { isbn: preview.isbn13 ?? "" };
-  const submit = async (formData: FormData) => {
-    const { error, message } = await action({}, formData);
-    return { ok: !error, error, message };
-  };
   return (
     <AddBookForm
       book={previewBook(preview)}
       canEdit={false}
-      submit={submit}
-      hidden={hidden}
+      submit={actionSubmit(action)}
+      hidden={previewHidden(preview)}
       addFormatsOnly={Boolean(preview.inLibrary)}
       header={<PreviewHeader preview={preview} />}
       submitLabel={preview.inLibrary ? "Add formats" : "Add book"}

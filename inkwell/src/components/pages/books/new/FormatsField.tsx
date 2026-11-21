@@ -19,14 +19,17 @@ const FORMATS = [
 // its length, unless `withLength` is false (a book already in the library only
 // gains formats, so a length there would be ignored). `onOwnedChange` tells the
 // form whether any format is ticked, on mount too, so a remounted form starts
-// in step.
+// in step. `owned` are formats the reader has already: shown ticked and
+// locked, since adding a book again can't remove them.
 export function FormatsField({
   defaultValues,
+  owned = [],
   audioLength,
   withLength = true,
   onOwnedChange,
 }: Readonly<{
   defaultValues?: string[];
+  owned?: string[];
   audioLength?: { audioHours?: string; audioMinutes?: string };
   withLength?: boolean;
   onOwnedChange?: (owned: boolean) => void;
@@ -63,6 +66,7 @@ export function FormatsField({
               name='formats'
               value={value}
               defaultChecked={defaultValues?.includes(value)}
+              disabled={owned.includes(value)}
               onCheckedChange={(checked) => toggle(value, checked)}
             />
             <FieldLabel htmlFor={`${uid}-format-${value}`} className='font-normal'>
