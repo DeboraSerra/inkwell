@@ -89,7 +89,7 @@ Asked by the user on 2026-11-21, as the first step of Phase 5. `/books/new` lose
 - `BookPreview.tsx` exports `previewHidden` and `actionSubmit`, shared by the Search tab and the form.
 - Asked by the user on 2026-11-21: a book already in the library shows the formats the reader owns ticked and locked (`previewBook` fills `formats` from `inLibrary`; `FormatsField` gained `owned`). Unticking them couldn't remove them, since adding again only adds formats. This applies to the Search tab too.
 - The ISBN tab and `IsbnLookup.tsx` are removed; `AddBookTab` is `"search" | "manual"`. The Search tab's "Fill in by hand" still opens a blank Manual tab.
-- tsc, lint and the 1,020 tests pass. **`npm run build` wasn't run** (the permission was denied). Checked in the app by the user on 2026-11-21. `npm run build` is run once, at the end of 5a.
+- tsc, lint and the 1,020 tests pass. **`npm run build` wasn't run** (the permission was denied). Checked in the app by the user on 2026-11-21. `npm run build` passed at the end of 5a.
 
 ### 5a3 — Search in the title field
 
@@ -116,7 +116,7 @@ Asked by the user on 2026-11-21, as the first step of Phase 5. `/books/new` lose
 - `TitleSearchField.tsx` holds `useBookSearch` (now keyed by the query string) and the result row: a small cover, title, authors, year and the "In your library · List" badge, in the combobox's dropdown, with "Searching…", an error line and "No books found". Base UI does the arrow keys, Enter to pick and Escape; Enter otherwise never submits the form. Only typing changes the title, so closing the list without a pick keeps what was typed. The dropdown is capped at the screen width and its list scrolls.
 - `AddBookForm` (with `lookups`) shows it in place of the plain title. A picked result goes through `previewSearchResult` and fills the form as a found ISBN does; a preview with a `ref` saves through `addSearchBook`, one without through `addBookByIsbn`. "Not this book" keeps the typed title too.
 - The Search tab and `SearchLookup.tsx` are removed, with the `AddBookTab` and `SearchRequest` types. `AddBookTabs` has only the Manual tab until 5a4, and `AddPreviewedBook` in `BookPreview.tsx` is unused until 5a4 removes it.
-- tsc, lint and the 1,020 tests pass. Checked in the app by the user on 2026-11-21. `npm run build` is run once, at the end of 5a.
+- tsc, lint and the 1,020 tests pass. Checked in the app by the user on 2026-11-21. `npm run build` passed at the end of 5a.
 
 ### 5a4 — One form, no tabs
 
@@ -135,9 +135,103 @@ Asked by the user on 2026-11-21, as the first step of Phase 5. `/books/new` lose
 - `/books/new` (`components/pages/books/new/index.tsx`) renders `<AddBookForm lookups />` directly. `AddBookTabs.tsx` is removed; `IsbnLookup.tsx`, `SearchLookup.tsx`, the "Fill in by hand" buttons and `AddBookTab` already went in 5a2 and 5a3.
 - `BookPreview.tsx` stays for `PreviewHeader`, `previewBook`, `previewHidden` and `actionSubmit`, which the form uses; `AddPreviewedBook` is removed.
 - AGENTS.md: the `AddBookForm` rule now names `/books/new` and `lookups`, and the status has a 5a line. Stale "tab" comments in `books.type.tsx` and `isbn-book.schema.test.ts` are updated.
-- tsc, lint and the 1,020 tests pass. **The user must:** check the four "Done when" points signed in, on a laptop and a phone, and run `npm run build` for the whole of 5a.
+- tsc, lint and the 1,020 tests pass. `npm run build` passes for the whole of 5a (2026-11-21). **The user must:** check the four "Done when" points signed in, on a laptop and a phone.
 
-## 5b onward — AI enrichment (to be split into steps)
+## 5b — AI enrichment ⏳ planned, waiting on the open questions
+
+Split into steps on 2026-11-21. The requirements gathered before then are kept as they were, under "Original requirements" at the end of this section. Each step ends with `npx tsc --noEmit`, `npm run lint` and `npm test` passing. `npm run build` runs once, at the end of 5b.
+
+**Applies to every step**
+
+- **Catalog books only:** enrichment runs once per shared `Book` (`ownerId` null), never per user, and never on a private document (see open question 2).
+- **Curated lists only:** genres and tropes come only from the `Genre` and `Trope` tables (seeded from `assets/lists/`: 28 genres, 71 tropes). A name the model returns that isn't on a list is dropped.
+- **AI never overwrites the user:** AI rows are written with `source: AI` and `skipDuplicates`, so an existing row, `USER` or `AI`, is never changed. AI never removes a row.
+- **Server-only:** the Anthropic client lives in `src/config/anthropic.ts` (`import "server-only"`), and `ANTHROPIC_API_KEY` never gets a `NEXT_PUBLIC_` prefix. Its name goes in `.env.example` with a placeholder; the user adds the value to `.env.local` and Vercel.
+- **Untrusted input:** titles, authors and descriptions are passed to the model as data, never as instructions. The model's output is validated with zod before anything is written.
+- **Model:** `claude-haiku-5-5`, as the original requirements say, with low effort (classification). Structured output (`output_config.format` with a JSON schema) rather than forced tool use, which current models reject. A `refusal` stop reason or invalid output counts as a failed attempt.
+- **New tables get RLS** in the same migration, as AGENTS.md requires.
+
+### 5b1 — Synopsis for books added without a lookup ✅ built (2026-11-21)
+
+Comes first, so enrichment can use the description.
+
+- **Migration:** `Book.descriptionCheckedAt DateTime?`, additive.
+- **`books/book.service`:** `fillMissingDescription` gains a provider-id path (`openLibraryId`, `googleBooksId`) next to the ISBN one, and records `descriptionCheckedAt` on a miss so the book isn't tried again. Still never overwrites, still skips private books, and never matches by title.
+- **When it runs:** after a manual add (`after()` in the controller, as the ISBN and search adds already do), and for imported books from the 5b4 job, before they're enriched.
+- **Known limit:** Amazon imports carry an ASIN and rarely an ISBN, and neither provider looks up by ASIN, so most imported books will stay without a synopsis (see open question 6).
+
+**Done when:** a manual add with an ISBN gets its synopsis; a miss is recorded and not retried; a private document is never looked up.
+
+**Outcome (✅ built 2026-11-21):**
+
+- Migration `20261121120000_add_book_description_checked_at` adds `Book.descriptionCheckedAt`. **Not applied yet** (the permission was denied): the user runs `npx prisma migrate deploy` locally and on Supabase.
+- `metadata.service.findDescriptionById(source, sourceId)`: Open Library through `fetchDescription`, Google Books through `lookupId`.
+- `fillMissingDescription` without a provider record tries `openLibraryId`, then `googleBooksId`, then the ISBN. A miss sets `descriptionCheckedAt` (`book.model.markDescriptionChecked`), and a checked book isn't looked up again without a record; a record from a later add by search or ISBN is still tried. A book with no id and no ISBN isn't marked, since nothing was tried.
+- `addManualBook` in the controller runs `saveSynopsis` in `after()`, as the ISBN and search adds do.
+- **Known limit:** a provider that's down counts as a miss (`tryProvider`), so a book added during an outage is marked and not retried.
+- The import path waits for 5b4. tsc, lint and the 1,031 tests pass.
+
+### 5b2 — The enrichment service, not yet wired in
+
+- **Dependency:** `@anthropic-ai/sdk`, a release at least two weeks old (needs the user's approval, see open question 8).
+- **`src/server/enrichment/`:**
+  - `enrichment.rules.ts` (pure): builds the request from the book and the two lists, parses and validates the reply (zod), keeps only names on the lists, normalizes tags (trimmed, lower case, unique, at most 10, each at most 30 characters), and works out `lengthCategory` from the page count (thresholds in open question 3).
+  - `enrichment.model.ts`: reads books to enrich, writes `BookGenre` / `BookTrope` rows with `skipDuplicates`, fills `tags` and `lengthCategory` only when they're empty, and sets `aiEnrichedAt`.
+  - `enrichment.service.ts`: `enrichBook(bookId)` for one book, inline.
+- **Failures:** a migration adds `Book.aiAttempts Int @default(0)`. A failed call or invalid reply adds 1; after 3 the book is skipped.
+- **Tests** (in `src/server/tests/`): the rules exhaustively; the service with the SDK and the model mocked (an off-list genre is dropped, a `USER` row stays, a private book is refused, a refusal counts as a failed attempt).
+
+**Done when:** the tests pass and one real call, run by hand on a local book, fills its genres, tropes, tags and length.
+
+### 5b3 — Enrich single adds inline
+
+- After a manual, ISBN or search add, `after()` in the controller calls `enrichBook` when the book has no `aiEnrichedAt`, after the synopsis fill.
+- A per-user limit through `consumeRateLimit` (a new `AI_ENRICH` bucket), so one reader can't run up the bill.
+- Never blocks or fails the add: an error is logged and the book is left for the 5b4 job.
+
+**Done when:** adding a book fills its genres and tropes within seconds, and re-adding it doesn't call the API again.
+
+### 5b4 — Imports and the backlog, through Message Batches
+
+- **Migration:** an `EnrichmentBatch` table (`id`, the Anthropic batch id, `status`, `bookIds`, `createdAt`, `endedAt`), with RLS.
+- **Submitting:** after an Amazon import, `after()` submits the import's new catalog books as one batch (50% cheaper). Books already in a pending batch are skipped.
+- **Collecting:** a cron route (`app/api/cron/enrichment/route.ts`) checks the `CRON_SECRET` header, collects ended batches (results keyed by `custom_id`, which is the book id, never by position), writes them with the 5b2 rules, and submits the remaining backlog: catalog books with no `aiEnrichedAt` and fewer than 3 attempts. The schedule goes in `vercel.json` (see open question 5).
+- **Backfill:** the library already on Supabase (1,349 books) goes through the same backlog. At Haiku 5.5's batch price that's well under $1 (see open question 8).
+
+**Done when:** an import's books are enriched once the next cron run collects the batch, and a second run doesn't send them again.
+
+### 5b5 — Show genres, tropes, tags and length
+
+- Read only, in the shelf's edit dialog and on shelf cards (the exact place is open question 7). Shown as the reader's own value when there is one, else the catalog's.
+- Shelf filters by genre or trope wait for a later step.
+
+**Done when:** an enriched book shows its genres, tropes, tags and length; a book without them shows nothing extra.
+
+### 5b6 — Edit them
+
+- Depends on open question 1: where a reader's edits are stored.
+- `AddBookForm` gains the fields, as the AGENTS.md form rule requires. Removing an AI genre or trope is remembered, so a later AI run can't add it back.
+
+**Done when:** a reader can add and remove genres, tropes and tags, and an AI run never undoes their edit.
+
+### 5b7 — Privacy policy and closing
+
+- `/privacy` says that book details (title, authors, description, pages) of shared catalog books are sent to Anthropic to suggest genres and tropes, and that private documents never are.
+- AGENTS.md status, `.env.example` (`ANTHROPIC_API_KEY`, `CRON_SECRET`), and this plan's outcomes.
+- `npm run build` for the whole of 5b.
+
+### Open questions
+
+1. **Where do a reader's genre, trope and tag edits go?** `BookGenre`, `BookTrope` and `Book.tags` are on the shared catalog, so one reader's edit would change the book for everyone, which AGENTS.md forbids for per-user state. Recommended: per-user override tables (for example `UserBookGenre` and `UserBookTrope` with an added or removed flag, plus `UserBook.tags`), shown over the catalog's, as `UserBook.authors` already does. The catalog then holds only AI rows. This is an architectural change, so it needs your approval.
+2. **Private documents:** recommended to skip them entirely. The other option is a per-user setting to opt in.
+3. **Length thresholds:** recommended SHORT under 200 pages, MEDIUM 200 to 400, LONG over 400. Without a page count: let the model guess (recommended), or leave it empty.
+4. **The Sonnet retry on low confidence** in the original requirements: recommended to drop it for now. A model's own confidence score isn't reliable, and it would double the work. Keep a `confidence` field in the reply only if you want to see it.
+5. **Cron schedule:** Vercel's Hobby plan runs a cron at most once a day, so an import would wait up to a day for its genres. Is once a day fine, or is the project on Pro (which allows every few minutes)?
+6. **Synopsis for Amazon imports:** accept that most imports stay without one (recommended, it keeps the "sure match only" rule), or look for another sure match for ASINs later.
+7. **Where to show them:** recommended in the edit dialog, plus up to 3 genre chips on shelf cards. Or only in the dialog.
+8. **Approvals:** adding `@anthropic-ai/sdk`, and sending the 1,349 existing catalog books' titles, authors and descriptions to Anthropic for the backfill.
+
+### Original requirements
 
 - A server-only module that uses the Anthropic SDK with structured output (tool use / JSON schema). The model may pick only from the genre and trope names in the DB. It returns `genres[]`, `tropes[]`, `tags[]` (free-form, capped), `lengthCategory` (short/medium/long, based on page count when known) and a confidence score.
 - Run it once per catalog `Book`, never per user. Large Amazon imports use the **Message Batches API** (50% cheaper); single adds run inline. Default model: `claude-haiku-5-5`, with `claude-sonnet-5-5` as an option for books where Haiku returns low confidence.

@@ -35,6 +35,16 @@ describe("fillBookDescription", () => {
   });
 });
 
+describe("markDescriptionChecked", () => {
+  it("only marks a shared book that still has no synopsis", async () => {
+    await expect(model.markDescriptionChecked("b1")).resolves.toBe(true);
+    expect(updateMany).toHaveBeenLastCalledWith({
+      where: { id: "b1", ownerId: null, OR: [{ description: null }, { description: "" }] },
+      data: { descriptionCheckedAt: expect.any(Date) },
+    });
+  });
+});
+
 describe("fillBookBlanks", () => {
   it("only fills fields that are still blank, on a shared book", async () => {
     await expect(

@@ -4,7 +4,7 @@ import { NotFoundError } from "@/server/errors";
 import * as bookModel from "./book.model";
 import { catalogBlanksFrom } from "./catalog-blanks.rules";
 import { authorSearchText, dedupeKey } from "./dedupe";
-import { findDescription, findDescriptionByIsbn } from "@/server/metadata/metadata.service";
+import { findDescription, findDescriptionById, findDescriptionByIsbn } from "@/server/metadata/metadata.service";
 import { cleanIsbn, toIsbn13 } from "./isbn";
 import type { AmazonBookDetails, AmazonDocDetails, BookIdentity, CatalogBookIds, CatalogDetails, DescribedBook, ManualBookDetails } from "@/types/books.type";
 import type { BookMetadata } from "@/types/metadata.type";
@@ -162,19 +162,37 @@ export async function fillMissingDetails(book: CatalogDetails & { id: string }, 
   }
 }
 
-// Saves the synopsis of a book just added by search or ISBN, when the shared
-// book has none: from the provider record it was found with, or, for a
-// catalog book reused by its ISBN, from the first provider that has one. Run
-// after the add's response is sent; it never overwrites, skips private books,
-// and logs rather than throws, so it can't fail an add.
+// A synopsis by a sure match only: the book's provider ids, then its ISBN.
+// Never by title, which can pick another book. Undefined when nothing was
+// tried, null when every lookup missed.
+async function findDescriptionByIds(book: DescribedBook) {
+  const { openLibraryId, googleBooksId, isbn13 } = book;
+  const lookups: (() => Promise<string | undefined>)[] = [];
+  if (openLibraryId) lookups.push(() => findDescriptionById("OPEN_LIBRARY", openLibraryId));
+  if (googleBooksId) lookups.push(() => findDescriptionById("GOOGLE_BOOKS", googleBooksId));
+  if (isbn13) lookups.push(() => findDescriptionByIsbn(isbn13));
+  if (lookups.length === 0) return undefined;
+  for (const lookup of lookups) {
+    const description = await lookup();
+    if (description) return description;
+  }
+  return null;
+}
+
+// Saves the synopsis of a just-added shared book that has none: from the
+// provider record it was found with, or else by its provider ids or ISBN. A
+// miss is recorded, so a book looked up without a record isn't tried again;
+// a record from a later add still gets its chance. Run after the add's
+// response is sent; it never overwrites, skips private books, and logs rather
+// than throws, so it can't fail an add.
 export async function fillMissingDescription(book: DescribedBook, metadata?: BookMetadata) {
   if (book.ownerId || book.description) return false;
+  if (!metadata && book.descriptionCheckedAt) return false;
   try {
-    const description = metadata
-      ? await findDescription(metadata)
-      : book.isbn13 && (await findDescriptionByIsbn(book.isbn13));
-    if (!description) return false;
-    return await bookModel.fillBookDescription(book.id, description);
+    const description = metadata ? await findDescription(metadata) : await findDescriptionByIds(book);
+    if (description) return await bookModel.fillBookDescription(book.id, description);
+    if (description !== undefined || metadata) await bookModel.markDescriptionChecked(book.id);
+    return false;
   } catch (error) {
     console.warn("Saving a book's synopsis failed", error);
     return false;

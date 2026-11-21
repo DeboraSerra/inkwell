@@ -66,6 +66,15 @@ describe("addManualBook", () => {
     );
   });
 
+  it("saves the synopsis after the response, not as part of the add", async () => {
+    service.addManualBook.mockResolvedValue(added(ReadingStatus.TO_READ, true));
+    await addManualBook({}, form(valid));
+    expect(service.saveSynopsis).not.toHaveBeenCalled();
+    expect(scheduled).toHaveLength(1);
+    await scheduled[0]();
+    expect(service.saveSynopsis).toHaveBeenCalledWith(added(ReadingStatus.TO_READ, true));
+  });
+
   it("passes an audiobook's length", async () => {
     service.addManualBook.mockResolvedValue(added(ReadingStatus.TO_READ, true));
     await addManualBook({}, form({ ...valid, formats: "AUDIO", audioHours: "1", audioMinutes: "5" }));

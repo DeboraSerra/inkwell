@@ -41,7 +41,7 @@ export async function addManualBook(
 
   const { formats, status, dates, audioMinutes, pastReads, acquired, ...details } = parsed.data;
   try {
-    const { book, userBook, created } = await libraryService.addManualBook(
+    const added = await libraryService.addManualBook(
       user.id,
       details,
       formats,
@@ -51,6 +51,10 @@ export async function addManualBook(
       pastReads,
       acquired,
     );
+    const { book, userBook, created } = added;
+    // After the response: a typed ISBN or a matched catalog book's provider id
+    // can find a synopsis, and a slow provider never delays the add.
+    after(() => libraryService.saveSynopsis(added));
     revalidatePath(SHELVES_PATH);
     const list = LIST_NAMES[userBook.status];
     return {

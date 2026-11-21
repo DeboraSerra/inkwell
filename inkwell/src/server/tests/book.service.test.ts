@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as bookModel from "@/server/books/book.model";
-import { findDescription, findDescriptionByIsbn } from "@/server/metadata/metadata.service";
+import { findDescription, findDescriptionById, findDescriptionByIsbn } from "@/server/metadata/metadata.service";
 
 vi.mock("@/server/books/book.model");
 vi.mock("@/server/metadata/metadata.service");
@@ -225,7 +225,16 @@ describe("books from a metadata provider", () => {
 });
 
 describe("fillMissingDescription", () => {
-  const shared = { id: "b1", ownerId: null, isbn13: "9780441013593", isbn10: null, description: null };
+  const shared = {
+    id: "b1",
+    ownerId: null,
+    isbn13: "9780441013593",
+    isbn10: null,
+    description: null,
+    descriptionCheckedAt: null,
+    openLibraryId: null,
+    googleBooksId: null,
+  };
   const metadata = { source: "OPEN_LIBRARY" as const, sourceId: "OL1M", title: "Dune", authors: [] };
 
   it("saves the synopsis from the record the book was found with", async () => {
@@ -246,17 +255,47 @@ describe("fillMissingDescription", () => {
   it.each([
     ["one that already has a synopsis", { ...shared, description: "Already here." }, metadata],
     ["a private book", { ...shared, ownerId: "user-1" }, metadata],
-    ["a catalog book with no ISBN and no record", { ...shared, isbn13: null }, undefined],
+    ["a private book without a record", { ...shared, ownerId: "user-1", openLibraryId: "OL1M" }, undefined],
+    ["a catalog book with no ISBN, no provider id and no record", { ...shared, isbn13: null }, undefined],
+    ["one already checked, without a record", { ...shared, descriptionCheckedAt: new Date() }, undefined],
   ])("leaves %s alone, without asking a provider", async (_label, book, record) => {
     await expect(service.fillMissingDescription(book, record)).resolves.toBe(false);
     expect(findDescription).not.toHaveBeenCalled();
+    expect(findDescriptionById).not.toHaveBeenCalled();
     expect(findDescriptionByIsbn).not.toHaveBeenCalled();
     expect(model.fillBookDescription).not.toHaveBeenCalled();
+    expect(model.markDescriptionChecked).not.toHaveBeenCalled();
   });
 
-  it("does nothing when the provider has no synopsis", async () => {
+  it("still tries a record from a new add on a book already checked", async () => {
+    vi.mocked(findDescription).mockResolvedValue("Desert planet.");
+    model.fillBookDescription.mockResolvedValue(true);
+    await expect(service.fillMissingDescription({ ...shared, descriptionCheckedAt: new Date() }, metadata)).resolves.toBe(true);
+  });
+
+  it("tries the provider ids before the ISBN", async () => {
+    vi.mocked(findDescriptionById).mockResolvedValueOnce(undefined).mockResolvedValueOnce("From Google");
+    model.fillBookDescription.mockResolvedValue(true);
+    const book = { ...shared, openLibraryId: "OL1M", googleBooksId: "g1" };
+    await expect(service.fillMissingDescription(book)).resolves.toBe(true);
+    expect(findDescriptionById).toHaveBeenNthCalledWith(1, "OPEN_LIBRARY", "OL1M");
+    expect(findDescriptionById).toHaveBeenNthCalledWith(2, "GOOGLE_BOOKS", "g1");
+    expect(findDescriptionByIsbn).not.toHaveBeenCalled();
+    expect(model.fillBookDescription).toHaveBeenCalledWith("b1", "From Google");
+  });
+
+  it("records a miss when no lookup finds a synopsis", async () => {
+    await expect(service.fillMissingDescription({ ...shared, openLibraryId: "OL1M" })).resolves.toBe(false);
+    expect(findDescriptionById).toHaveBeenCalledWith("OPEN_LIBRARY", "OL1M");
+    expect(findDescriptionByIsbn).toHaveBeenCalledWith("9780441013593");
+    expect(model.fillBookDescription).not.toHaveBeenCalled();
+    expect(model.markDescriptionChecked).toHaveBeenCalledWith("b1");
+  });
+
+  it("records a miss when the record has no synopsis", async () => {
     await expect(service.fillMissingDescription(shared, metadata)).resolves.toBe(false);
     expect(model.fillBookDescription).not.toHaveBeenCalled();
+    expect(model.markDescriptionChecked).toHaveBeenCalledWith("b1");
   });
 
   it("logs a failure instead of throwing", async () => {

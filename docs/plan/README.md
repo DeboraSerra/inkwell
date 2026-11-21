@@ -53,7 +53,14 @@
      - 5a2 — ISBN lookup and scanning inside the form (the ISBN tab goes) ✅ done (2026-11-21)
      - 5a3 — Search in the title field, as a dropdown (the Search tab goes) ✅ done (2026-11-21)
      - 5a4 — One form, no tabs, and the old tab components removed ✅ built (2026-11-21), to be checked in the app
-   - 5b onward — AI enrichment and the synopsis for books added without a lookup (still to be split into steps)
+   - 5b — AI enrichment ⏳ planned, waiting on its open questions
+     - 5b1 — Synopsis for books added without a lookup ✅ built (2026-11-21)
+     - 5b2 — The enrichment service (Haiku 5.5, structured output, curated lists only)
+     - 5b3 — Enrich single adds inline
+     - 5b4 — Imports and the backlog through Message Batches, collected by a cron route
+     - 5b5 — Show genres, tropes, tags and length
+     - 5b6 — Edit them
+     - 5b7 — Privacy policy and closing
 6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)
 7. [Phase 7 — Quality and deploy](phase-7-quality-deploy.md)
    - Row-level security on every table (Supabase advisor, 2026-11-14) ✅ applied locally and on Supabase on 2026-11-21

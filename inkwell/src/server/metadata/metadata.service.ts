@@ -115,6 +115,22 @@ export async function findDescription(metadata: BookMetadata): Promise<string | 
   return tryProvider(() => describe(metadata.sourceId), undefined);
 }
 
+// For a catalog book with a provider id but no record at hand: Open Library
+// fetches the synopsis straight from the id, Google Books looks the volume up.
+export async function findDescriptionById(
+  source: MetadataSourceName,
+  sourceId: string,
+): Promise<string | undefined> {
+  const provider = BY_SOURCE[source];
+  if (!provider) return undefined;
+  if (provider.fetchDescription) {
+    const describe = provider.fetchDescription;
+    return tryProvider(() => describe(sourceId), undefined);
+  }
+  const metadata = await tryProvider(() => provider.lookupId(sourceId), null);
+  return metadata?.description;
+}
+
 // For a catalog book added by ISBN, which has no provider record at hand: the
 // first provider that knows the ISBN and has a synopsis for it.
 export async function findDescriptionByIsbn(isbn13: string): Promise<string | undefined> {

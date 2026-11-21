@@ -102,6 +102,8 @@ model Book {
   lengthCategory LengthCategory?
   publishedYear  Int?
   description    String?
+  // When a synopsis was last looked for and not found, so it isn't retried.
+  descriptionCheckedAt DateTime?
   tags           String[]
   aiEnrichedAt   DateTime?
   metadataSource MetadataSource

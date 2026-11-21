@@ -125,7 +125,12 @@ export type AmazonDocDetails = {
 
 export type CatalogBookIds = { id: string; ownerId: string | null; isbn13: string | null; isbn10: string | null };
 
-export type DescribedBook = CatalogBookIds & { description: string | null };
+export type DescribedBook = CatalogBookIds & {
+  description: string | null;
+  descriptionCheckedAt: Date | null;
+  openLibraryId: string | null;
+  googleBooksId: string | null;
+};
 
 export type CatalogDetails = {
   ownerId: string | null;

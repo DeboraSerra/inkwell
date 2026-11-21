@@ -215,6 +215,29 @@ describe("findDescription", () => {
   });
 });
 
+describe("findDescriptionById", () => {
+  it("asks Open Library for the id's synopsis", async () => {
+    vi.mocked(ol.fetchDescription as NonNullable<typeof ol.fetchDescription>).mockResolvedValue("Desert planet.");
+    await expect(service.findDescriptionById("OPEN_LIBRARY", "OL1M")).resolves.toBe("Desert planet.");
+    expect(ol.fetchDescription).toHaveBeenCalledWith("OL1M");
+  });
+
+  it("looks a Google volume up by its id", async () => {
+    gb.lookupId.mockResolvedValue({ ...fromGb, description: "From Google" });
+    await expect(service.findDescriptionById("GOOGLE_BOOKS", "g1")).resolves.toBe("From Google");
+    expect(gb.lookupId).toHaveBeenCalledWith("g1");
+  });
+
+  it("has none when the provider is down", async () => {
+    gb.lookupId.mockRejectedValue(down);
+    await expect(service.findDescriptionById("GOOGLE_BOOKS", "g1")).resolves.toBeUndefined();
+  });
+
+  it("has none for a source it doesn't know", async () => {
+    await expect(service.findDescriptionById("AMAZON" as never, "x")).resolves.toBeUndefined();
+  });
+});
+
 describe("findDescriptionByIsbn", () => {
   it("takes the first provider that knows the ISBN and has a synopsis", async () => {
     ol.lookupIsbn.mockResolvedValue(fromOl);
