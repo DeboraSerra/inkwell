@@ -7,6 +7,7 @@ import {
   findExistingBook,
   findOrCreateManualBook,
   findOrCreateMetadataBook,
+  findTopicIds,
 } from "@/server/books/book.service";
 import { enrichBook } from "@/server/enrichment/enrichment.service";
 import { NotFoundError, RateLimitError, ValidationError } from "@/server/errors";
@@ -49,6 +50,13 @@ const book = (status: ReadingStatus, formats: BookFormat[] = [PHYSICAL], id = "u
   authors: [] as string[],
   coverUrl: null,
   authorSearch: "",
+  genreId: null as string | null,
+  genreEdited: false,
+  tropeId: null as string | null,
+  tropeEdited: false,
+  tags: [] as string[],
+  tagsEdited: false,
+  tagSearch: "",
   addedAt: new Date(),
   updatedAt: new Date(),
 });
@@ -835,6 +843,42 @@ describe("editUserBook", () => {
       acquiredAtPrecision: "DAY",
     });
     expect(reads.updateBookReadDates).not.toHaveBeenCalled();
+  });
+
+  it("leaves the genre, trope and tags alone when the form doesn't send them", async () => {
+    model.findUserBookWithCatalog.mockResolvedValue(stored(TO_READ));
+    await service.editUserBook(USER, "ub-1", { formats: [EBOOK], dates: {} });
+    expect(saved()).not.toHaveProperty("genreEdited");
+    expect(findTopicIds).not.toHaveBeenCalled();
+  });
+
+  it("keeps the reader's genre, trope and tags only where they differ from the catalog's", async () => {
+    const at = new Date("2026-11-21T00:00:00Z");
+    model.findUserBookWithCatalog.mockResolvedValue({
+      ...book(TO_READ),
+      book: {
+        ...catalog,
+        genres: [{ source: "AI", createdAt: at, genre: { name: "Romance" } }],
+        tropes: [{ source: "AI", createdAt: at, trope: { name: "Enemies to Lovers" } }],
+        tags: ["rivals"],
+      },
+    } as never);
+    vi.mocked(findTopicIds).mockResolvedValue({ genreId: null, tropeId: "t-found" });
+    await service.editUserBook(USER, "ub-1", {
+      formats: [EBOOK],
+      dates: {},
+      topics: { genre: "Romance", trope: "Found Family", tags: ["rivals", "cozy"] },
+    });
+    expect(findTopicIds).toHaveBeenCalledWith({ genre: null, trope: "Found Family" }, "tx");
+    expect(saved()).toMatchObject({
+      genreId: null,
+      genreEdited: false,
+      tropeId: "t-found",
+      tropeEdited: true,
+      tags: ["rivals", "cozy"],
+      tagsEdited: true,
+      tagSearch: "|rivals|cozy|",
+    });
   });
 
   it("saves the acquired date, and clears it when left out", async () => {

@@ -17,3 +17,11 @@ export async function listTopicNames(db: Db = prisma) {
     tropes: tropes.map((trope) => ({ name: trope.name, genres: trope.genres.map(({ genre }) => genre.name) })),
   };
 }
+
+export async function findGenreId(name: string, db: Db = prisma) {
+  return (await db.genre.findUnique({ where: { name }, select: { id: true } }))?.id ?? null;
+}
+
+export async function findTropeId(name: string, db: Db = prisma) {
+  return (await db.trope.findUnique({ where: { name }, select: { id: true } }))?.id ?? null;
+}

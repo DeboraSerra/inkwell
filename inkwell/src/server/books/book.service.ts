@@ -1,6 +1,6 @@
 import "server-only";
 import { MetadataSource } from "@/generated/prisma/enums";
-import { NotFoundError } from "@/server/errors";
+import { NotFoundError, ValidationError } from "@/server/errors";
 import * as bookModel from "./book.model";
 import * as topicModel from "./topic.model";
 import { catalogBlanksFrom } from "./catalog-blanks.rules";
@@ -209,4 +209,14 @@ export async function fillMissingDescription(book: DescribedBook, metadata?: Boo
 // Every curated genre and trope, by name, for the shelf's filter select.
 export function listTopics() {
   return topicModel.listTopicNames();
+}
+
+// A genre's and a trope's ids by name, only from the curated lists. Null
+// stays null (none chosen).
+export async function findTopicIds(names: { genre: string | null; trope: string | null }, tx?: Tx) {
+  const genreId = names.genre ? await topicModel.findGenreId(names.genre, tx) : null;
+  if (names.genre && !genreId) throw new ValidationError("Choose a genre from the list.");
+  const tropeId = names.trope ? await topicModel.findTropeId(names.trope, tx) : null;
+  if (names.trope && !tropeId) throw new ValidationError("Choose a trope from the list.");
+  return { genreId, tropeId };
 }

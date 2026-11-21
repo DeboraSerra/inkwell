@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as bookModel from "@/server/books/book.model";
+import * as topicModel from "@/server/books/topic.model";
 import { findDescription, findDescriptionById, findDescriptionByIsbn } from "@/server/metadata/metadata.service";
 
 vi.mock("@/server/books/book.model");
+vi.mock("@/server/books/topic.model");
 vi.mock("@/server/metadata/metadata.service");
 
 const service = await import("@/server/books/book.service");
@@ -357,5 +359,23 @@ describe("fillMissingDetails", () => {
     await expect(service.fillMissingDetails(poor, picked)).resolves.toBe(false);
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+});
+
+describe("findTopicIds", () => {
+  const topics = vi.mocked(topicModel);
+
+  it("finds the curated genre and trope, and keeps none as null", async () => {
+    topics.findGenreId.mockResolvedValue("g1");
+    await expect(service.findTopicIds({ genre: "Romance", trope: null })).resolves.toEqual({ genreId: "g1", tropeId: null });
+    expect(topics.findTropeId).not.toHaveBeenCalled();
+  });
+
+  it("refuses a name that isn't on the lists", async () => {
+    topics.findGenreId.mockResolvedValue(null);
+    await expect(service.findTopicIds({ genre: "Grimdark", trope: null })).rejects.toThrow("Choose a genre from the list.");
+    topics.findGenreId.mockResolvedValue("g1");
+    topics.findTropeId.mockResolvedValue(null);
+    await expect(service.findTopicIds({ genre: "Romance", trope: "Nope" })).rejects.toThrow("Choose a trope from the list.");
   });
 });

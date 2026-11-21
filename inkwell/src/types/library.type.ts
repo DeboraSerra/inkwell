@@ -218,6 +218,8 @@ export type BookEdit = {
   pastReads?: PastRead[];
   // When the reader got the book. Left out clears it, as with read dates.
   acquired?: PartialDate;
+  // The reader's genre, trope and tags. Left out, they don't change.
+  topics?: TopicChoice;
 };
 
 // A book just added, with the provider record it was found with, if any.
@@ -225,3 +227,26 @@ export type JustAddedBook = { book: EnrichableBook; metadata?: BookMetadata };
 
 // A genre or trope attached to a book, by name, for the card's label.
 export type TaggedName = { name: string; source: TagSource; createdAt: Date };
+
+// The catalog's genres and tropes (all attached rows) and tags.
+export type CatalogTopics = { genres: TaggedName[]; tropes: TaggedName[]; tags: string[] | null };
+
+// A reader's own genre, trope and tags, by name, with whether they edited each.
+export type ReaderTopics = {
+  genre: string | null;
+  genreEdited: boolean;
+  trope: string | null;
+  tropeEdited: boolean;
+  tags: string[];
+  tagsEdited: boolean;
+};
+
+// What the edit form sent: a genre and trope by name (null for none), and tags.
+export type TopicChoice = { genre: string | null; trope: string | null; tags: string[] };
+
+// A catalog book's genre and trope rows and tags, as the library loads them.
+export type TopicRows = {
+  genres: { source: TagSource; createdAt: Date; genre: { name: string } }[];
+  tropes: { source: TagSource; createdAt: Date; trope: { name: string } }[];
+  tags: string[] | null;
+};

@@ -61,7 +61,7 @@
      - 5b5 — Show genres, tropes, tags and length ✅ built (2026-11-22), on shelf cards
      - 5b5a — Tell genre and trope apart from tags on cards ⏳ pending
      - 5b5b — Tooltips that work on phones ✅ built (2026-11-22)
-     - 5b6 — Edit them
+     - 5b6 — Edit them ✅ built (2026-11-22)
      - 5b7 — Privacy policy and closing
 6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)
 7. [Phase 7 — Quality and deploy](phase-7-quality-deploy.md)

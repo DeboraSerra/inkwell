@@ -91,6 +91,10 @@ export type BookFormBook = {
   readDates?: Record<string, string>;
   pastReads?: { id: string; values: Record<string, string> }[];
   acquiredValues?: Record<string, string>;
+  // The reader's genre, trope and tags as shown (theirs, else the catalog's).
+  genre?: string | null;
+  trope?: string | null;
+  tags?: string[];
 };
 
 // What a submit reports back. `ok` false keeps the form as it is, with what

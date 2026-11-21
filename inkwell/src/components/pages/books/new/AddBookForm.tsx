@@ -40,6 +40,8 @@ import {
 import { FormatsField } from "./FormatsField";
 import { IsbnLookupField } from "./IsbnLookupField";
 import { TitleSearchField } from "./TitleSearchField";
+import { TopicsField } from "./TopicsField";
+import type { TopicLists } from "@/types/shelf.type";
 import { applyIsbnFormat } from "./isbn-input";
 
 const REQUIRED_FIELDS = [
@@ -92,6 +94,9 @@ const searchAdd = actionSubmit(addSearchBook);
 //   locked, without the status, and only formats and the acquired date can
 //   be added to it.
 // - `header` goes above the fields, such as a looked-up book's cover.
+// - `topics` (the curated lists) shows the reader's genre, trope and tags
+//   pickers; only the shelf's edit dialog passes it, since a new book gets
+//   them from the AI.
 // - `lookups` turns on the ISBN lookup and scanning, and the search in the
 //   title (only on /books/new). A found book fills the form with the catalog's
 //   details locked, and is added by its ISBN or search record; "Not this
@@ -108,6 +113,7 @@ export default function AddBookForm({
   addFormatsOnly = false,
   header,
   lookups = false,
+  topics,
   onDone,
   onPendingChange,
 }: Readonly<{
@@ -122,6 +128,7 @@ export default function AddBookForm({
   addFormatsOnly?: boolean;
   header?: ReactNode;
   lookups?: boolean;
+  topics?: TopicLists;
   onDone?: () => void;
   onPendingChange?: (pending: boolean) => void;
 }>) {
@@ -393,6 +400,10 @@ export default function AddBookForm({
 
         {acquired}
 
+        {topics && (
+          <TopicsField topics={topics} genre={formBook?.genre} trope={formBook?.trope} tags={formBook?.tags} />
+        )}
+
         {formAddFormatsOnly ? (
           <FieldDescription>
             Adding it again only adds the formats you tick, and the acquired
@@ -401,8 +412,8 @@ export default function AddBookForm({
         ) : (
           !formCanEdit && (
             <FieldDescription>
-              Authors, cover and pages only change for you. Leave one empty to
-              go back to the original.
+              Authors, cover, pages, genre, trope and tags only change for you.
+              Leave authors, cover or pages empty to go back to the original.
             </FieldDescription>
           )
         )}

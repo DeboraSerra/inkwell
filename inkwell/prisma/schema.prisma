@@ -131,6 +131,7 @@ model Genre {
   description String?
   books       BookGenre[]
   tropes      GenreTrope[]
+  userBooks   UserBook[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }
@@ -141,6 +142,7 @@ model Trope {
   description String?
   books       BookTrope[]
   genres      GenreTrope[]
+  userBooks   UserBook[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }
@@ -238,6 +240,19 @@ model UserBook {
   acquiredAtPrecision DatePrecision @default(DAY)
   // Search text for `authors`; see authorSearchText.
   authorSearch String         @default("")
+  // This reader's genre, trope and tags (Phase 5b6), over the catalog's. Only
+  // when the matching *Edited flag is set; then null or empty means the reader
+  // removed it, so a later AI run can't bring it back for them.
+  genre        Genre?         @relation(fields: [genreId], references: [id], onDelete: SetNull)
+  genreId      String?
+  genreEdited  Boolean        @default(false)
+  trope        Trope?         @relation(fields: [tropeId], references: [id], onDelete: SetNull)
+  tropeId      String?
+  tropeEdited  Boolean        @default(false)
+  tags         String[]       @default([])
+  tagsEdited   Boolean        @default(false)
+  // Search text for `tags`; see tagSearchText.
+  tagSearch    String         @default("")
   source       UserBookSource
   addedAt      DateTime       @default(now())
   updatedAt    DateTime       @updatedAt

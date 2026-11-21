@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEditBook } from "@/server/library/shelf-actions.schema";
+import { parseEditBook, parseTags } from "@/server/library/shelf-actions.schema";
 
 const form = (fields: Record<string, string | string[]>) => {
   const data = new FormData();
@@ -58,5 +58,34 @@ describe("parseEditBook acquired date", () => {
   it("clears it when no format is left", () => {
     const parsed = parseEditBook("ub-1", form({ acquiredYear: "2020" }));
     expect(parsed.success && parsed.data.acquired).toBeUndefined();
+  });
+});
+
+describe("parseTags", () => {
+  it("splits on commas, lower-cases, single-spaces and drops repeats and blanks", () => {
+    expect(parseTags(" Cozy,  small   Town ,cozy,, ")).toEqual({ tags: ["cozy", "small town"] });
+    expect(parseTags("cozy\r\nsmall town\nrivals")).toEqual({ tags: ["cozy", "small town", "rivals"] });
+  });
+
+  it("refuses more than 10 tags or one over 30 characters", () => {
+    expect(parseTags(Array.from({ length: 11 }, (_, i) => `t${i}`).join(","))).toEqual({ error: "Use at most 10 tags." });
+    expect(parseTags("x".repeat(31)).error).toMatch(/under 31/);
+  });
+});
+
+describe("parseEditBook genre, trope and tags", () => {
+  it("leaves them out when the form doesn't send them", () => {
+    const parsed = parseEditBook("ub-1", form({ formats: [] }));
+    expect(parsed.success && parsed.data.topics).toBeUndefined();
+  });
+
+  it("reads them, with an empty choice as none", () => {
+    const parsed = parseEditBook("ub-1", form({ formats: [], genre: "Romance", trope: "", tags: "Cozy, rivals" }));
+    expect(parsed.success && parsed.data.topics).toEqual({ genre: "Romance", trope: null, tags: ["cozy", "rivals"] });
+  });
+
+  it("refuses too many tags", () => {
+    const parsed = parseEditBook("ub-1", form({ formats: [], genre: "", trope: "", tags: "a,b,c,d,e,f,g,h,i,j,k" }));
+    expect(parsed.success).toBe(false);
   });
 });

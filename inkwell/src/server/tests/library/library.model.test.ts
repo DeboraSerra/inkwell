@@ -114,81 +114,77 @@ describe("listUserBooks", () => {
   });
 });
 
+const searchFor = (text: string, normalized = text.toLowerCase(), tag = text.toLowerCase()) => ({
+  text,
+  normalized,
+  author: text.toLowerCase(),
+  surname: text.toLowerCase().split(" ").at(-1) ?? "",
+  tag,
+});
+const insensitive = (text: string) => ({ contains: text, mode: "insensitive" });
+type Where = { OR: unknown[]; AND: unknown[] };
+
 describe("listUserBooks search", () => {
   it("finds the title, the normalized key and any author's name or surname", async () => {
-    await model.listUserBooks(USER, {
-      take: 10,
-      search: {
-        text: "Rebecca Yarros",
-        normalized: "rebecca yarros",
-        author: "rebecca yarros",
-        surname: "yarros",
-        tag: "rebecca yarros",
-      },
-    });
+    await model.listUserBooks(USER, { take: 10, search: searchFor("Rebecca Yarros") });
     const authors = [{ authorSearch: { contains: "rebecca yarros" } }, { authorSearch: { contains: " yarros|" } }];
-    expect(calls[0].args.where).toMatchObject({
-      // The reader's own authors, then the catalog's.
-      OR: [
-        ...authors,
-        { book: { OR: expect.arrayContaining([{ dedupeKey: { contains: "rebecca yarros" } }, ...authors]) } },
-      ],
-    });
+    const where = calls[0].args.where as unknown as Where;
+    // The reader's own authors, then the catalog's.
+    expect(where.OR.slice(0, 3)).toEqual([
+      ...authors,
+      { book: { OR: [{ title: insensitive("Rebecca Yarros") }, { dedupeKey: { contains: "rebecca yarros" } }, ...authors] } },
+    ]);
   });
 
   it("doesn't match every book when the text normalizes to nothing", async () => {
-    await model.listUserBooks(USER, {
-      take: 10,
-      search: { text: "!!", normalized: "", author: "", surname: "", tag: "!!" },
-    });
-    expect(calls[0].args.where).toMatchObject({
-      OR: [
-        {
-          book: {
-            OR: [
-              { title: { contains: "!!", mode: "insensitive" } },
-              { tagSearch: { contains: "!!" } },
-              { genres: { some: { genre: { name: { contains: "!!", mode: "insensitive" } } } } },
-              { tropes: { some: { trope: { name: { contains: "!!", mode: "insensitive" } } } } },
-            ],
-          },
-        },
-      ],
-    });
+    await model.listUserBooks(USER, { take: 10, search: { text: "!!", normalized: "", author: "", surname: "", tag: "!!" } });
+    const where = calls[0].args.where as unknown as Where;
+    expect(where.OR[0]).toEqual({ book: { OR: [{ title: insensitive("!!") }] } });
   });
 
-  it("finds part of a tag", async () => {
-    await model.listUserBooks(USER, {
-      take: 10,
-      search: { text: "School", normalized: "school", author: "school", surname: "school", tag: "school" },
-    });
-    const where = calls[0].args.where as { OR: { book?: { OR: unknown[] } }[] };
-    expect(where.OR.at(-1)?.book?.OR).toContainEqual({ tagSearch: { contains: "school" } });
-  });
-
-  it("finds part of a genre or trope name, ignoring case", async () => {
-    await model.listUserBooks(USER, {
-      take: 10,
-      search: { text: "lovers", normalized: "lovers", author: "lovers", surname: "lovers", tag: "lovers" },
-    });
-    const where = calls[0].args.where as { OR: { book?: { OR: unknown[] } }[] };
-    expect(where.OR.at(-1)?.book?.OR).toEqual(
+  it("finds part of a tag: the reader's once they've edited them, else the catalog's", async () => {
+    await model.listUserBooks(USER, { take: 10, search: searchFor("School") });
+    const where = calls[0].args.where as unknown as Where;
+    expect(where.OR).toEqual(
       expect.arrayContaining([
-        { genres: { some: { genre: { name: { contains: "lovers", mode: "insensitive" } } } } },
-        { tropes: { some: { trope: { name: { contains: "lovers", mode: "insensitive" } } } } },
+        { tagsEdited: true, tagSearch: { contains: "school" } },
+        { tagsEdited: false, book: { tagSearch: { contains: "school" } } },
+      ]),
+    );
+  });
+
+  it("finds part of a genre or trope name, the reader's or the catalog's", async () => {
+    await model.listUserBooks(USER, { take: 10, search: searchFor("lovers") });
+    const where = calls[0].args.where as unknown as Where;
+    expect(where.OR).toEqual(
+      expect.arrayContaining([
+        { genreEdited: true, genre: { name: insensitive("lovers") } },
+        { genreEdited: false, book: { genres: { some: { genre: { name: insensitive("lovers") } } } } },
+        { tropeEdited: true, trope: { name: insensitive("lovers") } },
+        { tropeEdited: false, book: { tropes: { some: { trope: { name: insensitive("lovers") } } } } },
       ]),
     );
   });
 });
 
 describe("listUserBooks genres and tropes", () => {
-  it("matches any genre ticked and any trope ticked, by name", async () => {
+  it("matches any genre ticked and any trope ticked, the reader's or the catalog's", async () => {
     await model.listUserBooks(USER, { take: 10, genres: ["Romance", "Fantasy"], tropes: ["Enemies to Lovers"] });
     expect(calls[0].args.where).toMatchObject({
       userId: USER,
       AND: [
-        { book: { genres: { some: { genre: { name: { in: ["Romance", "Fantasy"] } } } } } },
-        { book: { tropes: { some: { trope: { name: { in: ["Enemies to Lovers"] } } } } } },
+        {
+          OR: [
+            { genreEdited: true, genre: { name: { in: ["Romance", "Fantasy"] } } },
+            { genreEdited: false, book: { genres: { some: { genre: { name: { in: ["Romance", "Fantasy"] } } } } } },
+          ],
+        },
+        {
+          OR: [
+            { tropeEdited: true, trope: { name: { in: ["Enemies to Lovers"] } } },
+            { tropeEdited: false, book: { tropes: { some: { trope: { name: { in: ["Enemies to Lovers"] } } } } } },
+          ],
+        },
       ],
     });
   });

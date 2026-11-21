@@ -281,12 +281,25 @@ Asked by the user on 2026-11-22, as the next step. A tooltip opens on hover or f
   - The "Add another read" button's tooltip only repeats its label, and tapping it adds the read.
 - tsc, lint and the 1,118 tests pass. **Not checked on a phone.**
 
-### 5b6 — Edit them
+### 5b6 — Edit them ✅ built (2026-11-22)
 
 - Depends on open question 1: where a reader's edits are stored.
 - `AddBookForm` gains the fields, as the AGENTS.md form rule requires. Removing an AI genre or trope is remembered, so a later AI run can't add it back.
 
 **Done when:** a reader can add and remove genres, tropes and tags, and an AI run never undoes their edit.
+
+**Outcome (✅ built 2026-11-22):**
+
+- **Decided by the user:**
+  - Per-user overrides.
+  - One genre and one trope per reader.
+  - The trope picker lists the chosen genre's tropes.
+- **Deviation:** since it's one of each, the overrides are columns on `UserBook` rather than `UserBookGenre` / `UserBookTrope` tables. Migration `20261122030000_add_user_book_topics` adds them: `genreId`, `tropeId` (both `ON DELETE SET NULL`), `tags`, `tagSearch`, and `genreEdited` / `tropeEdited` / `tagsEdited`. An edited value that's null or empty means the reader removed it. **Not applied yet.**
+- **Rules:** `book-topics.rules` `shownTopics` shows the reader's value once edited, else the catalog's. `topicEdits` keeps an edit only where it differs from the catalog's, so going back to the catalog's value follows the catalog again, as authors do. The AI writes only the catalog, so it can't undo a reader's edit.
+- **Input:** `shelf-actions.schema` reads `genre`, `trope` and `tags` (comma-separated: lower case, at most 10, each at most 30 characters), and leaves them unchanged when they aren't sent. `books/book.service.findTopicIds` checks the names against the curated lists.
+- **Shelves:** `listShelfPage` shows the reader's values. The genre and trope filters and the search (tags, genre and trope names) match the reader's row when edited, else the catalog's.
+- **Form:** `AddBookForm` gains `topics` and `TopicsField.tsx`: a genre select, a trope select narrowed to the genre (with "Show all tropes"), and a tags field. Only the shelf's edit dialog passes `topics` (through `shelves/topics-context.tsx`); a new book gets them from the AI.
+- tsc, lint and the 1,132 tests pass. **Not checked in the app.**
 
 ### 5b7 — Privacy policy and closing
 

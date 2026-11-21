@@ -1,7 +1,7 @@
 import "server-only";
 import { type BookFormat, DatePrecision, ReadingStatus, ReadOutcome, UserBookSource } from "@/generated/prisma/enums";
-import { fillMissingDescription, fillMissingDetails, fillMissingIsbn, findExistingBook, findOrCreateManualBook, findOrCreateMetadataBook } from "@/server/books/book.service";
-import { authorSearchText, dedupeKey, normalizeAuthor, normalizeAuthorName, normalizeTagText, normalizeTitle } from "@/server/books/dedupe";
+import { fillMissingDescription, fillMissingDetails, fillMissingIsbn, findExistingBook, findOrCreateManualBook, findOrCreateMetadataBook, findTopicIds } from "@/server/books/book.service";
+import { authorSearchText, dedupeKey, normalizeAuthor, normalizeAuthorName, normalizeTagText, normalizeTitle, tagSearchText } from "@/server/books/dedupe";
 import { transaction } from "@/server/db";
 import { NotFoundError, ValidationError } from "@/server/errors";
 import { enrichBook } from "@/server/enrichment/enrichment.service";
@@ -12,12 +12,12 @@ import * as readModel from "./read-through.model";
 import { canTransition, changeFormats, initialState, notStartedStatusFor, readChangeFor } from "./status.rules";
 import { toDateValues, toEditedReadFields, toReadFields } from "./partial-date.rules";
 import type { EnrichableBook, IsbnPreview, IsbnPreviewResult, ProviderRef, SearchResult, ShelfBook, ShelfRead } from "@/types/books.type";
-import { firstTopic } from "./book-topics.rules";
+import { shownTopics, topicEdits } from "./book-topics.rules";
 import { sortByLastFinished, sortReads } from "./read-order.rules";
 import { parsePageSize } from "./shelf-filters";
 import type { ManualBookDetails } from "@/types/books.type";
 import type { PartialDate, ReadDates } from "@/types/dates.type";
-import type { ActedOn, AddBookInput, JustAddedBook, BookEdit, FoundLookup, LookupChoices, PastRead, ReadChange, ReaderDetails, ShownDetails, SkippedBook, StoredRead, UserBookFilters } from "@/types/library.type";
+import type { ActedOn, AddBookInput, CatalogTopics, JustAddedBook, ReaderTopics, TopicChoice, TopicRows, BookEdit, FoundLookup, LookupChoices, PastRead, ReadChange, ReaderDetails, ShownDetails, SkippedBook, StoredRead, UserBookFilters } from "@/types/library.type";
 import type { BookMetadata } from "@/types/metadata.type";
 import type { Tx } from "@/types/server.type";
 import type { PageSize, ShelfSort } from "@/types/shelf.type";
@@ -444,6 +444,49 @@ const latestReadValues = (read?: {
       }
     : {};
 
+const catalogTopics = (book: TopicRows): CatalogTopics => ({
+  genres: book.genres.map(({ genre, source, createdAt }) => ({ name: genre.name, source, createdAt })),
+  tropes: book.tropes.map(({ trope, source, createdAt }) => ({ name: trope.name, source, createdAt })),
+  // The column has no default, so a book without tags can hold NULL.
+  tags: book.tags,
+});
+
+const readerTopics = (row: {
+  genre: { name: string } | null;
+  genreEdited: boolean;
+  trope: { name: string } | null;
+  tropeEdited: boolean;
+  tags: string[] | null;
+  tagsEdited: boolean;
+}): ReaderTopics => ({
+  genre: row.genre?.name ?? null,
+  genreEdited: row.genreEdited,
+  trope: row.trope?.name ?? null,
+  tropeEdited: row.tropeEdited,
+  tags: row.tags ?? [],
+  tagsEdited: row.tagsEdited,
+});
+
+// A reader's genre, trope and tags, stored only where they differ from what the
+// catalog shows (topicEdits). Names are checked against the curated lists.
+async function readerTopicFields(topics: TopicChoice, book: TopicRows, tx: Tx) {
+  const catalog = shownTopics(
+    { genre: null, genreEdited: false, trope: null, tropeEdited: false, tags: [], tagsEdited: false },
+    catalogTopics(book),
+  );
+  const edits = topicEdits(topics, catalog);
+  const { genreId, tropeId } = await findTopicIds({ genre: edits.genre.name, trope: edits.trope.name }, tx);
+  return {
+    genreId,
+    genreEdited: edits.genre.edited,
+    tropeId,
+    tropeEdited: edits.trope.edited,
+    tags: edits.tags.tags,
+    tagsEdited: edits.tags.edited,
+    tagSearch: tagSearchText(edits.tags.tags),
+  };
+}
+
 // Only the dates that are known, each with how much of it is known.
 const toShelfRead = (read?: StoredRead): ShelfRead | null =>
   read
@@ -506,10 +549,7 @@ export async function listShelfPage(
       isbn13: book.isbn13 ?? undefined,
       authors: authors.length ? authors : book.authors,
       coverUrl: coverUrl ?? book.coverUrl,
-      genre: firstTopic(book.genres.map(({ genre, source, createdAt }) => ({ name: genre.name, source, createdAt }))),
-      trope: firstTopic(book.tropes.map(({ trope, source, createdAt }) => ({ name: trope.name, source, createdAt }))),
-      // The column has no default, so a book without tags can hold NULL.
-      tags: book.tags ?? [],
+      ...shownTopics(readerTopics(row), catalogTopics(book)),
     };
   });
   return { books, page, pageCount, pageSize, total, firstIndex: skip + 1 };
@@ -665,6 +705,7 @@ export function editUserBook(userId: string, userBookId: string, edit: BookEdit)
         ...readerDetails(edit, current.book),
         audioMinutes: edit.audioMinutes ?? null,
         ...acquiredFields(edit.acquired),
+        ...(edit.topics ? await readerTopicFields(edit.topics, current.book, tx) : {}),
       },
       tx,
     );
