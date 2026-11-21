@@ -100,11 +100,17 @@ const userBookWhere = (userId: string, query: UserBookFilter) => {
                 // Text that normalizes to nothing ("!!") would otherwise match every book.
                 ...(search.normalized ? [{ dedupeKey: { contains: search.normalized } }] : []),
                 ...authorMatches,
+                // Part of any one tag (tagSearchText).
+                ...(search.tag ? [{ tagSearch: { contains: search.tag } }] : []),
               ],
             },
           },
         ]
       : undefined,
+    AND: [
+      ...(query.genres ? [{ book: { genres: { some: { genre: { name: { in: query.genres } } } } } }] : []),
+      ...(query.tropes ? [{ book: { tropes: { some: { trope: { name: { in: query.tropes } } } } } }] : []),
+    ],
   } satisfies Prisma.UserBookWhereInput;
 };
 

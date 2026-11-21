@@ -529,11 +529,46 @@ describe("listShelfPage with the reader's details", () => {
         authors: ["Ann Lee"],
         coverUrl: "https://example.test/mine.jpg",
         readThroughs: [],
-        book: { title: "T", authors: ["Original"], coverUrl: "https://example.test/c.jpg", pageCount: 200 },
+        book: {
+          title: "T",
+          authors: ["Original"],
+          coverUrl: "https://example.test/c.jpg",
+          pageCount: 200,
+          genres: [],
+          tropes: [],
+          tags: [],
+        },
       },
     ] as never);
     const { books } = await service.listShelfPage(USER, {});
     expect(books[0]).toMatchObject({ pageCount: 310, authors: ["Ann Lee"], coverUrl: "https://example.test/mine.jpg" });
+  });
+});
+
+describe("listShelfPage with genres, tropes and tags", () => {
+  it("shows one genre and one trope, and the tags", async () => {
+    const at = new Date("2026-11-21T00:00:00Z");
+    model.countUserBooks.mockResolvedValue(1);
+    model.listUserBooks.mockResolvedValue([
+      {
+        ...book(TO_READ),
+        pageCount: null,
+        authors: [],
+        coverUrl: null,
+        readThroughs: [],
+        book: {
+          title: "T",
+          authors: ["A"],
+          coverUrl: null,
+          pageCount: null,
+          genres: [{ source: "AI", createdAt: at, genre: { name: "Romance" } }],
+          tropes: [{ source: "AI", createdAt: at, trope: { name: "Enemies to Lovers" } }],
+          tags: ["high school", "rivals"],
+        },
+      },
+    ] as never);
+    const { books } = await service.listShelfPage(USER, {});
+    expect(books[0]).toMatchObject({ genre: "Romance", trope: "Enemies to Lovers", tags: ["high school", "rivals"] });
   });
 });
 
@@ -544,7 +579,7 @@ describe("listShelfPage", () => {
     authors: [],
     coverUrl: null,
     readThroughs: [],
-    book: { title: `T${id}`, authors: ["A"], coverUrl: null, pageCount: 200 },
+    book: { title: `T${id}`, authors: ["A"], coverUrl: null, pageCount: 200, genres: [], tropes: [], tags: null },
   });
 
   const showing = (total: number) => {
@@ -569,6 +604,9 @@ describe("listShelfPage", () => {
       earlierReads: 0,
       pastReads: [],
       acquiredValues: {},
+      genre: null,
+      trope: null,
+      tags: [],
     });
     expect([page, pageCount]).toEqual([2, 3]);
     expect(model.listUserBooks).toHaveBeenCalledWith(
@@ -731,7 +769,9 @@ describe("listShelfPage", () => {
       status: [TO_READ],
       formats: [EBOOK],
       source: undefined,
-      search: { text: "Dune", normalized: "dune", author: "dune", surname: "dune" },
+      search: { text: "Dune", normalized: "dune", author: "dune", surname: "dune", tag: "dune" },
+      genres: undefined,
+      tropes: undefined,
     });
   });
 });
@@ -743,7 +783,9 @@ describe("listUserBooks", () => {
       status: [READING],
       formats: [EBOOK],
       source: undefined,
-      search: { text: "The Hobbit", normalized: "hobbit", author: "the hobbit", surname: "hobbit" },
+      search: { text: "The Hobbit", normalized: "hobbit", author: "the hobbit", surname: "hobbit", tag: "the hobbit" },
+      genres: undefined,
+      tropes: undefined,
       take: 100,
       cursor: undefined,
       skip: undefined,

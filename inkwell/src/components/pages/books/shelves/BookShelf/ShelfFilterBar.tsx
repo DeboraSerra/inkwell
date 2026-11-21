@@ -5,6 +5,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { BookFormat } from "@/generated/prisma/enums";
 import { shelfHref } from "@/server/library/shelf-filters";
+import type { ShelfFilters, TopicLists } from "@/types/shelf.type";
 import { useRouter } from "next/navigation";
 import {
   type ChangeEvent,
@@ -15,16 +16,20 @@ import {
 } from "react";
 import { FORMAT_LABELS } from "../formats";
 import { ShelfOrderControls } from "./ShelfOrderControls";
-import type { ShelfFilters } from "@/types/shelf.type";
+import { TopicFilter } from "./TopicFilter";
 
 // How long typing has to pause before the search runs.
 const SEARCH_DELAY_MS = 500;
 
 export function ShelfFilterBar({
   filters,
-}: Readonly<{ filters: ShelfFilters }>) {
+  topics,
+}: Readonly<{
+  filters: ShelfFilters;
+  topics: TopicLists;
+}>) {
   const router = useRouter();
-  const { shelf, formats, search } = filters;
+  const { shelf, formats, genres, tropes, search } = filters;
   const [text, setText] = useState(search);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // The search this box last asked for, so its own navigation doesn't reset
@@ -41,6 +46,23 @@ export function ShelfFilterBar({
       shelfHref({
         shelf,
         formats: next,
+        genres,
+        tropes,
+        search: requested.current,
+        perPage: filters.perPage,
+        sort: filters.sort,
+      }),
+    );
+  };
+
+  const changeTopics = (nextGenres: string[], nextTropes: string[]) => {
+    requested.current = text.trim();
+    router.push(
+      shelfHref({
+        shelf,
+        formats,
+        genres: nextGenres,
+        tropes: nextTropes,
         search: requested.current,
         perPage: filters.perPage,
         sort: filters.sort,
@@ -61,6 +83,8 @@ export function ShelfFilterBar({
   const current = useRef({
     shelf,
     formats,
+    genres,
+    tropes,
     perPage: filters.perPage,
     sort: filters.sort,
   });
@@ -68,10 +92,12 @@ export function ShelfFilterBar({
     current.current = {
       shelf,
       formats,
+      genres,
+      tropes,
       perPage: filters.perPage,
       sort: filters.sort,
     };
-  }, [shelf, formats, filters.perPage, filters.sort]);
+  }, [shelf, formats, genres, tropes, filters.perPage, filters.sort]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -115,18 +141,24 @@ export function ShelfFilterBar({
           {formats.map((format) => (
             <input key={format} type='hidden' name='format' value={format} />
           ))}
+          {genres.map((genre) => (
+            <input key={genre} type='hidden' name='genre' value={genre} />
+          ))}
+          {tropes.map((trope) => (
+            <input key={trope} type='hidden' name='trope' value={trope} />
+          ))}
           <Input
             name='q'
             type='search'
-            aria-label='Search by title or author'
-            placeholder='Search by title or author'
+            aria-label='Search by title, author or tag'
+            placeholder='Search by title, author or tag'
             value={text}
             onChange={changeText}
           />
         </form>
       </search>
 
-      <div className="flex justify-between items-center">
+      <div className='flex justify-between items-center'>
         <fieldset className='flex flex-wrap gap-x-4 gap-y-2'>
           <legend className='sr-only'>Owned formats</legend>
           {Object.values(BookFormat).map((format) => (
@@ -145,8 +177,15 @@ export function ShelfFilterBar({
             </Field>
           ))}
         </fieldset>
-
-        <ShelfOrderControls />
+        <div className='flex gap-1 items-center'>
+          <TopicFilter
+            topics={topics}
+            genres={genres}
+            tropes={tropes}
+            onChange={changeTopics}
+          />
+          <ShelfOrderControls />
+        </div>
       </div>
     </div>
   );

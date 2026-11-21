@@ -24,6 +24,9 @@
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
+  --color-chip-border: var(--chip-border);
+  --color-chip-selected: var(--chip-selected);
+  --color-chip-selected-foreground: var(--chip-selected-foreground);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
@@ -131,6 +134,10 @@
   --sidebar-accent-foreground: var(--color-big-stone-950);
   --sidebar-border: #d9d4c5;
   --sidebar-ring: var(--color-anzac-600);
+  /* Toggle chips (the shelf's genre and trope filter) and the count bubble. */
+  --chip-border: var(--color-abbey-600);
+  --chip-selected: var(--color-anzac-700);
+  --chip-selected-foreground: #ffffff;
 }
 
 .dark {
@@ -165,6 +172,9 @@
   --sidebar-accent-foreground: var(--color-merino-100);
   --sidebar-border: oklch(1 0 0 / 12%);
   --sidebar-ring: var(--color-anzac-600);
+  --chip-border: var(--muted-foreground);
+  --chip-selected: var(--color-anzac-600);
+  --chip-selected-foreground: var(--color-big-stone-950);
 }
 
 @layer base {

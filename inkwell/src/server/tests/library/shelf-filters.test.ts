@@ -4,7 +4,17 @@ import { ReadingStatus } from "@/generated/prisma/enums";
 
 describe("parseShelfFilters", () => {
   it("defaults to TBR with no filters", () => {
-    expect(parseShelfFilters({})).toEqual({ shelf: "tbr", status: "TO_READ", owned: false, formats: [], search: "", page: 1, sort: "acquired-desc" });
+    expect(parseShelfFilters({})).toEqual({
+      shelf: "tbr",
+      status: "TO_READ",
+      owned: false,
+      formats: [],
+      genres: [],
+      tropes: [],
+      search: "",
+      page: 1,
+      sort: "acquired-desc",
+    });
   });
 
   it.each([
@@ -249,9 +259,29 @@ describe("the Owned shelf", () => {
       status: undefined,
       owned: true,
       formats: [],
+      genres: [],
+      tropes: [],
       search: "",
       page: 1,
       sort: "acquired-desc",
+    });
+  });
+
+  it("reads genres and tropes: trimmed, unique, at most 10, none too long", () => {
+    const filters = parseShelfFilters({
+      genre: [" Romance ", "Romance", "", "x".repeat(61), "Fantasy"],
+      trope: Array.from({ length: 12 }, (_, i) => `Trope ${i}`),
+    });
+    expect(filters.genres).toEqual(["Romance", "Fantasy"]);
+    expect(filters.tropes).toHaveLength(10);
+  });
+
+  it("keeps genres and tropes in links", () => {
+    const href = shelfHref({ shelf: "tbr", formats: [], genres: ["Romance"], tropes: ["Enemies to Lovers"], search: "" });
+    expect(href).toBe("/books/shelves?shelf=tbr&genre=Romance&trope=Enemies+to+Lovers");
+    expect(parseShelfFilters(searchParamsRecord(new URL(href, "http://x").searchParams))).toMatchObject({
+      genres: ["Romance"],
+      tropes: ["Enemies to Lovers"],
     });
   });
 

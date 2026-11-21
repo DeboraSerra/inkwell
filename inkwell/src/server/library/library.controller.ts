@@ -198,13 +198,18 @@ export async function loadShelf(params: unknown): Promise<LoadShelfResult> {
   const user = await requireUser();
   const parsed = shelfParamsSchema.safeParse(params);
   if (!parsed.success) return { error: INVALID_REQUEST };
-  const { status, owned, formats, search, page, perPage, sort } = parseShelfFilters(parsed.data);
+  const { status, owned, formats, genres, tropes, search, page, perPage, sort } = parseShelfFilters(parsed.data);
   const pageSize = resolvePageSize({
     url: perPage,
     cookie: (await cookies()).get(PAGE_SIZE_COOKIE)?.value,
     isPhone: userAgent({ headers: await headers() }).device.type === "mobile",
   });
-  const shelf = await libraryService.listShelfPage(user.id, { status, owned, formats, search, sort }, page, pageSize);
+  const shelf = await libraryService.listShelfPage(
+    user.id,
+    { status, owned, formats, genres, tropes, search, sort },
+    page,
+    pageSize,
+  );
   return { shelf };
 }
 

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useBooksContext } from "../../context";
 import { BooksShelf } from "./BookShelf";
 import { ShelfFilterBar } from "./BookShelf/ShelfFilterBar";
+import type { TopicLists } from "@/types/shelf.type";
 
 const PLACEHOLDERS = ["one", "two", "three", "four", "five", "six"];
 
@@ -29,9 +30,9 @@ const ShelfLoading = () => (
   </ul>
 );
 
-export const BooksShelves = () => {
+export const BooksShelves = ({ topics }: Readonly<{ topics: TopicLists }>) => {
   const { filters, shelf } = useBooksContext();
-  const { formats, search } = filters;
+  const { formats, genres, tropes, search } = filters;
 
   return (
     <div className='flex flex-col gap-4'>
@@ -51,6 +52,8 @@ export const BooksShelves = () => {
                   href={shelfHref({
                     shelf: it.slug,
                     formats,
+                    genres,
+                    tropes,
                     search,
                     perPage: filters.perPage,
                     // No sort: each shelf opens on its own default order.
@@ -62,7 +65,7 @@ export const BooksShelves = () => {
             </TabsTrigger>
           ))}
         </TabsList>
-        <ShelfFilterBar filters={filters} />
+        <ShelfFilterBar filters={filters} topics={topics} />
         <TabsContent value={filters.shelf}>
           {/* A new key clears the selection when the shelf or page changes. */}
           {shelf ? (

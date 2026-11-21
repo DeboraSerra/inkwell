@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authorSearchText, dedupeKey, normalizeAuthor, normalizeTitle, splitAmazonAuthors } from "@/server/books/dedupe";
+import { authorSearchText, dedupeKey, normalizeAuthor, normalizeTitle, splitAmazonAuthors, tagSearchText } from "@/server/books/dedupe";
 
 describe("normalizeTitle", () => {
   it("ignores leading and trailing articles", () => {
@@ -112,5 +112,17 @@ describe("splitAmazonAuthors", () => {
 
   it("keeps a single name as it is", () => {
     expect(splitAmazonAuthors("Rebecca Yarros")).toEqual(["Rebecca Yarros"]);
+  });
+});
+
+describe("tagSearchText", () => {
+  it("joins the tags between bars, lower case and single-spaced", () => {
+    expect(tagSearchText(["High  School", "rivals"])).toBe("|high school|rivals|");
+  });
+
+  it("is empty for no tags or null, and keeps a bar out of a tag", () => {
+    expect(tagSearchText([])).toBe("");
+    expect(tagSearchText(null)).toBe("");
+    expect(tagSearchText(["a|b"])).toBe("|a b|");
   });
 });

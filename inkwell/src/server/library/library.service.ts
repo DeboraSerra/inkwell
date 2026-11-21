@@ -1,7 +1,7 @@
 import "server-only";
 import { type BookFormat, DatePrecision, ReadingStatus, ReadOutcome, UserBookSource } from "@/generated/prisma/enums";
 import { fillMissingDescription, fillMissingDetails, fillMissingIsbn, findExistingBook, findOrCreateManualBook, findOrCreateMetadataBook } from "@/server/books/book.service";
-import { authorSearchText, dedupeKey, normalizeAuthor, normalizeAuthorName, normalizeTitle } from "@/server/books/dedupe";
+import { authorSearchText, dedupeKey, normalizeAuthor, normalizeAuthorName, normalizeTagText, normalizeTitle } from "@/server/books/dedupe";
 import { transaction } from "@/server/db";
 import { NotFoundError, ValidationError } from "@/server/errors";
 import { enrichBook } from "@/server/enrichment/enrichment.service";
@@ -12,6 +12,7 @@ import * as readModel from "./read-through.model";
 import { canTransition, changeFormats, initialState, notStartedStatusFor, readChangeFor } from "./status.rules";
 import { toDateValues, toEditedReadFields, toReadFields } from "./partial-date.rules";
 import type { EnrichableBook, IsbnPreview, IsbnPreviewResult, ProviderRef, SearchResult, ShelfBook, ShelfRead } from "@/types/books.type";
+import { firstTopic } from "./book-topics.rules";
 import { sortByLastFinished, sortReads } from "./read-order.rules";
 import { parsePageSize } from "./shelf-filters";
 import type { ManualBookDetails } from "@/types/books.type";
@@ -407,8 +408,16 @@ const toUserBookFilter = (filters: UserBookFilters) => {
     owned: filters.owned || undefined,
     source: filters.source,
     search: text
-      ? { text, normalized: normalizeTitle(text), author: normalizeAuthorName(text), surname: normalizeAuthor(text) }
+      ? {
+          text,
+          normalized: normalizeTitle(text),
+          author: normalizeAuthorName(text),
+          surname: normalizeAuthor(text),
+          tag: normalizeTagText(text).replaceAll("|", " "),
+        }
       : undefined,
+    genres: filters.genres?.length ? filters.genres : undefined,
+    tropes: filters.tropes?.length ? filters.tropes : undefined,
   };
 };
 
@@ -456,7 +465,7 @@ async function findInOrder(userId: string, ids: string[]) {
 // empties the page being viewed. Only the allowed page sizes are used.
 export async function listShelfPage(
   userId: string,
-  filters: Pick<UserBookFilters, "status" | "owned" | "formats" | "search" | "sort">,
+  filters: Pick<UserBookFilters, "status" | "owned" | "formats" | "genres" | "tropes" | "search" | "sort">,
   requestedPage = 1,
   requestedSize: number = DEFAULT_SHELF_PAGE_SIZE,
 ) {
@@ -497,6 +506,10 @@ export async function listShelfPage(
       isbn13: book.isbn13 ?? undefined,
       authors: authors.length ? authors : book.authors,
       coverUrl: coverUrl ?? book.coverUrl,
+      genre: firstTopic(book.genres.map(({ genre, source, createdAt }) => ({ name: genre.name, source, createdAt }))),
+      trope: firstTopic(book.tropes.map(({ trope, source, createdAt }) => ({ name: trope.name, source, createdAt }))),
+      // The column has no default, so a book without tags can hold NULL.
+      tags: book.tags ?? [],
     };
   });
   return { books, page, pageCount, pageSize, total, firstIndex: skip + 1 };

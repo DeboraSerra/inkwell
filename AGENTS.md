@@ -218,7 +218,7 @@ inkwell/src/
 ## Domain rules (keep these consistent)
 
 - **Dedupe order:** ASIN → ISBN-13 (convert ISBN-10 with `toIsbn13`) → `dedupeKey`, which is the normalized title plus every author's surname, sorted so author order doesn't matter. Re-importing a book only ever adds a format; it never overwrites a user's status, dates or list order.
-- **Genres and tropes** come only from the curated lists in `assets/lists/`. The AI picks from these lists; `source: AI | USER` records who attached each one, and AI updates must never overwrite `USER` rows.
+- **Genres and tropes** come only from the curated lists in `assets/lists/`. Each trope lists its genres there; the seed syncs them into `GenreTrope`, which the shelf filter uses to show a genre's tropes. The AI picks from these lists; `source: AI | USER` records who attached each one, and AI updates must never overwrite `USER` rows.
 - **Goal progress** is always computed, never stored.
 - **Two different dates:** `UserBook.addedAt` is when a book was added to Inkwell, and it orders the shelves. `UserBook.acquiredAt` (Phase 3f) is when the reader got it. Never put one in the other.
 - **Provider records fill a catalog book's blanks, never more:** an add by search or ISBN whose record matches a catalog book fills that book's blank authors, subtitle, cover, pages, year and provider id (`books/catalog-blanks.rules.ts`). It never overwrites a set detail, never changes the title, never touches private books. Manual adds and imports never write to a matched catalog book.

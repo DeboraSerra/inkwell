@@ -1,6 +1,7 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { EnrichmentBatchStatus, TagSource } from "@/generated/prisma/enums";
+import { tagSearchText } from "@/server/books/dedupe";
 import { prisma } from "@/server/db";
 import type { Enrichment } from "@/types/enrichment.type";
 import type { Db } from "@/types/server.type";
@@ -135,7 +136,7 @@ export async function saveEnrichment(bookId: string, enrichment: Enrichment, db:
     // which `isEmpty` doesn't match.
     await db.book.updateMany({
       where: { ...where, OR: [{ tags: { isEmpty: true } }, { tags: { equals: null } }] },
-      data: { tags: enrichment.tags },
+      data: { tags: enrichment.tags, tagSearch: tagSearchText(enrichment.tags) },
     });
   }
   if (enrichment.lengthCategory) {

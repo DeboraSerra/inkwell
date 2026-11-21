@@ -239,12 +239,38 @@ Comes first, so enrichment can use the description.
   3. Check that Vercel's root directory is `inkwell/`, where `vercel.json` sits.
   4. After the deploy, the first cron run sends the backlog: up to 1,000 books a day, so the 1,349 take two days.
 
-### 5b5 — Show genres, tropes, tags and length
+### 5b5 — Show genres, tropes, tags and length ✅ built (2026-11-22)
 
 - Read only, in the shelf's edit dialog and on shelf cards (the exact place is open question 7). Shown as the reader's own value when there is one, else the catalog's.
 - Shelf filters by genre or trope wait for a later step.
 
 **Done when:** an enriched book shows its genres, tropes, tags and length; a book without them shows nothing extra.
+
+**Outcome (✅ built 2026-11-22):**
+
+- **Asked by the user:** shelf cards get two lines at the end: "Genre - Trope" and the tags. Each looks like the read dates, through one shared `BookCard/CardPill.tsx`, which the read dates now use too. A book without them shows neither line.
+- `library/book-topics.rules.ts` (pure): `firstTopic` picks one genre and one trope, the reader's (USER) first, then the oldest. Asked by the user: the API returns them separately, `ShelfBook.genre`, `trope` and `tags` (an array, `[]` for NULL), and the card formats them: "Genre - Trope", and the tags joined with commas.
+- **Shelf filters (asked by the user):**
+  - The search also matches part of any one tag. Migration `20261122010000_add_book_tag_search` adds `Book.tagSearch` ("|high school|rivals|", from `books/dedupe.tagSearchText`) and fills it from the saved tags; `saveEnrichment` writes it with the tags. **Not applied yet.**
+  - Redesigned by the user: a funnel button (with a count of active filters) opens a popover (`npx shadcn add popover`) of toggle chips, one row for genres and one for tropes, plus "Clear filters" (`BookShelf/TopicFilter/`). A book matches any genre ticked and any trope ticked. Cards show "Genre (Trope)" and up to 3 tag pills, with "+N" and a tooltip for the rest.
+  - The choices are in the URL as `?genre=` and `?trope=` (names, trimmed, at most 10 each) and survive tab, format, sort and page changes. The page loads the names through `books/book.service.listTopics` (`books/topic.model.ts`).
+  - The page the user pointed to (cfas.ca's map) refused to load (403), so its design couldn't be copied.
+- **Not done:** length isn't shown, and the edit dialog shows none of them; neither was asked for. The edit dialog gets them in 5b6.
+- tsc, lint and the 1,111 tests pass. **Not checked in the app:** the user must start the dev server.
+
+**Follow-up (2026-11-22, asked by the user):** the filter popover stacks each label above its chips on phones and is capped at `min(28rem, 70vh)` with its own scroll. The chip and bubble colors are theme tokens (`--chip-border`, `--chip-selected`, `--chip-selected-foreground` in `globals.css`, with dark values). Tapping a card's "Genre (Trope)" pill adds them to the filters, and tapping a tag searches for it.
+
+**Tropes by genre (2026-11-22, the user chose a join table):** migration `20261122020000_add_genre_trope` adds `GenreTrope` (`genreId`, `tropeId`), with RLS. Each trope in `assets/lists/tropes.ts` lists its genres (drafted by the agent, 71 tropes, for the user to review), and the seed keeps the table in sync, removing links the list no longer has. With genres ticked, the filter shows only their tropes, plus any trope already ticked; "No tropes for these genres" when there are none. **The user must:** apply the migrations and run `npx prisma db seed`, locally and on Supabase.
+
+### 5b5a — Tell the genre and trope apart from tags on cards ⏳ pending
+
+Asked by the user on 2026-11-22, to do later. Today the "Genre (Trope)" pill and the tag pills look the same. For example: filled for genre and trope, outlined for tags.
+
+### 5b5b — Tooltips that work on phones ⏭️ next
+
+Asked by the user on 2026-11-22, as the next step. A tooltip opens on hover or focus only, so a tap on a phone shows nothing; that includes the cards' "+N" tags and every other tooltip in the app. Each one either becomes a popover on touch screens, or shows its content another way. List every `Tooltip` use first.
+
+**Done when:** every tooltip's content can be read on a phone by tapping, and still shows on hover on a laptop.
 
 ### 5b6 — Edit them
 

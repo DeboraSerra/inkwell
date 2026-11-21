@@ -33,6 +33,10 @@ export type ShelfBook = {
   pastReads: { id: string; values: Record<string, string> }[];
   // When the reader got the book, as the edit form's text.
   acquiredValues: Record<string, string>;
+  // One genre and one trope (the reader's, else the oldest), and the tags.
+  genre: string | null;
+  trope: string | null;
+  tags: string[];
 };
 
 // Looking a book up

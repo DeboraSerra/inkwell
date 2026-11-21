@@ -118,7 +118,13 @@ describe("listUserBooks search", () => {
   it("finds the title, the normalized key and any author's name or surname", async () => {
     await model.listUserBooks(USER, {
       take: 10,
-      search: { text: "Rebecca Yarros", normalized: "rebecca yarros", author: "rebecca yarros", surname: "yarros" },
+      search: {
+        text: "Rebecca Yarros",
+        normalized: "rebecca yarros",
+        author: "rebecca yarros",
+        surname: "yarros",
+        tag: "rebecca yarros",
+      },
     });
     const authors = [{ authorSearch: { contains: "rebecca yarros" } }, { authorSearch: { contains: " yarros|" } }];
     expect(calls[0].args.where).toMatchObject({
@@ -131,10 +137,40 @@ describe("listUserBooks search", () => {
   });
 
   it("doesn't match every book when the text normalizes to nothing", async () => {
-    await model.listUserBooks(USER, { take: 10, search: { text: "!!", normalized: "", author: "", surname: "" } });
-    expect(calls[0].args.where).toMatchObject({
-      OR: [{ book: { OR: [{ title: { contains: "!!", mode: "insensitive" } }] } }],
+    await model.listUserBooks(USER, {
+      take: 10,
+      search: { text: "!!", normalized: "", author: "", surname: "", tag: "!!" },
     });
+    expect(calls[0].args.where).toMatchObject({
+      OR: [{ book: { OR: [{ title: { contains: "!!", mode: "insensitive" } }, { tagSearch: { contains: "!!" } }] } }],
+    });
+  });
+
+  it("finds part of a tag", async () => {
+    await model.listUserBooks(USER, {
+      take: 10,
+      search: { text: "School", normalized: "school", author: "school", surname: "school", tag: "school" },
+    });
+    const where = calls[0].args.where as { OR: { book?: { OR: unknown[] } }[] };
+    expect(where.OR.at(-1)?.book?.OR).toContainEqual({ tagSearch: { contains: "school" } });
+  });
+});
+
+describe("listUserBooks genres and tropes", () => {
+  it("matches any genre ticked and any trope ticked, by name", async () => {
+    await model.listUserBooks(USER, { take: 10, genres: ["Romance", "Fantasy"], tropes: ["Enemies to Lovers"] });
+    expect(calls[0].args.where).toMatchObject({
+      userId: USER,
+      AND: [
+        { book: { genres: { some: { genre: { name: { in: ["Romance", "Fantasy"] } } } } } },
+        { book: { tropes: { some: { trope: { name: { in: ["Enemies to Lovers"] } } } } } },
+      ],
+    });
+  });
+
+  it("adds no condition without them", async () => {
+    await model.listUserBooks(USER, { take: 10 });
+    expect(calls[0].args.where).toMatchObject({ AND: [] });
   });
 });
 

@@ -2,6 +2,7 @@ import "server-only";
 import { MetadataSource } from "@/generated/prisma/enums";
 import { NotFoundError } from "@/server/errors";
 import * as bookModel from "./book.model";
+import * as topicModel from "./topic.model";
 import { catalogBlanksFrom } from "./catalog-blanks.rules";
 import { authorSearchText, dedupeKey } from "./dedupe";
 import { findDescription, findDescriptionById, findDescriptionByIsbn } from "@/server/metadata/metadata.service";
@@ -203,4 +204,9 @@ export async function fillMissingDescription(book: DescribedBook, metadata?: Boo
     console.warn("Saving a book's synopsis failed", error);
     return false;
   }
+}
+
+// Every curated genre and trope, by name, for the shelf's filter select.
+export function listTopics() {
+  return topicModel.listTopicNames();
 }

@@ -43,7 +43,7 @@ describe("saveEnrichment", () => {
     await model.saveEnrichment("b1", enrichment);
     expect(updateMany).toHaveBeenCalledWith({
       where: { id: "b1", ownerId: null, OR: [{ tags: { isEmpty: true } }, { tags: { equals: null } }] },
-      data: { tags: ["desert"] },
+      data: { tags: ["desert"], tagSearch: "|desert|" },
     });
     expect(updateMany).toHaveBeenCalledWith({
       where: { id: "b1", ownerId: null, lengthCategory: null },
