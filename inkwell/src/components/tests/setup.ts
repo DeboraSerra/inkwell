@@ -5,3 +5,10 @@ import { afterEach } from "vitest";
 afterEach(() => {
   cleanup();
 });
+
+// jsdom has no layout, so no ResizeObserver; components that measure (BookTitle's clamp) only need it to exist.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
