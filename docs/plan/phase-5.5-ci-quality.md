@@ -1,0 +1,107 @@
+# Phase 5.5 — CI, code quality and missing tests
+
+[← Plan overview](README.md)
+
+⏳ Planned, waiting on the open questions. Asked by the user on 2026-11-22, to come before Phase 6.
+
+Phase 7 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 7 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
+
+**Applies to every step**
+
+- **The app lives in `inkwell/`, git at the repo root.** Every workflow step runs with `working-directory: inkwell`, and husky is set up from the root (`.husky/` at the root, `prepare` in `inkwell/package.json` running `cd .. && husky`).
+- **New dev dependencies need approval** (open question 1), each pinned to a release at least two weeks old.
+- **Node 24,** as `engines` says. The local machine runs Node 26, so CI and `.nvmrc` pin 24 to match Vercel.
+- **Secrets never reach CI logs.** The build gets placeholder values for the `NEXT_PUBLIC_*` and server variables; no real key is stored in GitHub except where a step truly needs it (none here).
+- Each step ends with `npx tsc --noEmit`, `npm run lint` and `npm test` passing locally, and the workflow passing on a pushed branch.
+
+## 5.5a — Test coverage
+
+- **Dependency:** `@vitest/coverage-v8`, the same major as `vitest` 5.
+- **`npm run test:coverage`** (`vitest run --coverage`), with coverage of `src/server/**` and `src/components/**/*.ts` (pure client helpers), excluding `src/generated`, `src/components/ui`, `src/server/tests` and `*.type.ts(x)`.
+- **Thresholds** set at today's numbers, rounded down (measured in this step), so coverage can't drop. They're raised as 5.5e adds tests.
+- **Reports:** text summary in the terminal, `lcov` for CI (and Sonar, if 5.5g is chosen); `coverage/` is gitignored.
+
+**Done when:** `npm run test:coverage` prints the summary and fails when a threshold isn't met.
+
+## 5.5b — Commit messages: husky and commitlint
+
+- **Dependencies:** `husky`, `@commitlint/cli`, `@commitlint/config-conventional`.
+- **`commitlint.config.mjs`** at the root: conventional commits, `header-max-length` 100 (the length used for this project's commit messages), types `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `build`, `ci`, `perf`, `revert`.
+- **Hooks:**
+  - `commit-msg`: `npx --no -- commitlint --edit "$1"`.
+  - `pre-commit`: fast checks only, on staged files: Biome lint (`biome lint --staged` or `lint-staged`, open question 2). Not the full test run, so committing stays quick.
+  - `pre-push` (optional, open question 3): `tsc` and `npm test`.
+- Hooks are a convenience; CI (5.5c) is what enforces.
+
+**Done when:** a commit with a message like "updated stuff" is rejected, `feat(books): …` passes, and a staged file with a lint error stops the commit.
+
+## 5.5c — CI on GitHub Actions
+
+`.github/workflows/ci.yml`, on every pull request and on pushes to `main` and `dev`:
+
+1. **Setup:** checkout, Node 24 with npm cache, `npm ci` (in `inkwell/`).
+2. **Checks:** `npx tsc --noEmit`, `npm run lint`, `npm run test:coverage`. Coverage goes to the job summary and as an artifact.
+3. **Build:** `npm run build` with placeholder environment variables, so a change that only breaks the build is caught before Vercel.
+4. **Migrations:** a Postgres service container; `npx prisma migrate deploy` on the empty database, then `npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code`, which fails when `schema.prisma` changed without a migration. The seed runs too, so a broken seed or curated list is caught.
+5. **Audit:** `npm audit --audit-level=high` (today's 4 moderate `shadcn` findings don't fail it).
+6. **Commit messages:** commitlint over the pull request's commits (`--from base --to head`).
+7. **Extension:** `node extension/build.mjs https://example.com` builds, so the store package can't break unnoticed.
+
+- Jobs run in parallel where they can (checks, build, migrations), with `concurrency` cancelling a superseded run on the same branch.
+- Actions are pinned to a full commit SHA, not a tag, and the workflow has `permissions: contents: read`.
+
+**Done when:** a pull request shows each check, and a failing test, type error, lint error, broken build, missing migration, high audit finding or bad commit message turns it red.
+
+## 5.5d — Repository settings (the user does these on GitHub)
+
+- **Branch protection on `main`:** pull requests only, the CI checks required, no force pushes.
+- **Secret scanning and push protection** turned on.
+- **Dependabot alerts** on.
+
+**Done when:** a direct push to `main` is refused and a PR can't merge with a red check.
+
+## 5.5e — Missing tests
+
+Measured on 2026-11-22: these files have no test of their own.
+
+- **Server:**
+  - `auth/auth.controller.ts` (sign-in/out and API-token actions, `safeRedirectPath`),
+  - `auth/api-token.model.ts`, `auth/user.model.ts`, `rate-limit/rate-limit.model.ts`, `library/read-through.model.ts` (only partly covered through `library.model.test.ts`): recording-fake tests that every query is scoped by `userId`, as AGENTS.md asks,
+  - `auth/auth.guard.ts`: `getRequestUser` (Bearer token, cookie, neither) and `requireUser`,
+  - `metadata/http.ts` (timeout, size cap, cache, `ProviderError`),
+  - `enrichment/enrichment.schema.ts`,
+  - `errors.ts` (`domainErrorResponse` statuses),
+  - `app/api/me/route.ts`.
+- **Client logic** (no DOM needed): `components/pages/books/new/isbn-input.ts`, `barcode-scan.ts` (with `BarcodeDetector` stubbed), `hooks/useBookActions.ts` and `components/pages/context` (only with a React test setup, see below).
+- **Components:** no React component has a test. Testing them needs `@testing-library/react`, `@testing-library/user-event` and `jsdom` (open question 4). If approved, start with the riskiest: `AddBookForm` (edit vs add, locked fields, topics), `TopicFilter`, `ShelfFilterBar` (search, ✕, hidden fields), `TapTooltip`, `BookCard` pills.
+- Tests follow the layout rules: server tests in `src/server/tests/<module>/`, component tests in `src/components/tests/<folder>/`.
+
+**Done when:** every file above has a test, and the coverage thresholds from 5.5a are raised to the new numbers.
+
+## Suggested additions (open question 5: pick any)
+
+**Code quality**
+
+- **f. Dependabot updates** (`.github/dependabot.yml`): npm in `inkwell/` and GitHub Actions, weekly, grouped, with `cooldown: default-days: 14` so it never proposes a release younger than the project's two-week rule.
+- **g. SonarQube Cloud in CI:** you already use SonarLint; the CI scan adds the quality gate on each PR and imports the `lcov` coverage. Needs a free SonarCloud project and a `SONAR_TOKEN` secret.
+- **h. Knip** (`knip`): finds unused files, exports and dependencies, and dependencies used but not listed. Today it would flag `zod` (imported but only installed through `shadcn`), which should become a direct dependency either way.
+- **i. `.nvmrc`** with 24, and removing the stray `package-lock.json` at the repo root (the build warns about it).
+- **j. A pull request template** with the "Done when" checklist and "checked in the app" boxes.
+
+**Security**
+
+- **k. CodeQL** code scanning for JavaScript/TypeScript (GitHub's default setup, no workflow to maintain).
+- **l. gitleaks** in CI (and optionally in `pre-commit`), to stop a committed key even before GitHub's push protection.
+- **m. Security headers** in `next.config.ts`: `Content-Security-Policy` (scripts from self, images from the two cover hosts, connections to Firebase), `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera only for the barcode scanner), and `frame-ancestors 'none'`. The CSP needs testing against Firebase sign-in.
+- **n. `npm audit signatures`** in CI, to check packages' registry signatures and provenance.
+- **o. OpenSSF Scorecard** action: a weekly score of the repo's security practices (pinned actions, branch protection, token permissions).
+- **p. A test that every route handler and server action authenticates:** it lists the files and fails on one that doesn't call `requireUser`, `getRequestUser` or `isCronRequest`, so a new endpoint can't ship open.
+
+## Open questions
+
+1. **Approve the dev dependencies** for 5.5a–5.5b: `@vitest/coverage-v8`, `husky`, `@commitlint/cli`, `@commitlint/config-conventional`.
+2. **Pre-commit lint:** Biome's own `--staged` (no extra dependency) or `lint-staged`?
+3. **Pre-push hook** with `tsc` and tests: yes, or leave it to CI?
+4. **React component tests** in 5.5e: approve `@testing-library/react`, `@testing-library/user-event` and `jsdom`, or keep 5.5e to non-UI code for now?
+5. **Which of f–p** to include.
+6. **Phase numbering:** this is "Phase 5.5" so the existing Phases 6–10 and their links keep their numbers. Rename it to Phase 6 and renumber the rest instead?
