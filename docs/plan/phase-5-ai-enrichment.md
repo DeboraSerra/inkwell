@@ -137,7 +137,7 @@ Asked by the user on 2026-11-21, as the first step of Phase 5. `/books/new` lose
 - AGENTS.md: the `AddBookForm` rule now names `/books/new` and `lookups`, and the status has a 5a line. Stale "tab" comments in `books.type.tsx` and `isbn-book.schema.test.ts` are updated.
 - tsc, lint and the 1,020 tests pass. `npm run build` passes for the whole of 5a (2026-11-21). **The user must:** check the four "Done when" points signed in, on a laptop and a phone.
 
-## 5b — AI enrichment ✅ built (2026-11-22), build and deploy pending
+## 5b — AI enrichment ✅ built (2026-11-22), deploy pending
 
 Split into steps on 2026-11-21. The requirements gathered before then are kept as they were, under "Original requirements" at the end of this section. Each step ends with `npx tsc --noEmit`, `npm run lint` and `npm test` passing. `npm run build` runs once, at the end of 5b.
 
@@ -301,7 +301,7 @@ Asked by the user on 2026-11-22, as the next step. A tooltip opens on hover or f
 - **Form:** `AddBookForm` gains `topics` and `TopicsField.tsx`: a genre select, a trope select narrowed to the genre (with "Show all tropes"), and a tags field. Only the shelf's edit dialog passes `topics` (through `shelves/topics-context.tsx`); a new book gets them from the AI.
 - tsc, lint and the 1,132 tests pass. **Not checked in the app.**
 
-### 5b7 — Privacy policy and closing ✅ built (2026-11-22), build pending
+### 5b7 — Privacy policy and closing ✅ built (2026-11-22)
 
 - `/privacy` says that book details (title, authors, description, pages) of shared catalog books are sent to Anthropic to suggest genres and tropes, and that private documents never are.
 - AGENTS.md status, `.env.example` (`ANTHROPIC_API_KEY`, `CRON_SECRET`), and this plan's outcomes.
@@ -314,7 +314,7 @@ Asked by the user on 2026-11-22, as the next step. A tooltip opens on hover or f
   - Synopsis lookups send an ISBN or provider id to Open Library and Google Books.
   - Reader-edited genre, trope and tags are in "Your library"; Anthropic is in "Where your data is kept".
 - `.env.example` already had `ANTHROPIC_API_KEY` and `CRON_SECRET`. AGENTS.md status covers 5b1 to 5b6.
-- tsc, lint and the 1,132 tests pass. **`npm run build` for the whole of 5b is still to run:** the user stops the dev server first.
+- tsc, lint, the 1,132 tests and `npm run build` pass for the whole of 5b (2026-11-22).
 - **The user must, on Supabase:** apply the 5b migrations (`20261121120000` to `20261122030000`), run `npx prisma db seed` (for `GenreTrope`), add `ANTHROPIC_API_KEY` and `CRON_SECRET` on Vercel, check that the Vercel root directory is `inkwell/`, and redeploy. The first cron run sends the backfill.
 
 ### Open questions
