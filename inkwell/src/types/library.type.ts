@@ -1,11 +1,12 @@
 import type { PartialDate, ReadDates } from "./dates.type";
 import type { ShelfSort } from "./shelf.type";
-import type { BookFormat, DatePrecision, ReadOutcome, ReadingStatus, UserBookSource } from "@/generated/prisma/enums";
+import type { BookFormat, DatePrecision, ReadOutcome, ReadingStatus, TagSource, UserBookSource } from "@/generated/prisma/enums";
 import type { choiceFields } from "@/server/library/isbn-book.schema";
 import type { readDateFields } from "@/server/library/manual-book.schema";
 import type * as libraryService from "@/server/library/library.service";
 import type { lookupIsbn } from "@/server/metadata/metadata.service";
-import type { IsbnPreview } from "./books.type";
+import type { EnrichableBook, IsbnPreview } from "./books.type";
+import type { BookMetadata } from "./metadata.type";
 import type { z } from "zod";
 
 export type NewRead = {
@@ -92,7 +93,10 @@ export type UserBookFilter = {
   // dedupe key. `author` is matched against any author's name, and `surname`
   // against any author's last word, so "JRR Tolkien" finds "J. R. R. Tolkien".
   // Authors are searched in the catalog and in the reader's own list.
-  search?: { text: string; normalized: string; author: string; surname: string };
+  // `tag` is the text lower-cased, matched against part of any one tag.
+  search?: { text: string; normalized: string; author: string; surname: string; tag: string };
+  genres?: string[];
+  tropes?: string[];
 };
 
 export type UserBookQuery = UserBookFilter & {
@@ -173,8 +177,12 @@ export type UserBookFilters = {
   // Owned in at least one format, whatever the list (the Owned shelf).
   owned?: boolean;
   source?: UserBookSource;
-  // Matches the title or any author's first or last name, ignoring case and accents.
+  // Matches the title, any author's first or last name (ignoring case and
+  // accents), or part of a tag, genre or trope.
   search?: string;
+  // The book has any of these genres, and any of these tropes, by name.
+  genres?: string[];
+  tropes?: string[];
   sort?: ShelfSort;
   take?: number;
   // The id of the last row of the previous page.
@@ -210,4 +218,35 @@ export type BookEdit = {
   pastReads?: PastRead[];
   // When the reader got the book. Left out clears it, as with read dates.
   acquired?: PartialDate;
+  // The reader's genre, trope and tags. Left out, they don't change.
+  topics?: TopicChoice;
+};
+
+// A book just added, with the provider record it was found with, if any.
+export type JustAddedBook = { book: EnrichableBook; metadata?: BookMetadata };
+
+// A genre or trope attached to a book, by name, for the card's label.
+export type TaggedName = { name: string; source: TagSource; createdAt: Date };
+
+// The catalog's genres and tropes (all attached rows) and tags.
+export type CatalogTopics = { genres: TaggedName[]; tropes: TaggedName[]; tags: string[] | null };
+
+// A reader's own genre, trope and tags, by name, with whether they edited each.
+export type ReaderTopics = {
+  genre: string | null;
+  genreEdited: boolean;
+  trope: string | null;
+  tropeEdited: boolean;
+  tags: string[];
+  tagsEdited: boolean;
+};
+
+// What the edit form sent: a genre and trope by name (null for none), and tags.
+export type TopicChoice = { genre: string | null; trope: string | null; tags: string[] };
+
+// A catalog book's genre and trope rows and tags, as the library loads them.
+export type TopicRows = {
+  genres: { source: TagSource; createdAt: Date; genre: { name: string } }[];
+  tropes: { source: TagSource; createdAt: Date; trope: { name: string } }[];
+  tags: string[] | null;
 };

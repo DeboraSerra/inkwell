@@ -1,14 +1,23 @@
 "use client";
 
-import { BookCover } from "@/components/BookCover";
-import { PartialDateField } from "@/components/PartialDateField";
+import { BookCover } from "@/components/common/BookCover";
+import { PartialDateField } from "@/components/common/PartialDateField";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup } from "@/components/ui/field";
 import { ReadingStatus } from "@/generated/prisma/enums";
 import { formatIsbn } from "@/server/books/isbn";
 import { splitAudioLength } from "@/server/library/audio-length.rules";
-import { addManualBook } from "@/server/library/library.controller";
-import type { BookFormBook, BookFormResult } from "@/types/books.type";
+import {
+  addBookByIsbn,
+  addManualBook,
+  addSearchBook,
+} from "@/server/library/library.controller";
+import type {
+  BookFormBook,
+  BookFormResult,
+  IsbnPreview,
+} from "@/types/books.type";
+import type { ManualBookValues, ReadingState } from "@/types/library.type";
 import { Loader } from "lucide-react";
 import {
   type ChangeEvent,
@@ -19,12 +28,21 @@ import {
   useState,
   useTransition,
 } from "react";
-import { StatusField } from "../../../StatusField";
-import { TextField } from "../../../TextField";
+import { StatusField } from "@/components/common/StatusField";
+import { TextField } from "@/components/common/TextField";
 import { toast } from "../../../ui/toast";
+import {
+  actionSubmit,
+  previewBook,
+  PreviewHeader,
+  previewHidden,
+} from "./BookPreview";
 import { FormatsField } from "./FormatsField";
+import { IsbnLookupField } from "./IsbnLookupField";
+import { TitleSearchField } from "./TitleSearchField";
+import { TopicsField } from "./TopicsField";
+import type { TopicLists } from "@/types/shelf.type";
 import { applyIsbnFormat } from "./isbn-input";
-import type { ManualBookValues, ReadingState } from "@/types/library.type";
 
 const REQUIRED_FIELDS = [
   { name: "title", label: "Title" },
@@ -57,15 +75,13 @@ export const bookFormValues = (
     ...book.acquiredValues,
   };
 
-const manualAdd = async (formData: FormData): Promise<BookFormResult> => {
-  const { error, message } = await addManualBook({}, formData);
-  return { ok: !error, error, message };
-};
+const manualAdd = actionSubmit(addManualBook);
+const isbnAdd = actionSubmit(addBookByIsbn);
+const searchAdd = actionSubmit(addSearchBook);
 
-// The one book form: adding by hand (the default), adding a looked-up book on
-// the ISBN and Search tabs, and editing a shelf book.
-// - `book` fills every field. `defaultIsbn` fills the ISBN when the ISBN tab
-//   couldn't find the book.
+// The one book form: adding by hand, by ISBN or by search on /books/new, and
+// editing a shelf book.
+// - `book` fills every field. `defaultIsbn` fills the ISBN of a blank form.
 // - `canEdit` false locks the catalog's title, subtitle and ISBN (disabled
 //   fields aren't sent); the reader's own authors, pages and cover stay
 //   editable, and only then are title and authors required.
@@ -78,6 +94,13 @@ const manualAdd = async (formData: FormData): Promise<BookFormResult> => {
 //   locked, without the status, and only formats and the acquired date can
 //   be added to it.
 // - `header` goes above the fields, such as a looked-up book's cover.
+// - `topics` (the curated lists) shows the reader's genre, trope and tags
+//   pickers; only the shelf's edit dialog passes it, since a new book gets
+//   them from the AI.
+// - `lookups` turns on the ISBN lookup and scanning, and the search in the
+//   title (only on /books/new). A found book fills the form with the catalog's
+//   details locked, and is added by its ISBN or search record; "Not this
+//   book" goes back to a blank form with the typed ISBN and title kept.
 export default function AddBookForm({
   defaultIsbn,
   book,
@@ -89,6 +112,8 @@ export default function AddBookForm({
   submitLabel = "Add book",
   addFormatsOnly = false,
   header,
+  lookups = false,
+  topics,
   onDone,
   onPendingChange,
 }: Readonly<{
@@ -102,15 +127,36 @@ export default function AddBookForm({
   submitLabel?: string;
   addFormatsOnly?: boolean;
   header?: ReactNode;
+  lookups?: boolean;
+  topics?: TopicLists;
   onDone?: () => void;
   onPendingChange?: (pending: boolean) => void;
 }>) {
   // Unique per form: the add page keeps several forms mounted at once.
   const uid = useId();
-  const values = bookFormValues(book);
-  // Remounting after a successful add clears the form, checkboxes included:
-  // Base UI checkboxes keep their own state.
+  // The book the ISBN lookup or title search found, which stands in for the
+  // props below.
+  const [found, setFound] = useState<IsbnPreview | null>(null);
+  // The ISBN and title a blank form starts from, kept by "Not this book".
+  const [isbnDraft, setIsbnDraft] = useState(defaultIsbn);
+  const [titleDraft, setTitleDraft] = useState("");
+  const preview = lookups ? found : null;
+  const formBook = preview ? previewBook(preview) : book;
+  const formCanEdit = preview ? false : canEdit;
+  const formAddFormatsOnly = preview
+    ? Boolean(preview.inLibrary)
+    : addFormatsOnly;
+  // A search result is added by its record, a looked-up ISBN by the ISBN.
+  const lookupAdd = preview?.ref ? searchAdd : isbnAdd;
+  const formSubmit = preview ? lookupAdd : submit;
+  const formHidden = preview ? previewHidden(preview) : hidden;
+  const formSubmitLabel = preview?.inLibrary ? "Add formats" : submitLabel;
+  const values = bookFormValues(formBook);
+  // Remounting after a successful add, or when a looked-up book comes or
+  // goes, clears the form, checkboxes included: Base UI checkboxes keep their
+  // own state.
   const [submission, setSubmission] = useState(0);
+  const [lookupCount, setLookupCount] = useState(0);
   const [isPending, startTransition] = useTransition();
   const [missing, setMissing] = useState<string[]>([]);
   // Whether a format is ticked, reported by FormatsField.
@@ -118,11 +164,30 @@ export default function AddBookForm({
   // The cover field is uncontrolled, so what's typed is kept here for the
   // cover shown next to it.
   const [coverUrl, setCoverUrl] = useState(values?.coverUrl ?? "");
-  const required = canEdit && !addFormatsOnly ? REQUIRED_FIELDS : [];
+  const required = formCanEdit && !formAddFormatsOnly ? REQUIRED_FIELDS : [];
   // The catalog's title, subtitle and ISBN; and for a book already in the
   // library, the reader's details too, which adding again doesn't change.
-  const lockCatalog = !canEdit || addFormatsOnly;
-  const lockReader = addFormatsOnly;
+  const lockCatalog = !formCanEdit || formAddFormatsOnly;
+  const lockReader = formAddFormatsOnly;
+
+  // Starts the form again from `next` (a found book, or none).
+  const resetLookup = (next: IsbnPreview | null) => {
+    setFound(next);
+    setLookupCount((count) => count + 1);
+    setCoverUrl(next?.coverUrl ?? "");
+    setOwned(false);
+    setMissing([]);
+  };
+
+  const handleIsbnFound = (next: IsbnPreview, isbn: string) => {
+    setIsbnDraft(isbn);
+    resetLookup(next);
+  };
+
+  const handleTitleFound = (next: IsbnPreview, title: string) => {
+    setTitleDraft(title);
+    resetLookup(next);
+  };
 
   useEffect(() => {
     onPendingChange?.(isPending);
@@ -147,14 +212,17 @@ export default function AddBookForm({
     }
 
     startTransition(async () => {
-      const result = await submit(formData);
+      const result = await formSubmit(formData);
       if (result.error) toast.add({ description: result.error, type: "error" });
       if (!result.ok) return;
       if (result.message) toast.add({ description: result.message });
       // A new add starts empty; an edit closes instead.
       if (!editing) {
         setSubmission((count) => count + 1);
-        setCoverUrl(values?.coverUrl ?? "");
+        setFound(null);
+        setIsbnDraft(defaultIsbn);
+        setTitleDraft("");
+        setCoverUrl(bookFormValues(book)?.coverUrl ?? "");
       }
       onDone?.();
     });
@@ -174,8 +242,9 @@ export default function AddBookForm({
   const formats = (
     <FormatsField
       defaultValues={values?.formats}
+      owned={formAddFormatsOnly ? values?.formats : undefined}
       audioLength={values}
-      withLength={!addFormatsOnly}
+      withLength={!formAddFormatsOnly}
       onOwnedChange={setOwned}
     />
   );
@@ -195,31 +264,55 @@ export default function AddBookForm({
   const submitButton = !formId && (
     <Field orientation='horizontal' className='flex justify-end'>
       <Button type='submit' size='lg' disabled={isPending}>
-        {isPending ? <Loader className='spin-in' /> : submitLabel}
+        {isPending ? <Loader className='spin-in' /> : formSubmitLabel}
       </Button>
     </Field>
   );
 
   return (
     <form
-      key={submission}
+      key={`${submission}-${lookupCount}`}
       id={formId}
       onSubmit={handleSubmit}
       onChange={handleChange}
       noValidate
-      className="max-w-200"
+      className='max-w-200'
     >
-      {Object.entries(hidden).map(([name, value]) => (
+      {Object.entries(formHidden).map(([name, value]) => (
         <input key={name} type='hidden' name={name} value={value} />
       ))}
       <FieldGroup>
-        {header}
-        <div className='flex gap-3'>
-          <BookCover
-            src={coverUrl}
-            width={100}
-            height={160}
+        {preview ? (
+          <div className='flex flex-wrap items-center justify-between gap-2'>
+            <PreviewHeader preview={preview} />
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => resetLookup(null)}
+            >
+              Not this book
+            </Button>
+          </div>
+        ) : (
+          header
+        )}
+        {lookups && !preview ? (
+          <IsbnLookupField
+            id={`${uid}-isbn`}
+            defaultValue={isbnDraft}
+            onFound={handleIsbnFound}
           />
+        ) : (
+          <TextField
+            name='isbn'
+            id={`${uid}-isbn`}
+            label='ISBN'
+            defaultValue={values?.isbn ?? isbnDraft}
+            disabled={lockCatalog}
+          />
+        )}
+        <div className='flex gap-3'>
+          <BookCover src={coverUrl} width={100} height={160} />
           <TextField
             name='coverUrl'
             id={`${uid}-coverUrl`}
@@ -228,15 +321,24 @@ export default function AddBookForm({
             disabled={lockReader}
           />
         </div>
-        <TextField
-          name='title'
-          id={`${uid}-title`}
-          label='Title'
-          required
-          invalid={missing.includes("title")}
-          defaultValue={values?.title}
-          disabled={lockCatalog}
-        />
+        {lookups && !preview ? (
+          <TitleSearchField
+            id={`${uid}-title`}
+            defaultValue={titleDraft}
+            invalid={missing.includes("title")}
+            onFound={handleTitleFound}
+          />
+        ) : (
+          <TextField
+            name='title'
+            id={`${uid}-title`}
+            label='Title'
+            required
+            invalid={missing.includes("title")}
+            defaultValue={values?.title}
+            disabled={lockCatalog}
+          />
+        )}
         <TextField
           name='subtitle'
           id={`${uid}-subtitle`}
@@ -273,8 +375,16 @@ export default function AddBookForm({
           defaultValue={values?.authors}
           disabled={lockReader}
         />
+        <TextField
+          name='pageCount'
+          id={`${uid}-pageCount`}
+          label='Pages'
+          inputMode='numeric'
+          defaultValue={values?.pageCount}
+          disabled={lockReader}
+        />
 
-        {addFormatsOnly ? (
+        {formAddFormatsOnly ? (
           formats
         ) : (
           <div className='grid grid-cols-2 gap-5'>
@@ -290,31 +400,20 @@ export default function AddBookForm({
 
         {acquired}
 
-        <TextField
-          name='isbn'
-          id={`${uid}-isbn`}
-          label='ISBN'
-          defaultValue={values?.isbn ?? defaultIsbn}
-          disabled={lockCatalog}
-        />
-        <TextField
-          name='pageCount'
-          id={`${uid}-pageCount`}
-          label='Pages'
-          inputMode='numeric'
-          defaultValue={values?.pageCount}
-          disabled={lockReader}
-        />
-        {addFormatsOnly ? (
+        {topics && (
+          <TopicsField topics={topics} genre={formBook?.genre} trope={formBook?.trope} tags={formBook?.tags} />
+        )}
+
+        {formAddFormatsOnly ? (
           <FieldDescription>
             Adding it again only adds the formats you tick, and the acquired
             date when it's earlier than the one you have.
           </FieldDescription>
         ) : (
-          !canEdit && (
+          !formCanEdit && (
             <FieldDescription>
-              Authors, cover and pages only change for you. Leave one empty to
-              go back to the original.
+              Authors, cover, pages, genre, trope and tags only change for you.
+              Leave authors, cover or pages empty to go back to the original.
             </FieldDescription>
           )
         )}

@@ -2,9 +2,11 @@
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { BookFormat } from "@/generated/prisma/enums";
 import { shelfHref } from "@/server/library/shelf-filters";
+import type { ShelfFilters, TopicLists } from "@/types/shelf.type";
+import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   type ChangeEvent,
@@ -15,16 +17,20 @@ import {
 } from "react";
 import { FORMAT_LABELS } from "../formats";
 import { ShelfOrderControls } from "./ShelfOrderControls";
-import type { ShelfFilters } from "@/types/shelf.type";
+import { TopicFilter } from "./TopicFilter";
 
 // How long typing has to pause before the search runs.
 const SEARCH_DELAY_MS = 500;
 
 export function ShelfFilterBar({
   filters,
-}: Readonly<{ filters: ShelfFilters }>) {
+  topics,
+}: Readonly<{
+  filters: ShelfFilters;
+  topics: TopicLists;
+}>) {
   const router = useRouter();
-  const { shelf, formats, search } = filters;
+  const { shelf, formats, genres, tropes, search } = filters;
   const [text, setText] = useState(search);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // The search this box last asked for, so its own navigation doesn't reset
@@ -41,6 +47,23 @@ export function ShelfFilterBar({
       shelfHref({
         shelf,
         formats: next,
+        genres,
+        tropes,
+        search: requested.current,
+        perPage: filters.perPage,
+        sort: filters.sort,
+      }),
+    );
+  };
+
+  const changeTopics = (nextGenres: string[], nextTropes: string[]) => {
+    requested.current = text.trim();
+    router.push(
+      shelfHref({
+        shelf,
+        formats,
+        genres: nextGenres,
+        tropes: nextTropes,
         search: requested.current,
         perPage: filters.perPage,
         sort: filters.sort,
@@ -61,6 +84,8 @@ export function ShelfFilterBar({
   const current = useRef({
     shelf,
     formats,
+    genres,
+    tropes,
     perPage: filters.perPage,
     sort: filters.sort,
   });
@@ -68,10 +93,12 @@ export function ShelfFilterBar({
     current.current = {
       shelf,
       formats,
+      genres,
+      tropes,
       perPage: filters.perPage,
       sort: filters.sort,
     };
-  }, [shelf, formats, filters.perPage, filters.sort]);
+  }, [shelf, formats, genres, tropes, filters.perPage, filters.sort]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -95,6 +122,13 @@ export function ShelfFilterBar({
     else runSearch("");
   };
 
+  const input = useRef<HTMLInputElement>(null);
+  const clearSearch = () => {
+    setText("");
+    runSearch("");
+    input.current?.focus();
+  };
+
   // Enter searches without waiting. The form also works without JavaScript,
   // through its hidden fields; this stops that native submission.
   const submitSearch = (event: SubmitEvent<HTMLFormElement>) => {
@@ -115,18 +149,37 @@ export function ShelfFilterBar({
           {formats.map((format) => (
             <input key={format} type='hidden' name='format' value={format} />
           ))}
-          <Input
-            name='q'
-            type='search'
-            aria-label='Search by title or author'
-            placeholder='Search by title or author'
-            value={text}
-            onChange={changeText}
-          />
+          {genres.map((genre) => (
+            <input key={genre} type='hidden' name='genre' value={genre} />
+          ))}
+          {tropes.map((trope) => (
+            <input key={trope} type='hidden' name='trope' value={trope} />
+          ))}
+          {/* Its own ✕, since mobile browsers don't show the native one; the
+              native one is hidden so desktop doesn't show two. */}
+          <InputGroup>
+            <InputGroupInput
+              ref={input}
+              name='q'
+              type='search'
+              aria-label='Search by title, author, genre, trope or tag'
+              placeholder='Search by title, author, genre or tag'
+              value={text}
+              onChange={changeText}
+              className='[&::-webkit-search-cancel-button]:appearance-none'
+            />
+            {text && (
+              <InputGroupAddon align='inline-end'>
+                <InputGroupButton size='icon-xs' aria-label='Clear the search' onClick={clearSearch}>
+                  <X />
+                </InputGroupButton>
+              </InputGroupAddon>
+            )}
+          </InputGroup>
         </form>
       </search>
 
-      <div className="flex justify-between items-center">
+      <div className='flex justify-between items-center'>
         <fieldset className='flex flex-wrap gap-x-4 gap-y-2'>
           <legend className='sr-only'>Owned formats</legend>
           {Object.values(BookFormat).map((format) => (
@@ -145,8 +198,15 @@ export function ShelfFilterBar({
             </Field>
           ))}
         </fieldset>
-
-        <ShelfOrderControls />
+        <div className='flex gap-1 items-center'>
+          <TopicFilter
+            topics={topics}
+            genres={genres}
+            tropes={tropes}
+            onChange={changeTopics}
+          />
+          <ShelfOrderControls />
+        </div>
       </div>
     </div>
   );

@@ -1,20 +1,23 @@
 import "server-only";
 import { type BookFormat, DatePrecision, ReadingStatus, ReadOutcome, UserBookSource } from "@/generated/prisma/enums";
-import { fillMissingDescription, fillMissingDetails, fillMissingIsbn, findExistingBook, findOrCreateManualBook, findOrCreateMetadataBook } from "@/server/books/book.service";
-import { authorSearchText, dedupeKey, normalizeAuthor, normalizeAuthorName, normalizeTitle } from "@/server/books/dedupe";
+import { fillMissingDescription, fillMissingDetails, fillMissingIsbn, findExistingBook, findOrCreateManualBook, findOrCreateMetadataBook, findTopicIds } from "@/server/books/book.service";
+import { authorSearchText, dedupeKey, normalizeAuthor, normalizeAuthorName, normalizeTagText, normalizeTitle, tagSearchText } from "@/server/books/dedupe";
 import { transaction } from "@/server/db";
 import { NotFoundError, ValidationError } from "@/server/errors";
+import { enrichBook } from "@/server/enrichment/enrichment.service";
 import { lookupById, lookupIsbn, searchBooks } from "@/server/metadata/metadata.service";
+import { consumeRateLimit } from "@/server/rate-limit/rate-limit.service";
 import * as libraryModel from "./library.model";
 import * as readModel from "./read-through.model";
 import { canTransition, changeFormats, initialState, notStartedStatusFor, readChangeFor } from "./status.rules";
 import { toDateValues, toEditedReadFields, toReadFields } from "./partial-date.rules";
-import type { IsbnPreview, IsbnPreviewResult, ProviderRef, SearchResult, ShelfBook, ShelfRead } from "@/types/books.type";
+import type { EnrichableBook, IsbnPreview, IsbnPreviewResult, ProviderRef, SearchResult, ShelfBook, ShelfRead } from "@/types/books.type";
+import { shownTopics, topicEdits } from "./book-topics.rules";
 import { sortByLastFinished, sortReads } from "./read-order.rules";
 import { parsePageSize } from "./shelf-filters";
 import type { ManualBookDetails } from "@/types/books.type";
 import type { PartialDate, ReadDates } from "@/types/dates.type";
-import type { ActedOn, AddBookInput, BookEdit, FoundLookup, LookupChoices, PastRead, ReadChange, ReaderDetails, ShownDetails, SkippedBook, StoredRead, UserBookFilters } from "@/types/library.type";
+import type { ActedOn, AddBookInput, CatalogTopics, JustAddedBook, ReaderTopics, TopicChoice, TopicRows, BookEdit, FoundLookup, LookupChoices, PastRead, ReadChange, ReaderDetails, ShownDetails, SkippedBook, StoredRead, UserBookFilters } from "@/types/library.type";
 import type { BookMetadata } from "@/types/metadata.type";
 import type { Tx } from "@/types/server.type";
 import type { PageSize, ShelfSort } from "@/types/shelf.type";
@@ -355,10 +358,24 @@ export async function addBookFromProvider(userId: string, ref: ProviderRef, choi
   return { ...added, metadata };
 }
 
-// Saves a just-added book's synopsis, if its shared record has none. Meant to
-// run after the add's response is sent (see the controllers).
-export function saveSynopsis(added: { book: Parameters<typeof fillMissingDescription>[0]; metadata?: BookMetadata }) {
-  return fillMissingDescription(added.book, added.metadata);
+// Runs after an add's response is sent (see the controllers): saves the
+// shared book's synopsis if it has none, then enriches it once, so the
+// enrichment can use the synopsis. Never throws, so it can't fail an add.
+export async function finishAdd(userId: string, added: JustAddedBook) {
+  await fillMissingDescription(added.book, added.metadata);
+  await enrichAddedBook(userId, added.book);
+}
+
+// Private books are never sent to the AI. A failure or the rate limit leaves
+// the book for the backlog job (5b4), which picks up every unenriched book.
+async function enrichAddedBook(userId: string, book: EnrichableBook) {
+  if (book.ownerId || book.aiEnrichedAt) return;
+  try {
+    await consumeRateLimit(userId, "AI_ENRICH");
+    await enrichBook(book.id);
+  } catch (error) {
+    console.warn("Enriching a just-added book failed; the backlog job will retry it", error);
+  }
 }
 
 export function getUserBook(userId: string, userBookId: string) {
@@ -391,8 +408,16 @@ const toUserBookFilter = (filters: UserBookFilters) => {
     owned: filters.owned || undefined,
     source: filters.source,
     search: text
-      ? { text, normalized: normalizeTitle(text), author: normalizeAuthorName(text), surname: normalizeAuthor(text) }
+      ? {
+          text,
+          normalized: normalizeTitle(text),
+          author: normalizeAuthorName(text),
+          surname: normalizeAuthor(text),
+          tag: normalizeTagText(text).replaceAll("|", " "),
+        }
       : undefined,
+    genres: filters.genres?.length ? filters.genres : undefined,
+    tropes: filters.tropes?.length ? filters.tropes : undefined,
   };
 };
 
@@ -419,6 +444,49 @@ const latestReadValues = (read?: {
       }
     : {};
 
+const catalogTopics = (book: TopicRows): CatalogTopics => ({
+  genres: book.genres.map(({ genre, source, createdAt }) => ({ name: genre.name, source, createdAt })),
+  tropes: book.tropes.map(({ trope, source, createdAt }) => ({ name: trope.name, source, createdAt })),
+  // The column has no default, so a book without tags can hold NULL.
+  tags: book.tags,
+});
+
+const readerTopics = (row: {
+  genre: { name: string } | null;
+  genreEdited: boolean;
+  trope: { name: string } | null;
+  tropeEdited: boolean;
+  tags: string[] | null;
+  tagsEdited: boolean;
+}): ReaderTopics => ({
+  genre: row.genre?.name ?? null,
+  genreEdited: row.genreEdited,
+  trope: row.trope?.name ?? null,
+  tropeEdited: row.tropeEdited,
+  tags: row.tags ?? [],
+  tagsEdited: row.tagsEdited,
+});
+
+// A reader's genre, trope and tags, stored only where they differ from what the
+// catalog shows (topicEdits). Names are checked against the curated lists.
+async function readerTopicFields(topics: TopicChoice, book: TopicRows, tx: Tx) {
+  const catalog = shownTopics(
+    { genre: null, genreEdited: false, trope: null, tropeEdited: false, tags: [], tagsEdited: false },
+    catalogTopics(book),
+  );
+  const edits = topicEdits(topics, catalog);
+  const { genreId, tropeId } = await findTopicIds({ genre: edits.genre.name, trope: edits.trope.name }, tx);
+  return {
+    genreId,
+    genreEdited: edits.genre.edited,
+    tropeId,
+    tropeEdited: edits.trope.edited,
+    tags: edits.tags.tags,
+    tagsEdited: edits.tags.edited,
+    tagSearch: tagSearchText(edits.tags.tags),
+  };
+}
+
 // Only the dates that are known, each with how much of it is known.
 const toShelfRead = (read?: StoredRead): ShelfRead | null =>
   read
@@ -440,7 +508,7 @@ async function findInOrder(userId: string, ids: string[]) {
 // empties the page being viewed. Only the allowed page sizes are used.
 export async function listShelfPage(
   userId: string,
-  filters: Pick<UserBookFilters, "status" | "owned" | "formats" | "search" | "sort">,
+  filters: Pick<UserBookFilters, "status" | "owned" | "formats" | "genres" | "tropes" | "search" | "sort">,
   requestedPage = 1,
   requestedSize: number = DEFAULT_SHELF_PAGE_SIZE,
 ) {
@@ -481,6 +549,7 @@ export async function listShelfPage(
       isbn13: book.isbn13 ?? undefined,
       authors: authors.length ? authors : book.authors,
       coverUrl: coverUrl ?? book.coverUrl,
+      ...shownTopics(readerTopics(row), catalogTopics(book)),
     };
   });
   return { books, page, pageCount, pageSize, total, firstIndex: skip + 1 };
@@ -636,6 +705,7 @@ export function editUserBook(userId: string, userBookId: string, edit: BookEdit)
         ...readerDetails(edit, current.book),
         audioMinutes: edit.audioMinutes ?? null,
         ...acquiredFields(edit.acquired),
+        ...(edit.topics ? await readerTopicFields(edit.topics, current.book, tx) : {}),
       },
       tx,
     );

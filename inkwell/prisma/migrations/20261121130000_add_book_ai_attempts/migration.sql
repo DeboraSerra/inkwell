@@ -1,0 +1,5 @@
+-- AlterEnum
+ALTER TYPE "LengthCategory" ADD VALUE 'NOVELLA' BEFORE 'SHORT';
+
+-- AlterTable
+ALTER TABLE "Book" ADD COLUMN     "aiAttempts" INTEGER NOT NULL DEFAULT 0;

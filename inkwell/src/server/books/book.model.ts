@@ -79,6 +79,16 @@ export async function fillBookDescription(bookId: string, description: string, d
   return count === 1;
 }
 
+// Records that no provider had a synopsis for a shared book, so the lookup
+// isn't repeated. Skipped once a synopsis exists.
+export async function markDescriptionChecked(bookId: string, db: Db = prisma) {
+  const { count } = await db.book.updateMany({
+    where: { id: bookId, ownerId: null, OR: [{ description: null }, { description: "" }] },
+    data: { descriptionCheckedAt: new Date() },
+  });
+  return count === 1;
+}
+
 // Fills a blank ISBN on a shared catalog book, never overwriting one. Returns
 // false when nothing changed, including when another book already holds that
 // ISBN (the unique key). Not for use inside a transaction, where the

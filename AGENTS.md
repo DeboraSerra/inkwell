@@ -36,6 +36,7 @@ Key files in `inkwell/`:
 | `src/server/books/` | Shared catalog: `isbn.ts` and `dedupe.ts` (pure), `book.model.ts`, `book.service.ts` (`findExistingBook`) |
 | `src/server/library/` | Per-user library: `status.rules.ts` (statuses, formats and read changes; pure), `library.model.ts`, `read-through.model.ts`, `library.service.ts`, `library.controller.ts`, `manual-book.schema.ts` (zod) |
 | `src/server/metadata/` | Book details from Open Library and Google Books (Phase 4a): `metadata.service.ts` (`lookupIsbn`, `searchBooks`, `lookupById`), one `*.provider.ts` per source, `sanitize.ts` (pure cleaners for untrusted fields), `http.ts` (timeout, size cap, day-long cache) |
+| `src/server/enrichment/` | AI enrichment (Phase 5b): `enrichment.rules.ts` (request and reply parsing; pure), `enrichment.schema.ts` (zod for the reply), `enrichment.model.ts`, `enrichment.service.ts` (`enrichBook`). The Anthropic client is `src/config/anthropic.ts` |
 | `src/server/rate-limit/` | Per-user request limits counted in Postgres: `consumeRateLimit` throws `RateLimitError` (HTTP 429) |
 | `src/types/` | **Every named type and interface**, one file per module: `books.type.tsx` (catalog, shelf books, lookups, search, the book form), `library.type.ts`, `shelf.type.ts`, `dates.type.ts`, `imports.type.ts`, `metadata.type.ts`, `auth.type.ts`, `rate-limit.type.ts`, `server.type.ts` (`Db`, `Tx`, error codes), `ui.type.ts` (components and hooks), and `index.tsx` (`ShelfType`, `UserType`). See "Types live in `src/types/`" below. |
 | `prisma/schema.prisma`, `prisma/migrations/` | Database schema and migrations |
@@ -46,7 +47,7 @@ Key files in `inkwell/`:
 
 See `docs/plan/README.md` for live status. At the time of writing:
 
-- ✅ Phase 0: security upgrades (Next 16.4, Prisma 7, npm `overrides`)
+- ✅ Phase 0: security upgrades (Next 16.4, Prisma 7, npm `overrides`). Next is 16.4.5 since Phase 5.0 (2026-11-21).
 - ✅ Phase 1: Firebase Google sign-in → httpOnly `__session` cookie; API tokens; `/settings`; `GET /api/me`
 - ✅ Phase 2a: shared `Book` catalog, `BookGenre`/`BookTrope`, dedupe and ISBN helpers, Vitest
 - ✅ Phase 2b: `UserBook` library, status/ownership rules (`src/server/library/status.rules.ts`), `library.service.ts` / `library.model.ts`
@@ -57,17 +58,22 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 3c: extension import through `POST /api/imports/amazon` (`src/server/imports/`), run on the real Amazon page; the import dialog asks Books or Docs, since the Docs tab's address can't be relied on
 - ✅ Phase 3d: browse, filter and move books at `/books/shelves`
 - ✅ Phase 4a: metadata providers (Open Library, Google Books) and the per-user rate limit
-- ✅ Phase 4b: add by ISBN on `/books/new` (ISBN and Manual tabs); covers through `components/BookCover.tsx`, with Open Library and Google covers served by Next's image optimizer (`images.remotePatterns` in `next.config.ts`)
+- ✅ Phase 4b: add by ISBN on `/books/new` (ISBN and Manual tabs); covers through `components/common/BookCover.tsx`, with Open Library and Google covers served by Next's image optimizer (`images.remotePatterns` in `next.config.ts`)
 - ✅ Phase 3's "Done when" list checked on 2026-11-08
 - ✅ Three fixes before 3e (`docs/plan/phase-3-mvp.md`): moves to DNF from every list, shelf search keeping the shelf, and decoding `&amp;` in Amazon text (`books/text.ts`). `prisma/backfill-decode-entities.ts` was run locally and on Supabase on 2026-11-14. Checked signed in by the user
 - ✅ Phase 3 closed on 2026-11-15 (`docs/plan/phase-3-mvp.md`, "Closed"):
   - 3e polish: the import dialog shows the account, the options page is restyled, `/settings` has a token copy button, and shelves have a books-per-page select (`?per=`, the `shelfPerPage` cookie, or 10 on phones and 30 elsewhere).
-  - 3e polish, continued: clamped titles (`BookCard/BookTitle.tsx`), `PartialDateField` auto-advance (`components/date-input.ts`), read dates on cards with "+N" (`library/read-label.rules.ts`; a year alone in full), audiobook length (`library/audio-length.rules.ts`), past reads by date (`library/read-order.rules.ts`), and extension 2.2.0.
+  - 3e polish, continued: clamped titles (`BookCard/BookTitle.tsx`), `PartialDateField` auto-advance (`components/common/date-input.ts`), read dates on cards with "+N" (`library/read-label.rules.ts`; a year alone in full), audiobook length (`library/audio-length.rules.ts`), past reads by date (`library/read-order.rules.ts`), and extension 2.2.0.
   - 3f purchase dates: `UserBook.acquiredAt`, `imports/acquired-date.rules.ts`, the "Acquired" field, `?sort=`. Each shelf's default sort is in `DEFAULT_SORTS`: Finished by last read; Wishlist, Reading and DNF by newest added; TBR and Owned by newest purchase. Extension 2.3.0 sends `acquiredText` and is uploaded.
   - Docs imports: matched against the reader's library, then their own documents, then the shared catalog, and private only when unmatched. `prisma/merge-duplicate-docs.ts` merges duplicates; the 88 on Supabase were merged by hand. The catalog step still needs a deploy.
   - 3g: the "Owned" tab (`?shelf=owned`, `OWNED_SHELF` and `SHELF_TABS` in `library/shelf-filters.ts`, `formats: { isEmpty: false }`).
-- ✅ Phase 4c built: a Search tab on `/books/new` (`SearchLookup.tsx`, with the preview and add form shared in `BookPreview.tsx`), `GET /api/books/search` (`app/api/books/search/route.ts`), `lookupId` on each provider and `metadata.service.lookupById`, and `library.service` `searchForLibrary`, `previewSearchResult` and `addBookFromProvider`. Checked by the user. Follow-up built: after an add by search or ISBN, `after()` in the controller runs `saveSynopsis` → `books/book.service.fillMissingDescription` (Open Library via `fetchDescription`, an edition's work; never overwrites, skips private books).
-- ✅ Phase 4d built: "Scan barcode" on the ISBN tab (`ScanBarcodeButton.tsx`, `barcode-scan.ts`, `books/barcode.rules.ts`). The photo is read in the browser with `BarcodeDetector` or `barcode-detector` 3.2.3, and the WASM is served from `public/vendor/` by `scripts/copy-zxing-wasm.mjs`. Live scanning is built too (`LiveScanButton.tsx`: camera video in a dialog, read about 5 frames a second). Still to do: real-device checks for both.
+- ✅ Phase 4c built: a Search tab on `/books/new` (`SearchLookup.tsx`, with the preview and add form shared in `BookPreview.tsx`), `GET /api/books/search` (`app/api/books/search/route.ts`), `lookupId` on each provider and `metadata.service.lookupById`, and `library.service` `searchForLibrary`, `previewSearchResult` and `addBookFromProvider`. Checked by the user. Follow-up built: after an add by search or ISBN, `after()` in the controller runs `saveSynopsis` (now `finishAdd`, 5b3) → `books/book.service.fillMissingDescription` (Open Library via `fetchDescription`, an edition's work; never overwrites, skips private books).
+- ✅ Phase 4d built: "Scan barcode" on the ISBN tab (`ScanBarcodeButton.tsx`, `barcode-scan.ts`, `books/barcode.rules.ts`). The photo is read in the browser with `BarcodeDetector` or `barcode-detector` 3.2.3, and the WASM is served from `public/vendor/` by `scripts/copy-zxing-wasm.mjs`. Live scanning is built too (`LiveScanButton.tsx`: camera video in a dialog, read about 5 frames a second). Both checked by the user on a laptop and a phone.
+- ✅ Phase 4 closed on 2026-11-15 (`docs/plan/phase-4-adding-books.md`, "Checked": 21 of 21).
+- ✅ Phase 5a built (2026-11-21): one add form on `/books/new`, with no tabs. The ISBN field is first, with "Look up" and "Scan barcode" (`IsbnLookupField.tsx`); the title searches as you type in a dropdown (`TitleSearchField.tsx`, shadcn's `ui/combobox.tsx`); a found book fills the form locked, with "Not this book" to start again. `AddBookTabs.tsx`, `IsbnLookup.tsx` and `SearchLookup.tsx` are gone; the tabs mentioned in the Phase 4 lines above no longer exist.
+- ✅ Phase 5b5–5b7 built (2026-11-22): genre, trope and tags on shelf cards (`BookCard/CardPill.tsx`), the genre and trope filter (`BookShelf/TopicFilter/`, tropes by genre through `GenreTrope`), search over tags, genres and tropes (`Book.tagSearch`), tap-friendly tooltips (`common/TapTooltip.tsx`), reader edits on `UserBook` (`genreEdited`/`tropeEdited`/`tagsEdited`, `new/TopicsField.tsx`), and `/privacy` covering Anthropic. 5b5a (telling genre from tags on cards) is pending.
+- ✅ Phase 5b4 built (2026-11-22): imports and the backlog go through Message Batches (`EnrichmentBatch`, `enrichment.service` `submitEnrichmentBatch` / `collectEnrichmentBatches`), collected by the daily `app/api/cron/enrichment` route (`CRON_SECRET`, `inkwell/vercel.json`).
+- ✅ Phase 5b1–5b3 built (2026-11-21): the synopsis lookup by provider id or ISBN after a manual add (`Book.descriptionCheckedAt`); `enrichment/enrichment.service.enrichBook` (Haiku 5.5, structured output, curated lists only); and `library.service.finishAdd`, run in `after()` by every single add: synopsis, then enrichment (rate-limited by `AI_ENRICH`).
 - ⏭️ Next: Phase 5, AI enrichment (`docs/plan/phase-5-ai-enrichment.md`). Publishing the extension is in `docs/plan/phase-7-quality-deploy.md`
 
 ## Workflow rules
@@ -96,7 +102,7 @@ Other rules:
 - **The app-wide books context** (`components/pages/context`, mounted in the `(app)` layout) is the one exception to "services for reads": it holds the user and loads the current shelf on the client through the `loadShelf` server action. Client components read it with `useBooksContext()`, and call `refresh()` after a change. Client code imports only types from services.
 - **Anything exported from a `"use server"` file is a public endpoint.** Only put server actions in `*.controller.ts`, and make each one authenticate and validate. Shared request helpers belong in the guard, not in a controller.
 - **Errors:** services throw subclasses of `DomainError` (`NotFoundError`, `ValidationError`, `UnauthorizedError`, or module-specific ones such as `InvalidTransitionError extends ValidationError`). Controllers catch `DomainError` and show its message; anything else is a bug and is rethrown.
-- **A new feature** gets a folder in `src/server/<module>/` with `<entity>.model.ts`, `<module>.service.ts`, `<module>.controller.ts` (when it has mutations), `*.rules.ts` for pure logic. Its tests go in `src/server/tests/` (see "Directory layout" below), not in the module folder.
+- **A new feature** gets a folder in `src/server/<module>/` with `<entity>.model.ts`, `<module>.service.ts`, `<module>.controller.ts` (when it has mutations), `*.rules.ts` for pure logic. Its tests go in `src/server/tests/<module>/` (see "Directory layout" below), not in the module folder.
 - **Biome enforces these boundaries** (the `noRestrictedImports` overrides in `inkwell/biome.json`). Don't disable those rules; restructure instead.
 
 ## Directory layout (rule)
@@ -107,6 +113,9 @@ Follow this arrangement for all backend code and tests:
 inkwell/src/
 ├── app/                      # Next.js routes: pages, layouts, route handlers (controllers for HTTP)
 ├── components/               # Client components, in PascalCase (AddBookForm.tsx)
+│   ├── common/               # shared by more than one page: fields (TextField, PartialDateField…), BookCover
+│   ├── layout/, pages/       # the app shell, and one folder per page
+│   ├── tests/<folder>/       # component tests, by the folder of the file tested (tests/common/date-input.test.ts)
 │   └── ui/                   # shadcn components: vendored, not linted, don't edit by hand
 ├── config/                   # Firebase client and Admin SDK setup
 ├── lib/utils.ts              # shadcn's cn helper
@@ -123,13 +132,17 @@ inkwell/src/
     │   ├── <topic>.rules.ts         # pure logic
     │   ├── <name>.schema.ts         # zod input validation (never in a "use server" file)
     │   └── (auth only) auth.guard.ts
-    └── tests/                # ALL backend tests, flat
-        ├── <file-under-test>.test.ts   # e.g. library.service.test.ts, status.rules.test.ts
-        └── stubs/                      # test-only module stand-ins (e.g. server-only.ts)
+    └── tests/                # ALL backend tests, one folder per module
+        ├── <module>/<file-under-test>.test.ts   # e.g. library/library.service.test.ts
+        ├── prisma/                              # tests of prisma/migrations
+        ├── fixtures/                            # recorded provider responses
+        └── stubs/                               # test-only module stand-ins (e.g. server-only.ts)
 ```
 
-- **Every test file goes in `src/server/tests/`,** named after the file it tests (`<name>.test.ts`). Module folders contain no tests.
+- **Every test file goes in `src/server/tests/<module>/`,** the same folder name as the file it tests (`src/server/library/status.rules.ts` → `tests/library/status.rules.test.ts`), and is named after it. A route handler's test goes in its module's folder (`books-search.route.test.ts` in `tests/books/`). Module folders contain no tests.
 - **Tests import the code under test, and `vi.mock` it, through the `@/server/<module>/<file>` alias,** never by relative path. The alias resolves to the same file the service imports, so `vi.mock("@/server/library/library.model")` replaces it for `library.service.ts` too.
+- **Component tests go in `src/components/tests/<folder>/`,** by the folder of the file tested (`components/common/date-input.ts` → `components/tests/common/date-input.test.ts`, `components/pages/books/new/x.ts` → `components/tests/pages/books/new/x.test.ts`). Import through `@/components/…`.
+- **A component used by more than one page goes in `components/common/`;** one used by a single page stays in that page's folder.
 - Test-only stand-ins live in `src/server/tests/stubs/` and are wired up in `inkwell/vitest.config.ts`.
 
 ## Next.js 16 rules
@@ -163,6 +176,7 @@ inkwell/src/
 - The connection URL belongs in `prisma.config.ts`, not in `schema.prisma`. At runtime, `DATABASE_URL` (Supabase's pooled connection) is used; migrations use `DIRECT_URL` when it's set.
 - `PrismaClient` requires the driver adapter. The singleton lives in `@/server/db` and only models may use it; never call `new PrismaClient()` anywhere else.
 - **Migrations are additive from now on.** Change `schema.prisma`, then create a new migration (`npx prisma migrate dev --name <change>`). If there's no interactive terminal, write `migration.sql` with `prisma migrate diff`. Never edit a migration that has already been applied.
+- **Every new table gets row-level security in the same migration** (`ALTER TABLE "<Name>" ENABLE ROW LEVEL SECURITY;`, no policies). Otherwise Supabase's Data API exposes it to anyone with the anon key. Prisma connects as the owner, which RLS doesn't apply to. Never add `FORCE ROW LEVEL SECURITY` or turn RLS off. `migrations-rls.test.ts` checks this.
 - After a schema change, run `npx prisma generate`. The generated client lives in `src/generated/prisma` and is gitignored.
 - The seed must stay idempotent (upsert by unique name). To run it: `npx prisma db seed`.
 - Store dates as UTC; reading-log and goal dates are calendar dates.
@@ -170,7 +184,7 @@ inkwell/src/
 ## Code style and quality
 
 - **Types live in `src/types/` (rule).** Every named `type` and `interface` is declared in `src/types/<module>.type.ts` (or `.tsx`) and imported from there with `import type`; never declare one next to the code that uses it, exported or not. That includes types derived from code (`z.infer<…>`, `ReturnType<typeof …>`, `(typeof X)[number]`): import the value with `import type` in the types file. Exceptions: inline props (`Readonly<{ book: ShelfBook }>`), helper types local to a test file, the generated Prisma client, and shadcn's vendored `components/ui/`. A name must be unique across `src/types/`, so give file-local names a specific one (`AddBookTab`, not `Tab`).
-- **Every book add and edit uses `AddBookForm` (rule).** `components/pages/books/new/AddBookForm.tsx` is the only form for adding or editing a book: the Manual, ISBN and Search tabs, and the shelf's edit dialog. Configure it with its props (`book` to fill it, `canEdit` to lock the catalog's title, subtitle and ISBN, `submit`, `hidden`, `editing`, `formId`, `addFormatsOnly`, `header`) rather than building another form; if it can't do something a new screen needs, extend it.
+- **Every book add and edit uses `AddBookForm` (rule).** `components/pages/books/new/AddBookForm.tsx` is the only form for adding or editing a book: `/books/new` (no tabs: `lookups` puts the ISBN lookup and scanning in its ISBN field and the search in its title field) and the shelf's edit dialog. Configure it with its props (`book` to fill it, `canEdit` to lock the catalog's title, subtitle and ISBN, `submit`, `hidden`, `editing`, `formId`, `addFormatsOnly`, `header`, `lookups`) rather than building another form; if it can't do something a new screen needs, extend it.
 - **Match the surrounding code:** TypeScript, two-space indentation, double quotes, named exports for helpers and default exports for pages and components. Mobile-first layouts.
 - **UI uses shadcn (`base-nova`, on Base UI).** Use `src/components/ui/` rather than raw `<button>` and `<input>`, and theme tokens (`text-muted-foreground`, `border`) rather than colors like `zinc-500`. Add components with `npx shadcn add <name>`.
 - **Base UI checkboxes keep their own state,** so React's automatic form reset doesn't clear them. See how `AddBookForm` remounts the form.
@@ -192,19 +206,24 @@ inkwell/src/
 
 - Use npm, run from `inkwell/`. npm here blocks dependency install scripts; `prisma generate` runs from the package's own `postinstall` and `build` scripts.
 - **Don't remove the `overrides` in `package.json`.** They patch vulnerable transitive dependencies that upstream hasn't fixed yet. Re-check them with `npm audit` when upgrading.
-- `npm audit` reports 6 low or moderate findings, all through the `shadcn` package (`deepmerge`, `minimatch` via `ts-morph`). Anything else is new and needs looking at. Never run `npm audit fix --force` without asking: it can silently downgrade packages (it once replaced ESLint 9 with 4.0.0 and broke linting).
-- zod is approved for input validation (Phase 3).
+- `npm audit` reports 4 moderate findings, all **through the `shadcn` package** (one `minimatch` advisory, GHSA-g3hv-75wg-m249, via `ts-morph`). Anything else is new and needs looking at.
+- **Two exact-version overrides were added on 2026-11-21 (Phase 5.0),** pinned exactly because the next releases weren't two weeks old yet:
+  - `effect` 3.22.4: fixes a ReDoS (GHSA-7589-6fvf-x4pw) in the copy that `prisma` → `@prisma/config` pins at 3.20.0. Drop it once Prisma ships a fixed `@prisma/config`.
+  - `fast-xml-parser` 5.12.0: fixes GHSA-474x-hrwr-fgx4, through `firebase-admin` → `@google-cloud/storage`. 5.12.1 (2026-11-13) can replace it from 2026-11-27, but nothing requires that.
+- Never run `npm audit fix --force` without asking: it can silently downgrade packages. It once replaced ESLint 9 with 4.0.0 and broke linting, and today it would downgrade Prisma 7 to 6.12.
+- zod is approved for input validation (Phase 3). It isn't listed in `package.json` yet; it resolves through `shadcn`.
+- `@anthropic-ai/sdk` 1.6.0 is approved for AI enrichment (Phase 5b2). The client lives in `src/config/anthropic.ts`.
 - `barcode-detector` (on `zxing-wasm`) is approved for barcode scanning (Phase 4d); load it only where the browser lacks `BarcodeDetector`.
 - Ask before adding significant dependencies, and pin to an exact or caret version of a release at least two weeks old.
 
 ## Domain rules (keep these consistent)
 
 - **Dedupe order:** ASIN → ISBN-13 (convert ISBN-10 with `toIsbn13`) → `dedupeKey`, which is the normalized title plus every author's surname, sorted so author order doesn't matter. Re-importing a book only ever adds a format; it never overwrites a user's status, dates or list order.
-- **Genres and tropes** come only from the curated lists in `assets/lists/`. The AI picks from these lists; `source: AI | USER` records who attached each one, and AI updates must never overwrite `USER` rows.
+- **Genres and tropes** come only from the curated lists in `assets/lists/`. Each trope lists its genres there; the seed syncs them into `GenreTrope`, which the shelf filter uses to show a genre's tropes. The AI picks from these lists; `source: AI | USER` records who attached each one, and AI updates must never overwrite `USER` rows.
 - **Goal progress** is always computed, never stored.
 - **Two different dates:** `UserBook.addedAt` is when a book was added to Inkwell, and it orders the shelves. `UserBook.acquiredAt` (Phase 3f) is when the reader got it. Never put one in the other.
 - **Provider records fill a catalog book's blanks, never more:** an add by search or ISBN whose record matches a catalog book fills that book's blank authors, subtitle, cover, pages, year and provider id (`books/catalog-blanks.rules.ts`). It never overwrites a set detail, never changes the title, never touches private books. Manual adds and imports never write to a matched catalog book.
-- **A reader's own details override the catalog's:** `UserBook.pageCount`, `authors` and `coverUrl` hold what a reader edited, and empty means the catalog's value is used. Show the reader's value first; dedupe only ever uses `Book`.
+- **A reader's own details override the catalog's:** `UserBook.pageCount`, `authors` and `coverUrl` hold what a reader edited, and empty means the catalog's value is used. Genre, trope and tags (Phase 5b6) use `genreEdited` / `tropeEdited` / `tagsEdited` instead, so a reader can also remove one (`library/book-topics.rules.ts`). Show the reader's value first; dedupe only ever uses `Book`.
 - **Private books:** a `Book` with `ownerId` set (a personal document from Amazon's Docs tab) belongs to that user alone. A document that matches a shared catalog book (by the reader's library, then their own documents, then the catalog's dedupe key) uses the shared book; only an unmatched one becomes private. Any lookup that matches books for a library must exclude other users' private books, and they must not be sent to the AI enrichment in Phase 5 without asking the user.
 - **There are five lists, and the list is the status:** Wishlist, TBR, Reading, Finished and DNF are views of `UserBook.status`. Don't store lists separately. The "Owned" shelf (Phase 3g, `?shelf=owned`) isn't a sixth list: it's a cross-list view of every book with a format, whatever its status, and never a target for moves. `SHELVES` stays the five lists; `SHELF_TABS` adds Owned.
 - **Formats are a detail of the book, not a list:** `UserBook.formats` holds any of ebook, physical and audiobook, and empty means not owned. A `WISHLIST` book becomes `TO_READ` as soon as it gets a format, and a `TO_READ` book with no formats left becomes `WISHLIST`. Other statuses don't change.

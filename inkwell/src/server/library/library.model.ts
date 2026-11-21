@@ -9,6 +9,8 @@ import type { Db } from "@/types/server.type";
 // read or change another user's books.
 
 const withCatalog = {
+  genre: { select: { name: true } },
+  trope: { select: { name: true } },
   book: {
     include: {
       genres: { include: { genre: true } },
@@ -77,6 +79,37 @@ function formatsWhere({ formats, owned }: UserBookFilter) {
   return owned ? { isEmpty: false } : undefined;
 }
 
+const insensitive = (text: string) => ({ contains: text, mode: "insensitive" as const });
+
+// A reader's own genre, trope and tags replace the catalog's once edited, so
+// each is matched on the reader's row when edited and on the catalog's if not.
+const topicMatches = (search: NonNullable<UserBookFilter["search"]>): Prisma.UserBookWhereInput[] => [
+  ...(search.tag
+    ? [
+        { tagsEdited: true, tagSearch: { contains: search.tag } },
+        { tagsEdited: false, book: { tagSearch: { contains: search.tag } } },
+      ]
+    : []),
+  { genreEdited: true, genre: { name: insensitive(search.text) } },
+  { genreEdited: false, book: { genres: { some: { genre: { name: insensitive(search.text) } } } } },
+  { tropeEdited: true, trope: { name: insensitive(search.text) } },
+  { tropeEdited: false, book: { tropes: { some: { trope: { name: insensitive(search.text) } } } } },
+];
+
+const genreFilter = (names: string[]): Prisma.UserBookWhereInput => ({
+  OR: [
+    { genreEdited: true, genre: { name: { in: names } } },
+    { genreEdited: false, book: { genres: { some: { genre: { name: { in: names } } } } } },
+  ],
+});
+
+const tropeFilter = (names: string[]): Prisma.UserBookWhereInput => ({
+  OR: [
+    { tropeEdited: true, trope: { name: { in: names } } },
+    { tropeEdited: false, book: { tropes: { some: { trope: { name: { in: names } } } } } },
+  ],
+});
+
 const userBookWhere = (userId: string, query: UserBookFilter) => {
   const { search } = query;
   const authorMatches = search
@@ -96,15 +129,17 @@ const userBookWhere = (userId: string, query: UserBookFilter) => {
           {
             book: {
               OR: [
-                { title: { contains: search.text, mode: "insensitive" as const } },
+                { title: insensitive(search.text) },
                 // Text that normalizes to nothing ("!!") would otherwise match every book.
                 ...(search.normalized ? [{ dedupeKey: { contains: search.normalized } }] : []),
                 ...authorMatches,
               ],
             },
           },
+          ...topicMatches(search),
         ]
       : undefined,
+    AND: [...(query.genres ? [genreFilter(query.genres)] : []), ...(query.tropes ? [tropeFilter(query.tropes)] : [])],
   } satisfies Prisma.UserBookWhereInput;
 };
 
@@ -187,7 +222,15 @@ export function updateEditedUserBook(
     audioMinutes: number | null;
     acquiredAt: Date | null;
     acquiredAtPrecision: DatePrecision;
-  },
+  } & Partial<{
+    genreId: string | null;
+    genreEdited: boolean;
+    tropeId: string | null;
+    tropeEdited: boolean;
+    tags: string[];
+    tagsEdited: boolean;
+    tagSearch: string;
+  }>,
   db: Db = prisma,
 ) {
   return db.userBook.update({ where: { id: userBookId, userId }, data });

@@ -2,10 +2,10 @@
 
 import { Info } from "lucide-react";
 import { useEffect, useId, useState } from "react";
-import { AudioLengthField } from "@/components/AudioLengthField";
+import { AudioLengthField } from "@/components/common/AudioLengthField";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TapTooltip } from "@/components/common/TapTooltip";
 import { BookFormat } from "@/generated/prisma/enums";
 
 const FORMATS = [
@@ -19,14 +19,17 @@ const FORMATS = [
 // its length, unless `withLength` is false (a book already in the library only
 // gains formats, so a length there would be ignored). `onOwnedChange` tells the
 // form whether any format is ticked, on mount too, so a remounted form starts
-// in step.
+// in step. `owned` are formats the reader has already: shown ticked and
+// locked, since adding a book again can't remove them.
 export function FormatsField({
   defaultValues,
+  owned = [],
   audioLength,
   withLength = true,
   onOwnedChange,
 }: Readonly<{
   defaultValues?: string[];
+  owned?: string[];
   audioLength?: { audioHours?: string; audioMinutes?: string };
   withLength?: boolean;
   onOwnedChange?: (owned: boolean) => void;
@@ -46,14 +49,9 @@ export function FormatsField({
     <FieldSet className='flex flex-col'>
       <FieldLegend variant='label' className='flex gap-1 items-center'>
         <span>Formats you own</span>
-        <Tooltip>
-          <TooltipTrigger aria-label='About formats'>
-            <Info size={16} />
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Leave these empty if you don’t own the book.</p>
-          </TooltipContent>
-        </Tooltip>
+        <TapTooltip label='About formats' content={<p>Leave these empty if you don’t own the book.</p>}>
+          <Info size={16} />
+        </TapTooltip>
       </FieldLegend>
       <div className='flex flex-col gap-x-5 gap-y-2'>
         {FORMATS.map(({ value, label }) => (
@@ -63,6 +61,7 @@ export function FormatsField({
               name='formats'
               value={value}
               defaultChecked={defaultValues?.includes(value)}
+              disabled={owned.includes(value)}
               onCheckedChange={(checked) => toggle(value, checked)}
             />
             <FieldLabel htmlFor={`${uid}-format-${value}`} className='font-normal'>

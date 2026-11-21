@@ -40,16 +40,36 @@
    - **Change: a year alone shows in full ✅ (2026-11-15):** on shelf cards, a year-only date shows "2024", not "24"; dates with a month or day keep the two-digit year
    - **Change: documents reuse the shared catalog ✅ built (2026-11-15):** a Docs import uses a matching shared book; only an unmatched document becomes private
    - **3g — An "Owned" shelf ✅ done:** a tab with every book owned in any format, across TBR, Reading, Finished and DNF; a view of status and formats, not a sixth list
-4. **[Phase 4 — Search and ISBN](phase-4-adding-books.md) built; ⏭️ closing it needs the 4d real-phone check**
+4. [Phase 4 — Search and ISBN](phase-4-adding-books.md) ✅ closed on 2026-11-15 ("Done when" 21 of 21; scanning checked on a laptop and a phone)
    - 4a — Metadata providers (Open Library, Google Books) ✅ done, plus the per-user rate limit
    - 4b — Add by ISBN ✅ done, at `/books/new`
    - 4c — Search by title or author ✅ done, at `/books/new` (Search tab), checked by the user (✅ follow-up built: the synopsis is saved after an add by search or ISBN)
-   - 4d — Scan the barcode ✅ built (photo, decoded in the browser); real-phone check still to do
-   - 4d follow-up — Live scanning ✅ built: "Scan live" reads the barcode from the camera's video, phone or laptop; real-device check still to do
-5. [Phase 5 — AI enrichment (Claude API)](phase-5-ai-enrichment.md)
+   - 4d — Scan the barcode ✅ done (photo, decoded in the browser)
+   - 4d follow-up — Live scanning ✅ done: "Scan live" reads the barcode from the camera's video, phone or laptop
+5. [Phase 5 — AI enrichment (Claude API)](phase-5-ai-enrichment.md) ⏭️ next
+   - 5.0 — Security updates before 5a: Next 16.4.3 → 16.4.5 (seven moderate advisories), an `effect` override for a new Prisma CLI finding, and the due `fast-xml-parser` update ✅ done (2026-11-21)
+   - 5a — One add form: no tabs on `/books/new`, the search in the title field as a dropdown, and the ISBN lookup at the top of the form ⏭️ next
+     - 5a1 — ISBN at the top of the form ✅ done (2026-11-21)
+     - 5a2 — ISBN lookup and scanning inside the form (the ISBN tab goes) ✅ done (2026-11-21)
+     - 5a3 — Search in the title field, as a dropdown (the Search tab goes) ✅ done (2026-11-21)
+     - 5a4 — One form, no tabs, and the old tab components removed ✅ built (2026-11-21), to be checked in the app
+   - 5b — AI enrichment ✅ built (2026-11-22), deploy pending
+     - 5b1 — Synopsis for books added without a lookup ✅ built (2026-11-21)
+     - 5b2 — The enrichment service (Haiku 5.5, structured output, curated lists only) ✅ built (2026-11-21)
+     - 5b3 — Enrich single adds inline ✅ built (2026-11-21)
+     - 5b4 — Imports and the backlog through Message Batches, collected by a cron route ✅ built (2026-11-22)
+     - 5b5 — Show genres, tropes, tags and length ✅ built (2026-11-22), on shelf cards
+     - 5b5a — Tell genre and trope apart from tags on cards ⏳ pending
+     - 5b5b — Tooltips that work on phones ✅ built (2026-11-22)
+     - 5b6 — Edit them ✅ built (2026-11-22)
+     - 5b7 — Privacy policy and closing ✅ built (2026-11-22)
 6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)
 7. [Phase 7 — Quality and deploy](phase-7-quality-deploy.md)
-8. [Later / nice to have](later.md)
+   - Row-level security on every table (Supabase advisor, 2026-11-14) ✅ applied locally and on Supabase on 2026-11-21
+8. [Phase 8 — Mobile API](phase-8-mobile-api.md) ⏳ planned, when a mobile app is: Firebase ID tokens in `getRequestUser`, a versioned JSON API (`/api/v1`) over the existing services, OpenAPI
+9. [Phase 9 — Mobile app](phase-9-mobile-app.md) ⏳ planned, after Phase 8: native app or PWA to decide; sign-in, shelves, adding with camera scanning, journal, store release
+10. [Phase 10 — Paid subscriptions](phase-10-subscriptions.md) ⏳ idea: free plan limits (Amazon import pages, books, journal, lookups, API tokens) and a Sonnet 5.5 retry of weak AI enrichment, for subscribers
+11. [Later / nice to have](later.md)
 
 ## Architecture
 

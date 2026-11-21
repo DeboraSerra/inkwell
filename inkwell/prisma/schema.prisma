@@ -58,7 +58,9 @@ model RateLimit {
 // user's status, shelves and notes about it live in per-user tables.
 // ---------------------------------------------------------------------------
 
+// Page-count thresholds are in src/server/enrichment/enrichment.rules.ts.
 enum LengthCategory {
+  NOVELLA
   SHORT
   MEDIUM
   LONG
@@ -102,8 +104,15 @@ model Book {
   lengthCategory LengthCategory?
   publishedYear  Int?
   description    String?
+  // When a synopsis was last looked for and not found, so it isn't retried.
+  descriptionCheckedAt DateTime?
   tags           String[]
+  // The tags as one lower-case string, for partial tag search; see
+  // tagSearchText in src/server/books/dedupe.ts.
+  tagSearch      String          @default("")
   aiEnrichedAt   DateTime?
+  // Failed enrichment calls or invalid replies; the book is skipped after 3.
+  aiAttempts     Int             @default(0)
   metadataSource MetadataSource
   genres         BookGenre[]
   tropes         BookTrope[]
@@ -121,6 +130,8 @@ model Genre {
   name        String      @unique
   description String?
   books       BookGenre[]
+  tropes      GenreTrope[]
+  userBooks   UserBook[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }
@@ -130,8 +141,22 @@ model Trope {
   name        String      @unique
   description String?
   books       BookTrope[]
+  genres      GenreTrope[]
+  userBooks   UserBook[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+}
+
+// Which genres a trope belongs to (curated in assets/lists/tropes.ts, kept in
+// sync by the seed), so the shelf filter can show a genre's tropes.
+model GenreTrope {
+  genre   Genre  @relation(fields: [genreId], references: [id], onDelete: Cascade)
+  genreId String
+  trope   Trope  @relation(fields: [tropeId], references: [id], onDelete: Cascade)
+  tropeId String
+
+  @@id([genreId, tropeId])
+  @@index([tropeId])
 }
 
 model BookGenre {
@@ -215,6 +240,19 @@ model UserBook {
   acquiredAtPrecision DatePrecision @default(DAY)
   // Search text for `authors`; see authorSearchText.
   authorSearch String         @default("")
+  // This reader's genre, trope and tags (Phase 5b6), over the catalog's. Only
+  // when the matching *Edited flag is set; then null or empty means the reader
+  // removed it, so a later AI run can't bring it back for them.
+  genre        Genre?         @relation(fields: [genreId], references: [id], onDelete: SetNull)
+  genreId      String?
+  genreEdited  Boolean        @default(false)
+  trope        Trope?         @relation(fields: [tropeId], references: [id], onDelete: SetNull)
+  tropeId      String?
+  tropeEdited  Boolean        @default(false)
+  tags         String[]       @default([])
+  tagsEdited   Boolean        @default(false)
+  // Search text for `tags`; see tagSearchText.
+  tagSearch    String         @default("")
   source       UserBookSource
   addedAt      DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
@@ -247,4 +285,23 @@ model ReadThrough {
   updatedAt          DateTime      @updatedAt
 
   @@index([userBookId])
+}
+
+enum EnrichmentBatchStatus {
+  SUBMITTED
+  COLLECTED
+}
+
+// A Message Batches request of catalog books to enrich (Phase 5b4). Results
+// are matched to books by custom_id, which is the book id, and only for the
+// books listed here.
+model EnrichmentBatch {
+  id               String                @id @default(uuid())
+  anthropicBatchId String                @unique
+  status           EnrichmentBatchStatus @default(SUBMITTED)
+  bookIds          String[]
+  createdAt        DateTime              @default(now())
+  endedAt          DateTime?
+
+  @@index([status])
 }

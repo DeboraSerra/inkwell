@@ -1,6 +1,7 @@
 // Validates what the shelf page sends. Kept out of the controller because
 // everything exported from a "use server" file becomes a public endpoint.
 import { z } from "zod";
+import { normalizeTagText } from "@/server/books/dedupe";
 import { BookFormat, ReadingStatus } from "@/generated/prisma/enums";
 import {
   acquiredFields,
@@ -20,6 +21,21 @@ import {
 } from "./manual-book.schema";
 
 const id = z.string().min(1).max(64);
+
+export const MAX_READER_TAGS = 10;
+export const MAX_READER_TAG_LENGTH = 30;
+const topicName = z.string().trim().max(60, "Choose a genre or trope from the list.");
+
+// Tags typed as "cozy, small town", or one per line: lower case,
+// single-spaced, no repeats.
+export function parseTags(text: string): { tags?: string[]; error?: string } {
+  const tags = [...new Set(text.split(/[,\n]/).map(normalizeTagText).filter(Boolean))];
+  if (tags.length > MAX_READER_TAGS) return { error: `Use at most ${MAX_READER_TAGS} tags.` };
+  if (tags.some((tag) => tag.length > MAX_READER_TAG_LENGTH)) {
+    return { error: `Keep each tag under ${MAX_READER_TAG_LENGTH + 1} characters.` };
+  }
+  return { tags };
+}
 const status = z.enum(ReadingStatus);
 
 export const changeStatusSchema = z.object({ userBookId: id, status });
@@ -49,6 +65,10 @@ const editBookSchema = z
     ...audioLengthFields,
     ...acquiredFields,
     pastReads: pastReadsField,
+    // Sent only by the edit dialog; left out, the book's topics don't change.
+    genre: topicName.optional(),
+    trope: topicName.optional(),
+    tags: z.string().max(1000).optional(),
   })
   .transform((data, ctx) => {
     const { dates, error } = parseReadDates(data.status, data);
@@ -73,8 +93,17 @@ const editBookSchema = z
       ctx.addIssue({ code: "custom", message: acquiredError });
       return z.NEVER;
     }
+    const sentTopics = data.genre !== undefined || data.trope !== undefined || data.tags !== undefined;
+    const parsedTags = parseTags(data.tags ?? "");
+    if (parsedTags.error) {
+      ctx.addIssue({ code: "custom", message: parsedTags.error });
+      return z.NEVER;
+    }
     const { userBookId, formats, status, pageCount, authors, coverUrl } = data;
     return {
+      topics: sentTopics
+        ? { genre: data.genre || null, trope: data.trope || null, tags: parsedTags.tags ?? [] }
+        : undefined,
       acquired,
       userBookId,
       formats,

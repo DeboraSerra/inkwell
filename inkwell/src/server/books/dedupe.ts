@@ -61,6 +61,15 @@ export function authorSearchText(authors: string[]) {
   return names.length ? `|${names.join("|")}|` : "";
 }
 
+// What tag search runs against: "|high school|rivals|", lower case and
+// single-spaced, so part of a tag matches but never across two tags.
+export const normalizeTagText = (text: string) => text.trim().replaceAll(/\s+/g, " ").toLowerCase();
+
+export function tagSearchText(tags: string[] | null) {
+  const clean = (tags ?? []).map((tag) => normalizeTagText(tag).replaceAll("|", " ")).filter(Boolean);
+  return clean.length ? `|${clean.join("|")}|` : "";
+}
+
 const isNameSuffix = (part: string) => NAME_SUFFIXES.has(toWords(part.toLowerCase()));
 
 function splitCommaNames(text: string) {

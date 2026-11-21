@@ -12,7 +12,7 @@ export const Login = ({ next }: { next: string | undefined }) => {
           <p className='text-muted-foreground'>Your reading journal.</p>
         </div>
         <EmailSignInForm next={next} />
-        <FieldSeparator>or</FieldSeparator>
+        <FieldSeparator className="mb-5">or</FieldSeparator>
         <GoogleSignInButton next={next} />
         <p className='text-xs text-muted-foreground'>
           <Link href='/privacy' className='underline'>

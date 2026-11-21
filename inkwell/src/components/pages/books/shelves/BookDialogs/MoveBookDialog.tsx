@@ -6,7 +6,7 @@ import { moveDateValues } from "@/server/library/shelf-filters";
 import { LIST_NAMES } from "@/server/library/status.rules";
 import { type SubmitEvent, useId, useTransition } from "react";
 import { BookDialog } from ".";
-import { PartialDateField } from "../../../../PartialDateField";
+import { PartialDateField } from "@/components/common/PartialDateField";
 import { FieldDescription, FieldGroup } from "../../../../ui/field";
 
 const localToday = () => {

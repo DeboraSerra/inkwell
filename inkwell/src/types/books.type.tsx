@@ -33,6 +33,10 @@ export type ShelfBook = {
   pastReads: { id: string; values: Record<string, string> }[];
   // When the reader got the book, as the edit form's text.
   acquiredValues: Record<string, string>;
+  // One genre and one trope (the reader's, else the oldest), and the tags.
+  genre: string | null;
+  trope: string | null;
+  tags: string[];
 };
 
 // Looking a book up
@@ -71,7 +75,8 @@ export type SearchResult = ProviderRef & {
 
 // The book form
 
-// The book a form starts from: a looked-up book on the ISBN and Search tabs,
+// The book a form starts from: a book found by the add form's ISBN lookup or
+// title search,
 // or a shelf book in the edit dialog. A shelf book fits as it is.
 export type BookFormBook = {
   title: string;
@@ -86,6 +91,10 @@ export type BookFormBook = {
   readDates?: Record<string, string>;
   pastReads?: { id: string; values: Record<string, string> }[];
   acquiredValues?: Record<string, string>;
+  // The reader's genre, trope and tags as shown (theirs, else the catalog's).
+  genre?: string | null;
+  trope?: string | null;
+  tags?: string[];
 };
 
 // What a submit reports back. `ok` false keeps the form as it is, with what
@@ -124,7 +133,14 @@ export type AmazonDocDetails = {
 
 export type CatalogBookIds = { id: string; ownerId: string | null; isbn13: string | null; isbn10: string | null };
 
-export type DescribedBook = CatalogBookIds & { description: string | null };
+export type DescribedBook = CatalogBookIds & {
+  description: string | null;
+  descriptionCheckedAt: Date | null;
+  openLibraryId: string | null;
+  googleBooksId: string | null;
+};
+
+export type EnrichableBook = DescribedBook & { aiEnrichedAt: Date | null };
 
 export type CatalogDetails = {
   ownerId: string | null;

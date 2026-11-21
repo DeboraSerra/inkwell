@@ -2,14 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 // Public, so the Chrome Web Store listing can link to it. Keep it true to what
-// the app and extension actually do: update it when that changes (for example
-// when AI enrichment arrives in Phase 5).
+// the app and extension actually do: update it when that changes.
 export const metadata: Metadata = {
   title: "Privacy · Inkwell",
   description: "What Inkwell and its Kindle import extension collect, and where it goes.",
 };
 
-const LAST_UPDATED = "8 November 2026";
+const LAST_UPDATED = "22 November 2026";
 
 function Section({ title, children }: Readonly<{ title: string; children: React.ReactNode }>) {
   return (
@@ -44,13 +43,28 @@ export default function PrivacyPage() {
       <Section title='Your library'>
         <p>
           Inkwell stores the books you add, and for each one the list it’s on, the formats you own,
-          your read dates, when you got it, an audiobook’s length, and any cover, authors or page
-          count you edit. Only you can see your library.
+          your read dates, when you got it, an audiobook’s length, and any cover, authors, page
+          count, genre, trope or tags you edit. Only you can see your library.
         </p>
         <p>
           When you look up a book by ISBN or search for one, the ISBN or the words you typed are sent
-          to Open Library and Google Books to find its details and cover. Nothing about you is sent
-          with them.
+          to Open Library and Google Books to find its details and cover. To find a synopsis for a
+          book that doesn’t have one, its ISBN or its Open Library or Google Books identifier is sent
+          to them too. Nothing about you is sent with them.
+        </p>
+      </Section>
+
+      <Section title='Genres, tropes and tags'>
+        <p>
+          Inkwell suggests a genre, a trope, tags and a length for each book with Anthropic’s Claude
+          API. For that, a book’s title, subtitle, authors, publication year, page count and synopsis
+          are sent to Anthropic: once per book, or up to three times if a suggestion fails. Only books in Inkwell’s shared catalog are sent: your
+          personal documents from the Docs tab never are. Nothing about you is sent: not your
+          account, your lists, your dates, or the genres, tropes and tags you set yourself.
+        </p>
+        <p>
+          The genres and tropes come only from Inkwell’s own lists. The ones you set for a book are
+          yours alone and are never replaced by a suggestion.
         </p>
       </Section>
 
@@ -77,8 +91,8 @@ export default function PrivacyPage() {
       <Section title='Where your data is kept'>
         <p>
           Inkwell runs on Vercel, and your data is stored in a Postgres database hosted by Supabase.
-          Sign-in is handled by Google’s Firebase Authentication. Each of them processes data only to
-          provide that service.
+          Sign-in is handled by Google’s Firebase Authentication, and the book suggestions by
+          Anthropic. Each of them processes data only to provide that service.
         </p>
       </Section>
 

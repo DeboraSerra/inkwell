@@ -12,6 +12,9 @@ export type ShelfFilters = {
   // Only books with at least one format (the Owned shelf).
   owned: boolean;
   formats: BookFormat[];
+  // Genre and trope names: a book matches any genre ticked and any trope ticked.
+  genres: string[];
+  tropes: string[];
   search: string;
   page: number;
   // Only when the URL asks for one; otherwise the cookie or device decides.
@@ -20,3 +23,7 @@ export type ShelfFilters = {
 };
 
 export type ShelfParams = Record<string, string | string[] | undefined>;
+
+// The curated genres and tropes for the shelf's filter, each trope with the
+// genres it belongs to.
+export type TopicLists = { genres: string[]; tropes: { name: string; genres: string[] }[] };

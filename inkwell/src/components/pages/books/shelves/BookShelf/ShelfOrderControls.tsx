@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ReadingStatus } from "@/generated/prisma/enums";
 import { shelfHref } from "@/server/library/shelf-filters";
-import { ListFilter } from "lucide-react";
+import { ArrowDownNarrowWide } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useBooksContext } from "../../../context";
 import type { ShelfSort } from "@/types/shelf.type";
@@ -43,8 +43,8 @@ export const ShelfOrderControls = () => {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant='ghost' aria-label='Sort books' />}>
-        <ListFilter />
+      <DropdownMenuTrigger render={<Button variant='ghost' size="icon" aria-label='Sort books' />}>
+        <ArrowDownNarrowWide />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-fit">
         <DropdownMenuRadioGroup value={filters.sort} onValueChange={(sort: ShelfSort) => choose(sort)}>

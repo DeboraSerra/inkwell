@@ -1,10 +1,11 @@
 import "server-only";
 import { MetadataSource } from "@/generated/prisma/enums";
-import { NotFoundError } from "@/server/errors";
+import { NotFoundError, ValidationError } from "@/server/errors";
 import * as bookModel from "./book.model";
+import * as topicModel from "./topic.model";
 import { catalogBlanksFrom } from "./catalog-blanks.rules";
 import { authorSearchText, dedupeKey } from "./dedupe";
-import { findDescription, findDescriptionByIsbn } from "@/server/metadata/metadata.service";
+import { findDescription, findDescriptionById, findDescriptionByIsbn } from "@/server/metadata/metadata.service";
 import { cleanIsbn, toIsbn13 } from "./isbn";
 import type { AmazonBookDetails, AmazonDocDetails, BookIdentity, CatalogBookIds, CatalogDetails, DescribedBook, ManualBookDetails } from "@/types/books.type";
 import type { BookMetadata } from "@/types/metadata.type";
@@ -162,21 +163,60 @@ export async function fillMissingDetails(book: CatalogDetails & { id: string }, 
   }
 }
 
-// Saves the synopsis of a book just added by search or ISBN, when the shared
-// book has none: from the provider record it was found with, or, for a
-// catalog book reused by its ISBN, from the first provider that has one. Run
-// after the add's response is sent; it never overwrites, skips private books,
-// and logs rather than throws, so it can't fail an add.
+// A synopsis by a sure match only: the book's provider ids, then its ISBN.
+// Never by title, which can pick another book. Undefined when nothing was
+// tried, null when every lookup missed.
+async function findDescriptionByIds(book: DescribedBook) {
+  const { openLibraryId, googleBooksId, isbn13 } = book;
+  const lookups: (() => Promise<string | undefined>)[] = [];
+  if (openLibraryId) lookups.push(() => findDescriptionById("OPEN_LIBRARY", openLibraryId));
+  if (googleBooksId) lookups.push(() => findDescriptionById("GOOGLE_BOOKS", googleBooksId));
+  if (isbn13) lookups.push(() => findDescriptionByIsbn(isbn13));
+  if (lookups.length === 0) return undefined;
+  for (const lookup of lookups) {
+    const description = await lookup();
+    if (description) return description;
+  }
+  return null;
+}
+
+// Saves the synopsis of a just-added shared book that has none: from the
+// provider record it was found with, else by its provider ids or ISBN, since
+// another provider may have one (an Open Library record often has none, while
+// Google Books does). A miss is recorded, so the ids and ISBN aren't tried
+// again; a record from a later add still gets its chance. Run after the add's
+// response is sent; it never overwrites, skips private books, and logs rather
+// than throws, so it can't fail an add.
 export async function fillMissingDescription(book: DescribedBook, metadata?: BookMetadata) {
   if (book.ownerId || book.description) return false;
   try {
-    const description = metadata
-      ? await findDescription(metadata)
-      : book.isbn13 && (await findDescriptionByIsbn(book.isbn13));
-    if (!description) return false;
-    return await bookModel.fillBookDescription(book.id, description);
+    let description = metadata ? await findDescription(metadata) : undefined;
+    let tried = Boolean(metadata);
+    if (!description && !book.descriptionCheckedAt) {
+      const byIds = await findDescriptionByIds(book);
+      if (byIds !== undefined) tried = true;
+      description = byIds ?? undefined;
+    }
+    if (description) return await bookModel.fillBookDescription(book.id, description);
+    if (tried) await bookModel.markDescriptionChecked(book.id);
+    return false;
   } catch (error) {
     console.warn("Saving a book's synopsis failed", error);
     return false;
   }
+}
+
+// Every curated genre and trope, by name, for the shelf's filter select.
+export function listTopics() {
+  return topicModel.listTopicNames();
+}
+
+// A genre's and a trope's ids by name, only from the curated lists. Null
+// stays null (none chosen).
+export async function findTopicIds(names: { genre: string | null; trope: string | null }, tx?: Tx) {
+  const genreId = names.genre ? await topicModel.findGenreId(names.genre, tx) : null;
+  if (names.genre && !genreId) throw new ValidationError("Choose a genre from the list.");
+  const tropeId = names.trope ? await topicModel.findTropeId(names.trope, tx) : null;
+  if (names.trope && !tropeId) throw new ValidationError("Choose a trope from the list.");
+  return { genreId, tropeId };
 }

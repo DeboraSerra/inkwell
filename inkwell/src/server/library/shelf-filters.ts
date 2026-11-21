@@ -7,6 +7,8 @@ import type { ReadingState } from "@/types/library.type";
 import type { PageSize, ShelfFilters, ShelfParams, ShelfSort } from "@/types/shelf.type";
 
 const MAX_SEARCH_LENGTH = 200;
+const MAX_TOPICS = 10;
+const MAX_TOPIC_LENGTH = 60;
 // Pages on each side of the current one in the page links.
 const PAGE_LINK_SIBLINGS = 1;
 
@@ -97,6 +99,16 @@ const statusOf = (slug: string) => SHELVES.find((shelf) => shelf.slug === slug)?
 
 const list = (value: string | string[] | undefined) => [value ?? []].flat();
 
+// Names only, checked against the lists by the query: an unknown name matches
+// no book rather than failing.
+const topics = (value: string | string[] | undefined) => [
+  ...new Set(
+    list(value)
+      .map((name) => name.trim())
+      .filter((name) => name && name.length <= MAX_TOPIC_LENGTH),
+  ),
+].slice(0, MAX_TOPICS);
+
 // A query string in the shape Next gives a page's searchParams: a repeated
 // key becomes a list.
 export function searchParamsRecord(query: URLSearchParams): ShelfParams {
@@ -121,6 +133,8 @@ export function parseShelfFilters(params: ShelfParams): ShelfFilters {
     status: shelf.status,
     owned,
     formats: [...new Set(formats)],
+    genres: topics(params.genre),
+    tropes: topics(params.trope),
     search,
     page: Number.isSafeInteger(page) && page >= 1 ? page : 1,
     perPage: parsePageSize(list(params.per)[0]),
@@ -147,14 +161,18 @@ export function moveDateValues(
 export function shelfHref({
   shelf,
   formats,
+  genres = [],
+  tropes = [],
   search,
   perPage,
   sort,
   page = 1,
 }: Pick<ShelfFilters, "shelf" | "formats" | "search"> &
-  Partial<Pick<ShelfFilters, "perPage" | "sort">> & { page?: number }) {
+  Partial<Pick<ShelfFilters, "genres" | "tropes" | "perPage" | "sort">> & { page?: number }) {
   const query = new URLSearchParams({ shelf });
   for (const format of formats) query.append("format", format);
+  for (const genre of genres) query.append("genre", genre);
+  for (const trope of tropes) query.append("trope", trope);
   if (search) query.set("q", search);
   if (perPage) query.set("per", String(perPage));
   if (sort && sort !== defaultSortFor(statusOf(shelf))) query.set("sort", sort);
