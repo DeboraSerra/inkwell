@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
@@ -41,4 +42,15 @@ export async function getRequestUser(request: Request) {
   if (header === null) return getCurrentUser();
   const token = /^Bearer (\S+)$/i.exec(header)?.[1];
   return token ? authService.getUserFromApiToken(token) : null;
+}
+
+const digest = (value: string) => createHash("sha256").update(value).digest();
+
+// Vercel Cron sends "Authorization: Bearer <CRON_SECRET>". Without the secret
+// set, no request passes. Compared as hashes, in constant time.
+export function isCronRequest(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  const header = request.headers.get("authorization");
+  if (!secret || !header) return false;
+  return timingSafeEqual(digest(header), digest(`Bearer ${secret}`));
 }

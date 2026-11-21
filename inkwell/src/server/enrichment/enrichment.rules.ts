@@ -9,6 +9,10 @@ export const MAX_GENRES = 1;
 export const MAX_TROPES = 1;
 export const MAX_TAGS = 10;
 export const MAX_TAG_LENGTH = 30;
+// Per batch, to keep one cron run's collecting well inside its time limit.
+export const MAX_BATCH_SIZE = 1000;
+// Synopsis lookups before a batch, each a provider call or two.
+export const SYNOPSIS_LOOKUPS_PER_RUN = 40;
 // Enough for a synopsis; a longer one only costs tokens.
 const MAX_DESCRIPTION_LENGTH = 3000;
 
@@ -74,12 +78,20 @@ function bookJson(book: EnrichmentBook) {
 
 // One request per book. The same params go to the Messages API inline and to
 // Message Batches (5b4).
-export function enrichmentRequest(book: EnrichmentBook, lists: EnrichmentLists): MessageCreateParamsNonStreaming {
+// In a batch the system prompt (mostly the two lists) is the same for every
+// request, so it's marked for caching; inline, a cache write would rarely be
+// read again.
+export function enrichmentRequest(
+  book: EnrichmentBook,
+  lists: EnrichmentLists,
+  { cache = false }: { cache?: boolean } = {},
+): MessageCreateParamsNonStreaming {
   const askLength = lengthFromPages(book.pageCount) === null;
+  const system = systemPrompt(lists);
   return {
     model: ENRICHMENT_MODEL,
     max_tokens: 2048,
-    system: systemPrompt(lists),
+    system: cache ? [{ type: "text", text: system, cache_control: { type: "ephemeral" } }] : system,
     messages: [{ role: "user", content: bookJson(book) }],
     output_config: { effort: "low", format: { type: "json_schema", schema: replyJsonSchema(lists, askLength) } },
   };

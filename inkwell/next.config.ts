@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   images: {
     // Covers from the book APIs are fetched by the app's server rather than the
-    // reader's browser (see components/BookCover.tsx). Older Open Library
+    // reader's browser (see components/common/BookCover.tsx). Older Open Library
     // covers redirect to the Internet Archive, which some browsers block; the
     // optimizer follows up to 3 redirects. Keep this list in sync with
     // OPTIMIZED_COVER_HOSTS there.

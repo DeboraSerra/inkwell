@@ -34,3 +34,10 @@ export type Enrichment = {
 export type EnrichmentParse = { ok: true; enrichment: Enrichment } | { ok: false; reason: string };
 
 export type EnrichmentOutcome = "enriched" | "already-enriched" | "gave-up" | "failed";
+
+export type BatchCollection = { batches: number; enriched: number; failed: number; skipped: number };
+
+export type EnrichmentCronSummary = {
+  collected: BatchCollection;
+  submitted: { batchId: string; books: number } | null;
+};

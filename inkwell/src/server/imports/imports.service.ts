@@ -13,21 +13,26 @@ import type { Tx } from "@/types/server.type";
 async function importEach<T>(
   userId: string,
   rows: (T & Acquired)[],
-  findOrCreate: (row: T, tx: Tx) => Promise<{ id: string }>,
+  findOrCreate: (row: T, tx: Tx) => Promise<{ id: string; ownerId: string | null }>,
 ) {
   let created = 0;
+  // Shared books new to this library, for enrichment after the response.
+  const sharedBookIds: string[] = [];
   for (const { acquired, ...details } of rows) {
     const added = await transaction(async (tx) => {
       const book = await findOrCreate(details as T, tx);
-      return addBookToLibrary(
+      const result = await addBookToLibrary(
         userId,
         { bookId: book.id, formats: [BookFormat.EBOOK], source: UserBookSource.AMAZON_IMPORT, acquired },
         tx,
       );
+      return { ...result, book };
     });
-    if (added.created) created++;
+    if (!added.created) continue;
+    created++;
+    if (!added.book.ownerId) sharedBookIds.push(added.book.id);
   }
-  return { created, existing: rows.length - created };
+  return { created, existing: rows.length - created, sharedBookIds };
 }
 
 export function importAmazonBooks(userId: string, books: (AmazonBookDetails & Acquired)[]) {

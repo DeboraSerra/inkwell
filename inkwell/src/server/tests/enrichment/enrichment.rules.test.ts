@@ -116,6 +116,13 @@ describe("enrichmentRequest", () => {
     });
   });
 
+  it("marks the system prompt for caching only when asked, as batches do", () => {
+    expect(typeof enrichmentRequest(book, lists).system).toBe("string");
+    expect(enrichmentRequest(book, lists, { cache: true }).system).toEqual([
+      { type: "text", text: enrichmentRequest(book, lists).system, cache_control: { type: "ephemeral" } },
+    ]);
+  });
+
   it("caps a long synopsis", () => {
     const request = enrichmentRequest({ ...book, description: "x".repeat(10_000) }, lists);
     expect(JSON.parse(request.messages[0].content as string).description).toHaveLength(3000);

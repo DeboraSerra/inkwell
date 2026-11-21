@@ -11,7 +11,7 @@ const book = (title: string) => ({ title, authors: ["A"] });
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(findOrCreateAmazonBook).mockResolvedValue({ id: "b1" } as never);
+  vi.mocked(findOrCreateAmazonBook).mockResolvedValue({ id: "b1", ownerId: null } as never);
 });
 
 describe("importAmazonBooks", () => {
@@ -19,7 +19,7 @@ describe("importAmazonBooks", () => {
     vi.mocked(addBookToLibrary)
       .mockResolvedValueOnce({ created: true } as never)
       .mockResolvedValueOnce({ created: false } as never);
-    await expect(importAmazonBooks("user-1", [book("x"), book("y")])).resolves.toEqual({ created: 1, existing: 1 });
+    await expect(importAmazonBooks("user-1", [book("x"), book("y")])).resolves.toEqual({ created: 1, existing: 1, sharedBookIds: ["b1"] });
     expect(addBookToLibrary).toHaveBeenCalledWith(
       "user-1",
       { bookId: "b1", formats: ["EBOOK"], source: "AMAZON_IMPORT" },
@@ -28,7 +28,7 @@ describe("importAmazonBooks", () => {
   });
 
   it("does nothing for an empty list", async () => {
-    await expect(importAmazonBooks("user-1", [])).resolves.toEqual({ created: 0, existing: 0 });
+    await expect(importAmazonBooks("user-1", [])).resolves.toEqual({ created: 0, existing: 0, sharedBookIds: [] });
     expect(addBookToLibrary).not.toHaveBeenCalled();
   });
 });
@@ -47,13 +47,29 @@ describe("purchase dates", () => {
 describe("importAmazonDocs", () => {
   it("adds nothing when the same Docs page is imported twice", async () => {
     const { importAmazonDocs } = await import("@/server/imports/imports.service");
-    vi.mocked(findOrCreateAmazonDoc).mockResolvedValue({ id: "doc-1" } as never);
+    vi.mocked(findOrCreateAmazonDoc).mockResolvedValue({ id: "doc-1", ownerId: "user-1" } as never);
     vi.mocked(addBookToLibrary)
       .mockResolvedValueOnce({ created: true } as never)
       .mockResolvedValueOnce({ created: false } as never);
-    await expect(importAmazonDocs("user-1", [book("notes")])).resolves.toEqual({ created: 1, existing: 0 });
-    await expect(importAmazonDocs("user-1", [book("notes")])).resolves.toEqual({ created: 0, existing: 1 });
+    await expect(importAmazonDocs("user-1", [book("notes")])).resolves.toEqual({ created: 1, existing: 0, sharedBookIds: [] });
+    await expect(importAmazonDocs("user-1", [book("notes")])).resolves.toEqual({ created: 0, existing: 1, sharedBookIds: [] });
     expect(findOrCreateAmazonDoc).toHaveBeenNthCalledWith(2, "user-1", { title: "notes", authors: ["A"] }, "tx");
     expect(vi.mocked(addBookToLibrary).mock.calls.map((call) => call[1].bookId)).toEqual(["doc-1", "doc-1"]);
+  });
+});
+
+describe("books for enrichment", () => {
+  it("lists only shared books new to this library, never private ones", async () => {
+    const { importAmazonDocs } = await import("@/server/imports/imports.service");
+    vi.mocked(findOrCreateAmazonDoc)
+      .mockResolvedValueOnce({ id: "shared-1", ownerId: null } as never)
+      .mockResolvedValueOnce({ id: "private-1", ownerId: "user-1" } as never)
+      .mockResolvedValueOnce({ id: "shared-2", ownerId: null } as never);
+    vi.mocked(addBookToLibrary)
+      .mockResolvedValueOnce({ created: true } as never)
+      .mockResolvedValueOnce({ created: true } as never)
+      .mockResolvedValueOnce({ created: false } as never);
+    const result = await importAmazonDocs("user-1", [book("a"), book("b"), book("c")]);
+    expect(result.sharedBookIds).toEqual(["shared-1"]);
   });
 });

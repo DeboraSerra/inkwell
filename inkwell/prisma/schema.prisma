@@ -254,3 +254,22 @@ model ReadThrough {
 
   @@index([userBookId])
 }
+
+enum EnrichmentBatchStatus {
+  SUBMITTED
+  COLLECTED
+}
+
+// A Message Batches request of catalog books to enrich (Phase 5b4). Results
+// are matched to books by custom_id, which is the book id, and only for the
+// books listed here.
+model EnrichmentBatch {
+  id               String                @id @default(uuid())
+  anthropicBatchId String                @unique
+  status           EnrichmentBatchStatus @default(SUBMITTED)
+  bookIds          String[]
+  createdAt        DateTime              @default(now())
+  endedAt          DateTime?
+
+  @@index([status])
+}

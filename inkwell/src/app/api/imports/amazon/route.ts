@@ -1,4 +1,6 @@
+import { after } from "next/server";
 import { getRequestUser } from "@/server/auth/auth.guard";
+import { enrichImportedBooks } from "@/server/enrichment/enrichment.service";
 import { domainErrorResponse } from "@/server/errors";
 import { parseAmazonImport } from "@/server/imports/amazon-import.schema";
 import { importAmazonBooks, importAmazonDocs } from "@/server/imports/imports.service";
@@ -30,7 +32,10 @@ export async function POST(request: Request) {
       parsed.kind === "docs"
         ? await importAmazonDocs(user.id, parsed.books)
         : await importAmazonBooks(user.id, parsed.books);
-    return Response.json({ ...result, skipped: parsed.skipped });
+    const { sharedBookIds, ...counts } = result;
+    // After the response: the import's new shared books go out as one batch.
+    after(() => enrichImportedBooks(sharedBookIds));
+    return Response.json({ ...counts, skipped: parsed.skipped });
   } catch (error) {
     return domainErrorResponse(error);
   }

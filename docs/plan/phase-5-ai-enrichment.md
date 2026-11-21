@@ -211,7 +211,7 @@ Comes first, so enrichment can use the description.
 - `AI_ENRICH` is 10 a minute per user. Hitting it, or any error, is logged and never thrown; the book stays unenriched for 5b4's backlog.
 - tsc, lint and the 1,076 tests pass. **Not checked in the app:** that needs the 5b2 migration and `ANTHROPIC_API_KEY`. Then add a book and check its `BookGenre`/`BookTrope` rows, re-add it, and check the logs show no second call.
 
-### 5b4 — Imports and the backlog, through Message Batches
+### 5b4 — Imports and the backlog, through Message Batches ✅ built (2026-11-22)
 
 - **Migration:** an `EnrichmentBatch` table (`id`, the Anthropic batch id, `status`, `bookIds`, `createdAt`, `endedAt`), with RLS.
 - **Submitting:** after an Amazon import, `after()` submits the import's new catalog books as one batch (50% cheaper). Books already in a pending batch are skipped.
@@ -219,6 +219,25 @@ Comes first, so enrichment can use the description.
 - **Backfill:** the library already on Supabase (1,349 books) goes through the same backlog. At Haiku 5.5's batch price that's well under $1 (see open question 8).
 
 **Done when:** an import's books are enriched once the next cron run collects the batch, and a second run doesn't send them again.
+
+**Outcome (✅ built 2026-11-22):**
+
+- **Decided by the user:** the cron runs once a day (Hobby), the backfill of the existing catalog is approved, imported books get the 5b1 synopsis lookup before they're batched, and batches cache the system prompt.
+- Migration `20261122000000_add_enrichment_batch`: the `EnrichmentBatch` table (`anthropicBatchId` unique, `status` SUBMITTED or COLLECTED, `bookIds`, `createdAt`, `endedAt`), with RLS. **Not applied yet.**
+- `enrichment.service`:
+  - `submitEnrichmentBatch(bookIds?)` first runs the synopsis lookup for books that still need one (at most 40 a run, 4 at a time). A book left over waits for the next run. It then sends up to 1,000 shared books with no `aiEnrichedAt`, fewer than 3 attempts and not in a SUBMITTED batch, one request each with `custom_id` set to the book id, the system prompt marked `cache_control`, and records the batch.
+  - `collectEnrichmentBatches()` reads every ended batch and writes only results whose `custom_id` is in that batch's `bookIds` and whose book is still shared. An errored result or invalid reply counts an attempt; an expired or canceled one doesn't, so it's sent again.
+  - `runEnrichmentCron()` collects, then submits the backlog.
+- **Import:** `importEach` returns `sharedBookIds` (shared books new to the reader's library, never private ones). The Amazon import route sends them in `after()` through `enrichImportedBooks`, which logs instead of throwing. The response to the extension is unchanged.
+- **Cron:** `app/api/cron/enrichment/route.ts` (GET, `maxDuration` 300) checks `isCronRequest` in `auth.guard.ts`: `Authorization: Bearer <CRON_SECRET>`, compared in constant time, and refused when the secret isn't set. `inkwell/vercel.json` schedules it daily at 04:00 UTC. `.env.example` has `CRON_SECRET`.
+- tsc, lint and the 1,106 tests pass.
+- **Real run (2026-11-21, local):** the first cron run sent *Highly Suspicious and Unfairly Cute* as a batch, a second sent nothing (pending), and a third, 2 minutes later, collected it: Romance, Enemies to Lovers, MEDIUM. The cache was written (4,952 tokens).
+- **Bug found and fixed:** tags were never saved, here or in 5b2's inline call. `Book.tags` has no default, so books hold NULL, which Prisma's `isEmpty` doesn't match; `saveEnrichment` now matches NULL too. The two local books enriched before the fix have no tags.
+- **The user must:**
+  1. Apply the migration locally and on Supabase.
+  2. Add `CRON_SECRET` to `.env.local` and Vercel.
+  3. Check that Vercel's root directory is `inkwell/`, where `vercel.json` sits.
+  4. After the deploy, the first cron run sends the backlog: up to 1,000 books a day, so the 1,349 take two days.
 
 ### 5b5 — Show genres, tropes, tags and length
 
