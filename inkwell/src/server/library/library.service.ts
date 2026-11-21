@@ -4,17 +4,19 @@ import { fillMissingDescription, fillMissingDetails, fillMissingIsbn, findExisti
 import { authorSearchText, dedupeKey, normalizeAuthor, normalizeAuthorName, normalizeTitle } from "@/server/books/dedupe";
 import { transaction } from "@/server/db";
 import { NotFoundError, ValidationError } from "@/server/errors";
+import { enrichBook } from "@/server/enrichment/enrichment.service";
 import { lookupById, lookupIsbn, searchBooks } from "@/server/metadata/metadata.service";
+import { consumeRateLimit } from "@/server/rate-limit/rate-limit.service";
 import * as libraryModel from "./library.model";
 import * as readModel from "./read-through.model";
 import { canTransition, changeFormats, initialState, notStartedStatusFor, readChangeFor } from "./status.rules";
 import { toDateValues, toEditedReadFields, toReadFields } from "./partial-date.rules";
-import type { IsbnPreview, IsbnPreviewResult, ProviderRef, SearchResult, ShelfBook, ShelfRead } from "@/types/books.type";
+import type { EnrichableBook, IsbnPreview, IsbnPreviewResult, ProviderRef, SearchResult, ShelfBook, ShelfRead } from "@/types/books.type";
 import { sortByLastFinished, sortReads } from "./read-order.rules";
 import { parsePageSize } from "./shelf-filters";
 import type { ManualBookDetails } from "@/types/books.type";
 import type { PartialDate, ReadDates } from "@/types/dates.type";
-import type { ActedOn, AddBookInput, BookEdit, FoundLookup, LookupChoices, PastRead, ReadChange, ReaderDetails, ShownDetails, SkippedBook, StoredRead, UserBookFilters } from "@/types/library.type";
+import type { ActedOn, AddBookInput, JustAddedBook, BookEdit, FoundLookup, LookupChoices, PastRead, ReadChange, ReaderDetails, ShownDetails, SkippedBook, StoredRead, UserBookFilters } from "@/types/library.type";
 import type { BookMetadata } from "@/types/metadata.type";
 import type { Tx } from "@/types/server.type";
 import type { PageSize, ShelfSort } from "@/types/shelf.type";
@@ -355,10 +357,24 @@ export async function addBookFromProvider(userId: string, ref: ProviderRef, choi
   return { ...added, metadata };
 }
 
-// Saves a just-added book's synopsis, if its shared record has none. Meant to
-// run after the add's response is sent (see the controllers).
-export function saveSynopsis(added: { book: Parameters<typeof fillMissingDescription>[0]; metadata?: BookMetadata }) {
-  return fillMissingDescription(added.book, added.metadata);
+// Runs after an add's response is sent (see the controllers): saves the
+// shared book's synopsis if it has none, then enriches it once, so the
+// enrichment can use the synopsis. Never throws, so it can't fail an add.
+export async function finishAdd(userId: string, added: JustAddedBook) {
+  await fillMissingDescription(added.book, added.metadata);
+  await enrichAddedBook(userId, added.book);
+}
+
+// Private books are never sent to the AI. A failure or the rate limit leaves
+// the book for the backlog job (5b4), which picks up every unenriched book.
+async function enrichAddedBook(userId: string, book: EnrichableBook) {
+  if (book.ownerId || book.aiEnrichedAt) return;
+  try {
+    await consumeRateLimit(userId, "AI_ENRICH");
+    await enrichBook(book.id);
+  } catch (error) {
+    console.warn("Enriching a just-added book failed; the backlog job will retry it", error);
+  }
 }
 
 export function getUserBook(userId: string, userBookId: string) {

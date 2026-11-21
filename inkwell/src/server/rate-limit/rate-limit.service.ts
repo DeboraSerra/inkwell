@@ -8,6 +8,9 @@ import type { RateLimitBucket } from "@/types/rate-limit.type";
 export const RATE_LIMITS = {
   ISBN_LOOKUP: 60,
   BOOK_SEARCH: 60,
+  // Claude API calls for books just added one at a time; imports go through
+  // Message Batches instead. Keeps one reader from running up the bill.
+  AI_ENRICH: 10,
 } as const;
 
 export const RATE_LIMIT_WINDOW_SECONDS = 60;

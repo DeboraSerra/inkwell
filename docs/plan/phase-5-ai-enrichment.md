@@ -195,13 +195,19 @@ Comes first, so enrichment can use the description.
 - tsc, lint and the 1,072 tests pass. **Not done:** the real call (it needs the key and the migration).
 - **The user must:** apply the migration (`npx prisma migrate deploy`, locally and on Supabase), add `ANTHROPIC_API_KEY` to `.env.local`, then run `npx tsx --conditions=react-server scripts/enrich-book.ts <bookId>` on a shared book.
 
-### 5b3 — Enrich single adds inline
+### 5b3 — Enrich single adds inline ✅ built (2026-11-21)
 
 - After a manual, ISBN or search add, `after()` in the controller calls `enrichBook` when the book has no `aiEnrichedAt`, after the synopsis fill.
 - A per-user limit through `consumeRateLimit` (a new `AI_ENRICH` bucket), so one reader can't run up the bill.
 - Never blocks or fails the add: an error is logged and the book is left for the 5b4 job.
 
 **Done when:** adding a book fills its genres and tropes within seconds, and re-adding it doesn't call the API again.
+
+**Outcome (✅ built 2026-11-21):**
+
+- `library.service.finishAdd(userId, added)` replaces `saveSynopsis`. All three adds (manual, ISBN, search) run it in `after()`: first `fillMissingDescription`, then, for a shared book with no `aiEnrichedAt`, `consumeRateLimit(userId, "AI_ENRICH")` and `enrichBook`. A private or already-enriched book makes no call and isn't counted.
+- `AI_ENRICH` is 10 a minute per user. Hitting it, or any error, is logged and never thrown; the book stays unenriched for 5b4's backlog.
+- tsc, lint and the 1,076 tests pass. **Not checked in the app:** that needs the 5b2 migration and `ANTHROPIC_API_KEY`. Then add a book and check its `BookGenre`/`BookTrope` rows, re-add it, and check the logs show no second call.
 
 ### 5b4 — Imports and the backlog, through Message Batches
 

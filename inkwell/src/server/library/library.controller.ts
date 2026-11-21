@@ -52,9 +52,10 @@ export async function addManualBook(
       acquired,
     );
     const { book, userBook, created } = added;
-    // After the response: a typed ISBN or a matched catalog book's provider id
-    // can find a synopsis, and a slow provider never delays the add.
-    after(() => libraryService.saveSynopsis(added));
+    // After the response, so a slow provider or the AI never delays the add: a
+    // typed ISBN or a matched catalog book's provider id can find a synopsis,
+    // then the shared book is enriched.
+    after(() => libraryService.finishAdd(user.id, added));
     revalidatePath(SHELVES_PATH);
     const list = LIST_NAMES[userBook.status];
     return {
@@ -97,8 +98,9 @@ export async function addBookByIsbn(
     await consumeRateLimit(user.id, "ISBN_LOOKUP");
     const added = await libraryService.addBookByIsbn(user.id, isbn, choices);
     const { book, userBook, created } = added;
-    // After the response, so a slow provider never delays or fails the add.
-    after(() => libraryService.saveSynopsis(added));
+    // After the response, so a slow provider or the AI never delays or fails
+    // the add: the synopsis, then the shared book's enrichment.
+    after(() => libraryService.finishAdd(user.id, added));
     revalidatePath(SHELVES_PATH);
     const list = LIST_NAMES[userBook.status];
     return {
@@ -144,8 +146,9 @@ export async function addSearchBook(
     await consumeRateLimit(user.id, "ISBN_LOOKUP");
     const added = await libraryService.addBookFromProvider(user.id, { source, sourceId }, choices);
     const { book, userBook, created } = added;
-    // After the response, so a slow provider never delays or fails the add.
-    after(() => libraryService.saveSynopsis(added));
+    // After the response, so a slow provider or the AI never delays or fails
+    // the add: the synopsis, then the shared book's enrichment.
+    after(() => libraryService.finishAdd(user.id, added));
     revalidatePath(SHELVES_PATH);
     const list = LIST_NAMES[userBook.status];
     return {

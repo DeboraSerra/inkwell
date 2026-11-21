@@ -8,17 +8,21 @@ import {
   findOrCreateManualBook,
   findOrCreateMetadataBook,
 } from "@/server/books/book.service";
-import { NotFoundError, ValidationError } from "@/server/errors";
+import { enrichBook } from "@/server/enrichment/enrichment.service";
+import { NotFoundError, RateLimitError, ValidationError } from "@/server/errors";
 import * as libraryModel from "@/server/library/library.model";
 import * as readThroughModel from "@/server/library/read-through.model";
 import { InvalidTransitionError } from "@/server/library/status.rules";
 import { lookupById, lookupIsbn, searchBooks } from "@/server/metadata/metadata.service";
+import { consumeRateLimit } from "@/server/rate-limit/rate-limit.service";
 import type { BookMetadata } from "@/types/metadata.type";
 
 vi.mock("@/server/books/book.service");
 vi.mock("@/server/library/library.model");
 vi.mock("@/server/library/read-through.model");
 vi.mock("@/server/metadata/metadata.service");
+vi.mock("@/server/enrichment/enrichment.service");
+vi.mock("@/server/rate-limit/rate-limit.service");
 // Run "transactions" inline; the fake tx is passed through to the mocked models.
 vi.mock("@/server/db", () => ({ transaction: (fn: (tx: unknown) => unknown) => fn("tx") }));
 
@@ -1300,11 +1304,50 @@ describe("add by ISBN", () => {
     });
   });
 
-  describe("saveSynopsis", () => {
-    it("fills the synopsis from the add's provider record", async () => {
-      vi.mocked(fillMissingDescription).mockResolvedValue(true);
-      await expect(service.saveSynopsis({ book: catalogBook(), metadata })).resolves.toBe(true);
-      expect(fillMissingDescription).toHaveBeenCalledWith(catalogBook(), metadata);
+  describe("finishAdd", () => {
+    const added = (overrides: Record<string, unknown> = {}) => ({ book: catalogBook({ aiEnrichedAt: null, ...overrides }), metadata });
+
+    it("fills the synopsis first, then enriches the shared book", async () => {
+      const order: string[] = [];
+      vi.mocked(fillMissingDescription).mockImplementation(async () => {
+        order.push("synopsis");
+        return true;
+      });
+      vi.mocked(enrichBook).mockImplementation(async () => {
+        order.push("enrich");
+        return "enriched";
+      });
+      await service.finishAdd(USER, added());
+      expect(fillMissingDescription).toHaveBeenCalledWith(added().book, metadata);
+      expect(consumeRateLimit).toHaveBeenCalledWith(USER, "AI_ENRICH");
+      expect(enrichBook).toHaveBeenCalledWith("book-1");
+      expect(order).toEqual(["synopsis", "enrich"]);
+    });
+
+    it.each([
+      ["an enriched book", { aiEnrichedAt: new Date() }],
+      ["a private book", { ownerId: USER }],
+    ])("doesn't call the AI, or count the limit, for %s", async (_label, overrides) => {
+      await service.finishAdd(USER, added(overrides));
+      expect(consumeRateLimit).not.toHaveBeenCalled();
+      expect(enrichBook).not.toHaveBeenCalled();
+    });
+
+    it("leaves the book for the backlog when the rate limit is reached", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.mocked(consumeRateLimit).mockRejectedValue(new RateLimitError(30));
+      await expect(service.finishAdd(USER, added())).resolves.toBeUndefined();
+      expect(enrichBook).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    it("never throws when enrichment fails", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.mocked(enrichBook).mockRejectedValue(new Error("401"));
+      await expect(service.finishAdd(USER, added())).resolves.toBeUndefined();
+      expect(warn).toHaveBeenCalled();
+      warn.mockRestore();
     });
   });
 });

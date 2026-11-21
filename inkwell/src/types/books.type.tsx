@@ -132,6 +132,8 @@ export type DescribedBook = CatalogBookIds & {
   googleBooksId: string | null;
 };
 
+export type EnrichableBook = DescribedBook & { aiEnrichedAt: Date | null };
+
 export type CatalogDetails = {
   ownerId: string | null;
   title: string;

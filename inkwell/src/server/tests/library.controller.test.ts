@@ -66,13 +66,13 @@ describe("addManualBook", () => {
     );
   });
 
-  it("saves the synopsis after the response, not as part of the add", async () => {
+  it("saves the synopsis and enriches after the response, not as part of the add", async () => {
     service.addManualBook.mockResolvedValue(added(ReadingStatus.TO_READ, true));
     await addManualBook({}, form(valid));
-    expect(service.saveSynopsis).not.toHaveBeenCalled();
+    expect(service.finishAdd).not.toHaveBeenCalled();
     expect(scheduled).toHaveLength(1);
     await scheduled[0]();
-    expect(service.saveSynopsis).toHaveBeenCalledWith(added(ReadingStatus.TO_READ, true));
+    expect(service.finishAdd).toHaveBeenCalledWith("user-1", added(ReadingStatus.TO_READ, true));
   });
 
   it("passes an audiobook's length", async () => {
@@ -360,11 +360,11 @@ describe("add by ISBN", () => {
       );
       expect(state.message).toContain("to Finished");
       expect(consumeRateLimit).toHaveBeenCalledWith("user-1", "ISBN_LOOKUP");
-      // The synopsis is saved after the response, not as part of the add.
-      expect(service.saveSynopsis).not.toHaveBeenCalled();
+      // The synopsis and enrichment run after the response, not as part of the add.
+      expect(service.finishAdd).not.toHaveBeenCalled();
       expect(scheduled).toHaveLength(1);
       await scheduled[0]();
-      expect(service.saveSynopsis).toHaveBeenCalledWith(added(ReadingStatus.FINISHED, true));
+      expect(service.finishAdd).toHaveBeenCalledWith("user-1", added(ReadingStatus.FINISHED, true));
       expect(service.addBookByIsbn).toHaveBeenCalledWith("user-1", "0441013597", {
         formats: ["EBOOK"],
         status: "FINISHED",

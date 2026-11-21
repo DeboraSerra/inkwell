@@ -5,7 +5,8 @@ import type { choiceFields } from "@/server/library/isbn-book.schema";
 import type { readDateFields } from "@/server/library/manual-book.schema";
 import type * as libraryService from "@/server/library/library.service";
 import type { lookupIsbn } from "@/server/metadata/metadata.service";
-import type { IsbnPreview } from "./books.type";
+import type { EnrichableBook, IsbnPreview } from "./books.type";
+import type { BookMetadata } from "./metadata.type";
 import type { z } from "zod";
 
 export type NewRead = {
@@ -211,3 +212,6 @@ export type BookEdit = {
   // When the reader got the book. Left out clears it, as with read dates.
   acquired?: PartialDate;
 };
+
+// A book just added, with the provider record it was found with, if any.
+export type JustAddedBook = { book: EnrichableBook; metadata?: BookMetadata };

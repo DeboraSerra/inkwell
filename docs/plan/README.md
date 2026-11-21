@@ -56,7 +56,7 @@
    - 5b — AI enrichment ⏳ planned, waiting on its open questions
      - 5b1 — Synopsis for books added without a lookup ✅ built (2026-11-21)
      - 5b2 — The enrichment service (Haiku 5.5, structured output, curated lists only) ✅ built (2026-11-21)
-     - 5b3 — Enrich single adds inline
+     - 5b3 — Enrich single adds inline ✅ built (2026-11-21)
      - 5b4 — Imports and the backlog through Message Batches, collected by a cron route
      - 5b5 — Show genres, tropes, tags and length
      - 5b6 — Edit them
