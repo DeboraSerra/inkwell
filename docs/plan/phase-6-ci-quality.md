@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j, 6n, 6p and 6l ✅ built; 6f, 6h, 6k and 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j, 6n, 6p, 6l and 6f ✅ built; 6h, 6k and 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
 Phase 11 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 11 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
@@ -214,13 +214,20 @@ From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, k
 - **Checked:** a staged file with a fake GitHub token is refused ("leaks found: 1"); `.env.example`, the hook and the config files pass; without gitleaks the hook warns and passes.
 - **For the user:** the Firebase web key should be restricted in Google Cloud (HTTP referrers to the app's domains, and only the Firebase APIs), as every public web key should. It's a setting, not a leak.
 
-## 6f — Dependabot updates ⏳ planned
+## 6f — Dependabot updates ✅ built (2026-11-22), first run on GitHub to check
 
 - `.github/dependabot.yml`: `npm` in `/inkwell` and `github-actions` in `/`, weekly, minor and patch updates grouped into one PR per ecosystem, majors on their own.
 - `cooldown: default-days: 14`, so no PR proposes a release younger than the project's two-week rule.
 - The `overrides` and exact pins in `package.json` stay the user's call; Dependabot PRs go through CI and are never merged unreviewed.
 
 **Done when:** Dependabot's first run opens grouped PRs (or none, when everything is current), and none for a release under 14 days old.
+
+### Outcome
+
+- `.github/dependabot.yml`: `npm` in `/inkwell` and `github-actions` in `/`, weekly on Mondays, `cooldown: default-days: 14`. npm minor and patch updates share one grouped PR (`npm-minor-patch`), majors come one by one; actions are one grouped PR. Actions stay pinned by SHA, with Dependabot updating the SHA and its version comment.
+- **Deviation:** PRs target `dev`, the working branch, not `main`, so they reach `main` through the usual `dev` PR.
+- **Commit messages:** prefixes `build(deps)` / `build(deps-dev)` for npm and `ci` for actions, so they're conventional commits. `commitlint.config.mjs` ignores commits signed off by `dependabot[bot]`, whose bodies have lines over 100 characters (release notes, links). Checked: such a message passes, and an ordinary one with a 150-character body line still fails.
+- **For the user:** the first run comes after the push to the default branch, under Insights → Dependency graph → Dependabot; it can also be started there with "Check for updates".
 
 ## 6h — Knip ⏳ planned
 

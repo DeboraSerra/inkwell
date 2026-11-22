@@ -2,6 +2,9 @@
 // resolves from this folder's node_modules; the hook runs from here.
 export default {
   extends: ["@commitlint/config-conventional"],
+  // Dependabot's bodies hold long release notes and links; its headers follow
+  // the prefix set in .github/dependabot.yml.
+  ignores: [(message) => message.includes("Signed-off-by: dependabot[bot]")],
   rules: {
     "header-max-length": [2, "always", 100],
     "type-enum": [
