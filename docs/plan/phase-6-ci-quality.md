@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i and 6j ✅ built; 6n, 6p, 6l, 6f, 6h, 6k and 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j and 6n ✅ built; 6p, 6l, 6f, 6h, 6k and 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
 Phase 11 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 11 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
@@ -169,11 +169,17 @@ From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, k
 - `.github/pull_request_template.md`: "What changed" (with the plan step), then boxes for the plan updated, `tsc` / lint / tests / build passing, checked in the app, `/privacy`, new variables in `.env.example` and on Vercel, and a schema change's migration with row-level security.
 - **For the user:** the next pull request shows it.
 
-## 6n — `npm audit signatures` in CI ⏳ planned
+## 6n — `npm audit signatures` in CI ✅ built (2026-11-22)
 
 - One step in the `audit` job after `npm ci`, which that job then needs: `npm audit signatures`, failing on a missing or invalid registry signature.
 
 **Done when:** the `audit` job runs it and passes.
+
+### Outcome
+
+- The `audit` job now runs `npm ci --ignore-scripts` (with the npm cache; scripts aren't needed to check signatures) and then `npm audit signatures`, after `npm audit --audit-level=high`.
+- **Checked locally:** every installed package has a valid registry signature, and 202 also have verified attestations; it exits 0.
+- **For the user:** the next CI run shows it in the `npm audit` job.
 
 ## 6p — Every endpoint authenticates (test) ⏳ planned
 

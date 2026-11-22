@@ -124,8 +124,14 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
-      # Reads the lockfile only. The 4 moderate findings through shadcn don't fail it.
+          cache: npm
+          cache-dependency-path: inkwell/package-lock.json
+      # The 4 moderate findings through shadcn don't fail it.
       - run: npm audit --audit-level=high
+      # Signatures are checked on installed packages; their scripts aren't needed.
+      - run: npm ci --ignore-scripts
+      - name: Registry signatures and attestations
+        run: npm audit signatures
 
   commitlint:
     name: Commit messages
