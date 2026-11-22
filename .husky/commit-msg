@@ -1,0 +1,4 @@
+# Git passes the message file relative to the repo root; the tools live in inkwell/.
+msg="$1"
+case "$msg" in /*) ;; *) msg="$PWD/$msg" ;; esac
+cd inkwell && npx --no -- commitlint --edit "$msg"

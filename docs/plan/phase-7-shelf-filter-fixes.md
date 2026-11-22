@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-⏳ Planned (2026-11-22), open question 2 pending. Asked by the user on 2026-11-22, to come after Phase 6 and before Phase 8. Every fix is on `/books/shelves`.
+⏳ Planned (2026-11-22), no open questions. Asked by the user on 2026-11-22, to come after Phase 6 and before Phase 8. Every fix is on `/books/shelves`.
 
 **Applies to every step**
 
@@ -11,9 +11,9 @@
 - Component tests update in `src/components/tests/pages/books/shelves/BookShelf/` (`TopicFilter/`, `BooksShelf.test.tsx`), keeping coverage at 95%.
 - Each step ends with `npx tsc --noEmit`, `npm run lint` and `npm test` passing; the user runs `npm run build` at the end.
 
-## 7a — Filter button and chips on phones
+## 7a — Filter button and chips: size and layout
 
-1. **Tap targets of at least 40px** on phones: the funnel trigger (now `size='icon'`, 32px), "Clear filters" (`size='sm'`, 28px), and each `FilterChip` (about 24px). On phones they grow to 40px (`min-h-10`, `size-10` for the trigger); from `sm` up they can stay as they are (open question 2).
+1. **Tap targets of at least 40px on every screen size** (answered 2026-11-22): the funnel trigger (now `size='icon'`, 32px), "Clear filters" (`size='sm'`, 28px), and each `FilterChip` (about 24px) grow to 40px (`min-h-10`, `size-10` for the trigger).
 2. **The count badge** stays readable and inside the larger trigger, not clipped by the screen edge.
 3. **No layout shift when filters are ticked** (answered 2026-11-22): today "Clear filters" appears beside the funnel and pushes the row, so the bar takes more room than it should. Redesign so the row keeps its size: "Clear filters" moves inside the popover (top, next to the headings), and the funnel shows only the count badge.
 
@@ -39,13 +39,10 @@
 4. Tropes follow the same choice, still narrowed by the ticked genres through `GenreTrope`.
 5. The page loads both lists (`listTopics()` and the reader's), so the switch doesn't need another request. The edit dialog's pickers keep the full curated list.
 
-### Open questions
-
-2. **40px on phones only,** or on every screen size? To be decided.
-
 ### Answered (2026-11-22)
 
 1. Filter button: it takes more room when filters are ticked; redesign to avoid the shift (7a.3).
+2. 40px on every screen size, not only phones.
 3. Unticking one genre of several drops only the tropes none of the remaining genres has.
 4. One generic no-match line, with a "Clear filters" button.
 5. A switch, with only the reader's genres by default.

@@ -213,6 +213,7 @@ inkwell/src/
 - Never run `npm audit fix --force` without asking: it can silently downgrade packages. It once replaced ESLint 9 with 4.0.0 and broke linting, and today it would downgrade Prisma 7 to 6.12.
 - zod is approved for input validation (Phase 3). It isn't listed in `package.json` yet; it resolves through `shadcn`.
 - `@anthropic-ai/sdk` 1.6.0 is approved for AI enrichment (Phase 5b2). The client lives in `src/config/anthropic.ts`.
+- `husky` 9.1.7 and `@commitlint/cli` / `@commitlint/config-conventional` 21.2.4 are approved (Phase 6c). Commit messages must pass commitlint (conventional commits, header at most 100 characters); `pre-commit` runs `biome lint --staged`.
 - `barcode-detector` (on `zxing-wasm`) is approved for barcode scanning (Phase 4d); load it only where the browser lacks `BarcodeDetector`.
 - Ask before adding significant dependencies, and pin to an exact or caret version of a release at least two weeks old.
 

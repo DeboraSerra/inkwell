@@ -63,8 +63,8 @@
      - 5b5b — Tooltips that work on phones ✅ built (2026-11-22)
      - 5b6 — Edit them ✅ built (2026-11-22)
      - 5b7 — Privacy policy and closing ✅ built (2026-11-22)
-6. [Phase 6 — CI, code quality and missing tests](phase-6-ci-quality.md) 🚧 in progress: 6a missing tests and 6b coverage ✅ built (2026-11-22); husky and commitlint, GitHub Actions (checks, build, migrations, audit) wait on its open questions
-7. [Phase 7 — Shelf filter fixes](phase-7-shelf-filter-fixes.md) ⏳ planned (2026-11-22), one open question (40px on phones only or everywhere): 40px filter targets on phones, unticking a genre clears its tropes, "no match" wording, only the reader's genres in the filter
+6. [Phase 6 — CI, code quality and missing tests](phase-6-ci-quality.md) 🚧 in progress: 6a missing tests, 6b coverage and 6c husky and commitlint ✅ built (2026-11-22); GitHub Actions (checks, build, migrations, audit) wait on its open questions
+7. [Phase 7 — Shelf filter fixes](phase-7-shelf-filter-fixes.md) ⏳ planned (2026-11-22), open questions answered: 40px filter targets on every screen size, unticking a genre clears its tropes, "no match" wording, only the reader's genres in the filter
 8. [Phase 8 — Dashboard](phase-8-dashboard.md) ⏳ planned (2026-11-21), open questions pending: currently reading, books read per year, this year's reads by genre, how to use the extension, books added per year by type
 9. [Phase 9 — Profile](phase-9-profile.md) ⏳ planned (2026-11-21), open questions pending: edit the name, photo and other profile details (not the email)
 10. [Phase 10 — Journal](phase-10-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)

@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress: 6a and 6b ✅ built (2026-11-22); 6c–6e wait on the open questions. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 6a, 6b and 6c ✅ built (2026-11-22); 6d and 6e wait on the open questions. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
 Phase 11 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 11 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
@@ -73,7 +73,7 @@ Every file above has a test, run and committed one set at a time. The suite went
 - Reports: the files not fully covered and the totals in the terminal, and `coverage/lcov.info` for CI. `coverage/` was already in `inkwell/.gitignore`. Biome now skips `coverage/` too (`biome.json`), since the HTML report's scripts gave 299 lint errors.
 - The `.tsx` components and `src/hooks/` are counted too (asked by the user on 2026-11-22). The unused `components/layout/Header.tsx`, the only file at 0%, is deleted.
 
-## 6c — Commit messages: husky and commitlint
+## 6c — Commit messages: husky and commitlint ✅ built (2026-11-22)
 
 - **Dependencies:** `husky`, `@commitlint/cli`, `@commitlint/config-conventional`.
 - **`commitlint.config.mjs`** at the root: conventional commits, `header-max-length` 100 (the length used for this project's commit messages), types `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `build`, `ci`, `perf`, `revert`.
@@ -84,6 +84,16 @@ Every file above has a test, run and committed one set at a time. The suite went
 - Hooks are a convenience; CI (6d) is what enforces.
 
 **Done when:** a commit with a message like "updated stuff" is rejected, `feat(books): …` passes, and a staged file with a lint error stops the commit.
+
+### Outcome
+
+- **Dev dependencies** (approved 2026-11-22), pinned exactly: `husky` 9.1.7, `@commitlint/cli` 21.2.4 and `@commitlint/config-conventional` 21.2.4 (2026-10-18). `npm audit` still shows only the 4 moderate `shadcn` findings.
+- **`prepare`** in `inkwell/package.json` runs `cd .. && husky`, which sets `core.hooksPath` to `.husky/_` at the repo root.
+- **`.husky/commit-msg`** runs commitlint from `inkwell/`, turning Git's root-relative message path into an absolute one. **`.husky/pre-commit`** runs `biome lint --staged --no-errors-on-unmatched`. No `pre-push` hook (open question 3: left to CI).
+- **Deviation:** `commitlint.config.mjs` is in `inkwell/`, not at the root, so `extends` resolves from `inkwell/node_modules` (the root has none).
+- **`biome.json`** has `vcs` enabled (`clientKind: git`, `root: ".."`), which `--staged` needs. `useIgnoreFile` stays off, so `npm run lint` checks the same files as before.
+- **Checked:** "updated stuff", "Feat: Bad Case" and a 107-character header are rejected; `feat(books): add a thing` passes; a staged file with `debugger` stops the commit (staged through a temporary index, so nothing was staged); nothing staged passes.
+- **For the user:** anyone cloning runs `npm install` in `inkwell/` to set up the hooks. `HUSKY=0` skips them. The 2 lint warnings already in the code (`BookCover.tsx` `noImgElement`, `BookPreview.tsx` an unused variable) are warnings, so they don't stop a commit.
 
 ## 6d — CI on GitHub Actions
 
@@ -131,9 +141,9 @@ Every file above has a test, run and committed one set at a time. The suite went
 
 ## Open questions
 
-1. **Approve the dev dependencies** for 6b–6c: `@vitest/coverage-v8`, `husky`, `@commitlint/cli`, `@commitlint/config-conventional`.
-2. **Pre-commit lint:** Biome's own `--staged` (no extra dependency) or `lint-staged`?
-3. **Pre-push hook** with `tsc` and tests: yes, or leave it to CI?
+1. ~~**Approve the dev dependencies** for 6b–6c~~ Approved on 2026-11-22.
+2. ~~**Pre-commit lint**~~ Decided 2026-11-22: Biome's own `--staged`.
+3. ~~**Pre-push hook**~~ Decided 2026-11-22: none; CI enforces.
 4. **React component tests** in 6a: approve `@testing-library/react`, `@testing-library/user-event` and `jsdom`, or keep 6a to non-UI code for now?
 5. **Which of f–p** to include.
 6. **Phase numbering:** answered on 2026-11-22: renamed to Phase 6, and the later phases renumbered (shelf filter fixes 7, dashboard 8, profile 9, journal 10, quality and deploy 11, mobile API 12, mobile app 13, subscriptions 14).
