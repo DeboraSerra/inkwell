@@ -44,6 +44,17 @@ Every file above has a test, run and committed one set at a time. The suite went
   - `ShelfFilterBar`'s tests fake only `setTimeout` and use `fireEvent`: Testing Library's async helpers wait on a real timer, so `user-event` hangs under fake timers.
 - **Fixed after review:** `CardPill` put each word in its own `<small>` with no space between them, so the text and accessible name read "WarCollege" and "Tag:Dragons". The pill's text is now one `<small>`, which wraps between words like any text, and there's a space after the screen-reader label. `wordsWithPositions` and the `PositionedWord` type are removed. `BookCard.test.tsx` checks the names.
 
+**The remaining components (asked by the user on 2026-11-22).** Every other component and hook now has a test too, in six more commits; the suite has 1,555 tests.
+
+- **Shelves:** `BooksPagination`, `BooksPerPageSelect`, `ShelfOrderControls`, `ShelfSelection`, `SelectedBooksBar`, `FilterList`, `BookDialog`, `MoveBookDialog`, `EditBookDialog`, `BookCardMenu`, `BooksShelf`, `BooksShelves`, `topics-context`, `BookTitle`, `CardPill`, `formats`. Shared stand-ins are in `components/tests/pages/books/shelves/shelf-fixtures.ts`.
+- **Add form:** `TextField`, `PartialDateField`, `AudioLengthField`, `StatusField`, `FormatsField`, `TopicsField`, `BookPreview`, `ScanBarcodeButton`, `IsbnLookupField`, `TitleSearchField`, `LiveScanButton`, `BookCover`, `BooksNew`.
+- **Sign-in and settings:** `EmailSignInForm`, `GoogleSignInButton`, `Login`, `CreateTokenForm`, `Tokens`, `Profile`, `Settings`. The async Server Components are awaited, then rendered.
+- **Layout:** `MobileTabBar`, `AppSidebar`, `Content`, `Footer`, `AccountMenuContent`, `SidebarLink`, `SignOutItem`, and `hooks/use-mobile`. `components/tests/setup.ts` now also stubs `matchMedia`.
+- **Not tested:** `components/layout/Header.tsx`, which nothing imports, and `src/config/` (`firebase-session.ts` is covered only through the sign-in forms' mocks).
+- **Found, not changed:**
+  - Pagination links are real `<a href>`s, but the vendored `ui/pagination.tsx` (Base UI `Button` with `nativeButton={false}`) gives them `role="button"`, so screen readers announce them as buttons.
+  - `Header.tsx` is unused, and passes `as={Link}` to Base UI's `Button`, which has no `as` prop.
+
 ## 5.5b — Test coverage
 
 - **Dependency:** `@vitest/coverage-v8`, the same major as `vitest` 5.
