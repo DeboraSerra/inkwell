@@ -1,1 +1,9 @@
+# Secrets first, so one never reaches a commit. Skipped with a warning where
+# gitleaks isn't installed (it's a Homebrew binary, not an npm package).
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --staged --redact --no-banner || exit 1
+else
+  echo "husky - gitleaks isn't installed, so staged files weren't scanned for secrets (brew install gitleaks)"
+fi
+
 cd inkwell && npx --no -- biome lint --staged --no-errors-on-unmatched

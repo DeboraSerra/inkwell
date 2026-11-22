@@ -1,0 +1,6 @@
+# Findings that aren't secrets, by gitleaks fingerprint, each with its reason.
+# The Firebase web API key in the extension's old Firebase project (removed in
+# 61d84b1). It's the same public key the app ships to browsers as
+# NEXT_PUBLIC_FIREBASE_API_KEY, so it isn't secret.
+b81864ed91fb7940e479977635817eabf8dc20dc:extention/firebase-project/firebase.js:gcp-api-key:4
+b81864ed91fb7940e479977635817eabf8dc20dc:extention/firebase-project/public/signInWithPopup.js:gcp-api-key:5

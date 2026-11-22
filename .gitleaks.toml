@@ -1,0 +1,13 @@
+# Used by the pre-commit hook (`gitleaks git --staged`), found at the repo root.
+# The default rules, plus files whose "secrets" are placeholders or fakes.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Placeholders only, documented as such"
+paths = ['''^inkwell/\.env\.example$''']
+
+[[allowlists]]
+description = "Recorded provider responses. Tests themselves stay scanned, so a real key pasted into one is caught"
+paths = ['''^inkwell/src/server/tests/fixtures/''']

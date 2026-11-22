@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j, 6n and 6p ✅ built; 6l, 6f, 6h, 6k and 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j, 6n, 6p and 6l ✅ built; 6f, 6h, 6k and 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
 Phase 11 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 11 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
@@ -195,7 +195,7 @@ From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, k
 - Unit tests of the checker itself: an unguarded export is flagged, a guard in an arrow function counts, a guard only mentioned and not called doesn't, and unexported helpers and non-method exports (`maxDuration`) are ignored.
 - **Checked:** it passes on the 4 routes and 2 controllers today; a temporary `app/api/zz-tmp/route.ts` without a check made it fail with `app/api/zz-tmp/route.ts#GET`, and was removed.
 
-## 6l — gitleaks before each commit ⏳ planned
+## 6l — gitleaks before each commit ✅ built (2026-11-22)
 
 - **Why:** GitHub's push protection refuses known provider keys only at the push, with the secret already in a local commit, and GitGuardian only reports after it. gitleaks checks the staged files before the commit exists, and its generic and entropy rules also catch what push protection doesn't (a `DATABASE_URL` with a password, `CRON_SECRET`, a key pasted into a test or script).
 - **Install:** `brew install gitleaks` on each machine that commits (a Go binary, not an npm dependency; free, MIT). No CI job.
@@ -204,6 +204,15 @@ From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, k
 - The first full scan of the history also shows whether a secret was ever committed. If one was, rotate it; rewriting history is the user's call.
 
 **Done when:** committing a staged file with a fake key is refused, `.env.example` commits cleanly, and the commit still goes through (with a warning) on a machine without gitleaks.
+
+### Outcome
+
+- **`.husky/pre-commit`** runs `gitleaks git --staged --redact --no-banner` from the repo root, then Biome. Without `gitleaks` on the `PATH` it prints a warning and goes on.
+- **`.gitleaks.toml`** at the root: the default rules, with `inkwell/.env.example` and `inkwell/src/server/tests/fixtures/` allowed. Tests themselves stay scanned; fake keys in them get allowed one by one after the first full scan, if it flags any.
+- **History scan** (gitleaks 8.30.1, 134 commits): 2 findings, both the Firebase web API key in the extension's old `extention/firebase-project/` (commit `b81864e`, removed in `61d84b1`). It's the same key the app ships to browsers as `NEXT_PUBLIC_FIREBASE_API_KEY`, public by design, so nothing to rotate. Both are in `.gitleaksignore` by fingerprint, with that reason; a full scan now finds no leaks.
+- **The hook exits on a finding** (`|| exit 1`), not only under husky's `sh -e`.
+- **Checked:** a staged file with a fake GitHub token is refused ("leaks found: 1"); `.env.example`, the hook and the config files pass; without gitleaks the hook warns and passes.
+- **For the user:** the Firebase web key should be restricted in Google Cloud (HTTP referrers to the app's domains, and only the Firebase APIs), as every public web key should. It's a setting, not a leak.
 
 ## 6f — Dependabot updates ⏳ planned
 
