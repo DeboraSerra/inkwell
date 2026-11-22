@@ -179,7 +179,7 @@ export function ShelfFilterBar({
         </form>
       </search>
 
-      <div className='flex justify-between items-center'>
+      <div className='flex flex-col md:flex-row justify-between md:items-center'>
         <fieldset className='flex flex-wrap gap-x-4 gap-y-2'>
           <legend className='sr-only'>Owned formats</legend>
           {Object.values(BookFormat).map((format) => (
@@ -198,7 +198,7 @@ export function ShelfFilterBar({
             </Field>
           ))}
         </fieldset>
-        <div className='flex gap-1 items-center'>
+        <div className='flex gap-1 items-center self-end md:self-auto'>
           <TopicFilter
             topics={topics}
             genres={genres}

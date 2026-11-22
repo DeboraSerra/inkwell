@@ -43,10 +43,10 @@ export const BookCardMenu = ({ book }: Readonly<{ book: ShelfBook }>) => {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className='cursor-pointer'
+          className='cursor-pointer w-6 h-6 flex items-center justify-center'
           aria-label={`Actions for ${book.title}`}
         >
-          <EllipsisVertical size={16} />
+          <EllipsisVertical size={20} />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           <DropdownMenuSub>

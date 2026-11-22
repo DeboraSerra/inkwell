@@ -13,9 +13,17 @@
 
 ## 7a — Filter button and chips: size and layout
 
+✅ Done (2026-11-22), by the user.
+
 1. **Tap targets of at least 40px on every screen size** (answered 2026-11-22): the funnel trigger (now `size='icon'`, 32px), "Clear filters" (`size='sm'`, 28px), and each `FilterChip` (about 24px) grow to 40px (`min-h-10`, `size-10` for the trigger).
 2. **The count badge** stays readable and inside the larger trigger, not clipped by the screen edge.
 3. **No layout shift when filters are ticked** (answered 2026-11-22): today "Clear filters" appears beside the funnel and pushes the row, so the bar takes more room than it should. Redesign so the row keeps its size: "Clear filters" moves inside the popover (top, next to the headings), and the funnel shows only the count badge.
+
+**Outcome (7a)**
+
+- Built by the user, differently from the steps above. Every `size='icon'` button is now 40px (`icon: "size-10"` in `ui/button.tsx`), the filter chips keep their size, and "Clear filters" stays beside the funnel.
+- On phones, the format checkboxes and the filter and sort controls sit on two rows (`flex-col md:flex-row`), with the controls on the right. The shelf grid has two columns from `lg` rather than `md`.
+- Book cards: the actions trigger is larger (24px box, 20px icon), and the read dates, genre and tags are labelled ("Read at:", "Genre (trope):", "Tags:"), with "+N" earlier reads as its own pill.
 
 ## 7b — Unticking a genre clears its tropes
 

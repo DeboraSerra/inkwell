@@ -51,7 +51,7 @@ export const BooksShelf = () => {
       <div className='flex flex-col gap-5'>
         <SelectionBar />
 
-        <ul className='grid grid-cols-1 gap-3 md:grid-cols-2'>
+        <ul className='grid grid-cols-1 gap-3 lg:grid-cols-2'>
           {books.map((book) => (
             <BookCard key={book.id} book={book} />
           ))}
