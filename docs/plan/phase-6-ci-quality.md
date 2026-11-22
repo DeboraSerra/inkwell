@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress: 6a, 6b and 6c ✅ built (2026-11-22); 6d and 6e wait on the open questions. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 6a–6c ✅ built and 6d built (2026-11-22), 6d to be checked on a pushed branch; 6e is for the user. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
 Phase 11 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 11 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
@@ -95,7 +95,7 @@ Every file above has a test, run and committed one set at a time. The suite went
 - **Checked:** "updated stuff", "Feat: Bad Case" and a 107-character header are rejected; `feat(books): add a thing` passes; a staged file with `debugger` stops the commit (staged through a temporary index, so nothing was staged); nothing staged passes.
 - **For the user:** anyone cloning runs `npm install` in `inkwell/` to set up the hooks. `HUSKY=0` skips them. The 2 lint warnings already in the code (`BookCover.tsx` `noImgElement`, `BookPreview.tsx` an unused variable) are warnings, so they don't stop a commit.
 
-## 6d — CI on GitHub Actions
+## 6d — CI on GitHub Actions 🔨 built (2026-11-22), to be checked on GitHub
 
 `.github/workflows/ci.yml`, on every pull request and on pushes to `main` and `dev`:
 
@@ -111,6 +111,16 @@ Every file above has a test, run and committed one set at a time. The suite went
 - Actions are pinned to a full commit SHA, not a tag, and the workflow has `permissions: contents: read`.
 
 **Done when:** a pull request shows each check, and a failing test, type error, lint error, broken build, missing migration, high audit finding or bad commit message turns it red.
+
+### Outcome
+
+- **`.github/workflows/ci.yml`**, six jobs in parallel: `checks` (types, lint, tests with coverage), `build`, `migrations` (Postgres 17 service, `migrate deploy`, `migrate diff --exit-code`, seed), `audit`, `commitlint` (pull requests only, `fetch-depth: 0`, base and head SHAs passed through `env`) and `extension`.
+- **Pinned by commit SHA,** each release over two weeks old: `actions/checkout` v7.0.1, `actions/setup-node` v7.1.0, `actions/upload-artifact` v7.0.2. `permissions: contents: read`, `concurrency` cancels a superseded run, and `HUSKY=0` skips the `prepare` hook setup.
+- **Coverage:** the totals go to the job summary, and `coverage/` (with `lcov`) plus the full output to a `coverage` artifact kept 14 days.
+- **Build placeholders:** the `NEXT_PUBLIC_FIREBASE_*` values, `FIREBASE_PROJECT_ID`, `DATABASE_URL`, `ANTHROPIC_API_KEY` and `CRON_SECRET`. `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` are left out, since `cert()` would try to parse a fake key; the Admin SDK only warns. No GitHub secrets are needed.
+- **Checked locally:** coverage passes and the summary extract works; `npm audit --audit-level=high` passes; commitlint passes on the commits since `46c3eb2`; the extension builds; on a throwaway Postgres 17 container, every migration applied, the diff found no difference, and the seed ran.
+- **Not checked yet:** the `build` job (the user runs `npm run build`), and the workflow itself on GitHub.
+- **For the user:** push a branch and open a pull request to see the checks; then 6e (branch protection) can require them.
 
 ## 6e — Repository settings (the user does these on GitHub)
 
