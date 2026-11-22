@@ -58,7 +58,7 @@ Goal: flexible reading goals with progress that's always computed.
 
 ## Journal UI
 
-- **Dashboard**: currently reading (with quick "log progress"), progress on the active goal, and recent log entries.
+- **Dashboard** (built in [Phase 5.6](phase-5.6-dashboard.md)): add a quick "log progress" to its currently reading books, progress on the active goal, and recent log entries.
 - **Lists**: on the MVP's TBR and Wishlist, add genre, trope, length and tag filters, sorting, drag-to-reorder priority for TBR (a `position` column on `UserBook`), and a "Pick my next read" random suggestion.
 - **Book page**: metadata, AI tags, status changes (start, finish, DNF), reading log timeline, review.
 - **Reading log**: quick entry (current page, percent or time remaining depending on the format, minutes, note, mood).

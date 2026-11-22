@@ -14,7 +14,7 @@ import { useShelfSelection } from "../BookShelf/ShelfSelection";
 import { FORMAT_LABELS } from "../formats";
 import { BookCardMenu } from "./BookCardMenu";
 import { BookTitle } from "./BookTitle";
-import { CardPill } from "./CardPill";
+import { capitalizeFirstLetter, CardPill } from "./CardPill";
 
 const MAX_TAGS_TO_SHOW = 3;
 
@@ -111,7 +111,7 @@ export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
                   return (
                     <TapTooltip
                       key='more-tags'
-                      content={<p className='max-w-xs'>{book.tags.join(", ")}</p>}
+                      content={<p className='max-w-xs'>{book.tags.map(capitalizeFirstLetter).join(", ")}</p>}
                     >
                       <CardPill
                         text={`+${arr.length - MAX_TAGS_TO_SHOW}`}

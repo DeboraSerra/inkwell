@@ -379,3 +379,64 @@ describe("findTopicIds", () => {
     await expect(service.findTopicIds({ genre: "Romance", trope: "Nope" })).rejects.toThrow("Choose a trope from the list.");
   });
 });
+
+describe("the remaining catalog paths", () => {
+  it("matches a stored ISBN-10 when no book has its ISBN-13", async () => {
+    model.findBookByIsbn10.mockResolvedValue(existing);
+    await expect(service.findExistingBook({ isbn10: "0-261-10221-4", ...details }, TX)).resolves.toBe(existing);
+    expect(model.findBookByIsbn10).toHaveBeenCalledWith("0261102214", TX);
+    expect(model.findBookByDedupeKey).not.toHaveBeenCalled();
+  });
+
+  it("fails when a create clashed but the other book can't be found", async () => {
+    model.createBook.mockResolvedValue(null);
+    await expect(service.findOrCreateManualBook(details, TX)).rejects.toThrow("Book not found");
+  });
+
+  it("fails when a private document can't be created", async () => {
+    model.createBook.mockResolvedValue(null);
+    await expect(service.findOrCreateAmazonDoc("user-1", details, TX)).rejects.toThrow("Book not found");
+  });
+
+  it("records an Open Library id on a book from Open Library", async () => {
+    model.createBook.mockResolvedValue(existing);
+    await service.findOrCreateMetadataBook({ source: "OPEN_LIBRARY", sourceId: "OL1M", title: "Dune", authors: [] }, TX);
+    expect(model.createBook).toHaveBeenCalledWith(
+      expect.objectContaining({ openLibraryId: "OL1M", googleBooksId: undefined, metadataSource: "OPEN_LIBRARY" }),
+      TX,
+    );
+  });
+
+  it("ignores an ISBN that isn't one", async () => {
+    model.createBook.mockResolvedValue(existing);
+    await service.findOrCreateManualBook({ ...details, isbn: "12345" }, TX);
+    expect(model.createBook).toHaveBeenCalledWith(expect.objectContaining({ isbn13: undefined, isbn10: undefined }), TX);
+  });
+});
+
+describe("findTopicIds", () => {
+  const topics = vi.mocked(topicModel);
+
+  it("finds the curated genre and trope", async () => {
+    topics.findGenreId.mockResolvedValue("g1");
+    topics.findTropeId.mockResolvedValue("t1");
+    await expect(service.findTopicIds({ genre: "Fantasy", trope: "Chosen One" }, TX)).resolves.toEqual({
+      genreId: "g1",
+      tropeId: "t1",
+    });
+  });
+
+  it("keeps none chosen as null, without a lookup", async () => {
+    await expect(service.findTopicIds({ genre: null, trope: null })).resolves.toEqual({ genreId: null, tropeId: null });
+    expect(topics.findGenreId).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [{ genre: "Cooking", trope: null }, "Choose a genre from the list."],
+    [{ genre: null, trope: "Time Loop" }, "Choose a trope from the list."],
+  ])("refuses a name off the lists (%j)", async (names, message) => {
+    topics.findGenreId.mockResolvedValue(null);
+    topics.findTropeId.mockResolvedValue(null);
+    await expect(service.findTopicIds(names)).rejects.toThrow(message);
+  });
+});

@@ -63,7 +63,9 @@
      - 5b5b — Tooltips that work on phones ✅ built (2026-11-22)
      - 5b6 — Edit them ✅ built (2026-11-22)
      - 5b7 — Privacy policy and closing ✅ built (2026-11-22)
-5.5. [Phase 5.5 — CI, code quality and missing tests](phase-5.5-ci-quality.md) ⏳ planned, waiting on its open questions: coverage, husky and commitlint, GitHub Actions (checks, build, migrations, audit), missing tests
+5.5. [Phase 5.5 — CI, code quality and missing tests](phase-5.5-ci-quality.md) 🚧 in progress: 5.5a missing tests and 5.5b coverage ✅ built (2026-11-22); husky and commitlint, GitHub Actions (checks, build, migrations, audit) wait on its open questions
+5.6. [Phase 5.6 — Dashboard](phase-5.6-dashboard.md) ⏳ planned (2026-11-21), open questions pending: currently reading, books read per year, this year's reads by genre, how to use the extension, books added per year by type
+5.7. [Phase 5.7 — Profile](phase-5.7-profile.md) ⏳ planned (2026-11-21), open questions pending: edit the name, photo and other profile details (not the email)
 6. [Phase 6 — Journal](phase-6-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)
 7. [Phase 7 — Quality and deploy](phase-7-quality-deploy.md)
    - Row-level security on every table (Supabase advisor, 2026-11-14) ✅ applied locally and on Supabase on 2026-11-21

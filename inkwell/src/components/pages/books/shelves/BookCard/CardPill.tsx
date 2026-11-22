@@ -1,17 +1,6 @@
-import type { PositionedWord } from "@/types/ui.type";
 import type { ReactNode } from "react";
 
-function wordsWithPositions(text: string): PositionedWord[] {
-  const words: PositionedWord[] = [];
-  let position = 0;
-  for (const word of text.split(" ")) {
-    words.push({ word, start: position });
-    position += word.length + 1;
-  }
-  return words;
-}
-
-function capitalizeFirstLetter(text: string): string {
+export function capitalizeFirstLetter(text: string): string {
   if (!text) return text;
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
@@ -20,8 +9,7 @@ const PILL =
   "text-xs font-normal text-muted-foreground flex flex-wrap gap-0.5 items-center border w-fit max-w-full rounded-full px-1 py-0.5";
 
 // A small rounded line on a shelf card (read dates, genre and trope, tags).
-// Each word is its own element so the line wraps between words. With
-// `onClick` it's a button, for example one that filters the shelf by it.
+// With `onClick` it's a button, for example one that filters the shelf by it.
 export function CardPill({
   text,
   label,
@@ -39,12 +27,16 @@ export function CardPill({
 }>) {
   const content = (
     <>
-      {label && <span className='sr-only'>{label}: </span>}
-      {wordsWithPositions(text).map(({ word, start }) => (
-        <small key={start}>
-          {capitalize ? capitalizeFirstLetter(word) : word}
-        </small>
-      ))}
+      {label && (
+        <>
+          <span className='sr-only'>{label}:</span>{" "}
+        </>
+      )}
+      <small className='[word-spacing:-0.3em]'>
+        {capitalize
+          ? text.split(" ").map(capitalizeFirstLetter).join(" ")
+          : text}
+      </small>
       {children}
     </>
   );

@@ -1,0 +1,85 @@
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+import { TopicFilter } from "@/components/pages/books/shelves/BookShelf/TopicFilter";
+import type { TopicLists } from "@/types/shelf.type";
+
+const topics: TopicLists = {
+  genres: ["Fantasy", "Romance", "Thriller"],
+  tropes: [
+    { name: "Chosen One", genres: ["Fantasy"] },
+    { name: "Enemies to Lovers", genres: ["Fantasy", "Romance"] },
+    { name: "Unreliable Narrator", genres: ["Thriller"] },
+  ],
+};
+
+const open = async (genres: string[] = [], tropes: string[] = []) => {
+  const onChange = vi.fn();
+  render(<TopicFilter topics={topics} genres={genres} tropes={tropes} onChange={onChange} />);
+  await userEvent.click(screen.getByRole("button", { name: /^Filter books/ }));
+  return onChange;
+};
+const chips = (list: string) =>
+  within(screen.getByRole("list", { name: list }))
+    .getAllByRole("button")
+    .map((chip) => chip.textContent?.trim());
+
+describe("TopicFilter", () => {
+  it("lists every genre and asks for one before showing tropes", async () => {
+    await open();
+    expect(chips("Genres")).toEqual(["Fantasy", "Romance", "Thriller"]);
+    expect(screen.queryByRole("list", { name: "Tropes" })).toBeNull();
+    expect(screen.getByText("No genre selected")).toBeTruthy();
+  });
+
+  it("ticks a genre", async () => {
+    const onChange = await open([], []);
+    await userEvent.click(screen.getByRole("button", { name: "Fantasy" }));
+    expect(onChange).toHaveBeenCalledWith(["Fantasy"], []);
+  });
+
+  it("unticks a ticked genre, which shows as pressed", async () => {
+    const onChange = await open(["Fantasy", "Romance"], []);
+    const fantasy = screen.getByRole("button", { name: "Fantasy" });
+    expect(fantasy.getAttribute("aria-pressed")).toBe("true");
+    await userEvent.click(fantasy);
+    expect(onChange).toHaveBeenCalledWith(["Romance"], []);
+  });
+
+  it("only shows the ticked genres' tropes", async () => {
+    await open(["Romance"], []);
+    expect(chips("Tropes")).toEqual(["Enemies to Lovers"]);
+  });
+
+  it("keeps a ticked trope from another genre, so it can be unticked", async () => {
+    const onChange = await open(["Romance"], ["Unreliable Narrator"]);
+    expect(chips("Tropes")).toEqual(["Enemies to Lovers", "Unreliable Narrator"]);
+    await userEvent.click(screen.getByRole("button", { name: "Unreliable Narrator" }));
+    expect(onChange).toHaveBeenCalledWith(["Romance"], []);
+  });
+
+  it("ticks a trope, keeping the genres", async () => {
+    const onChange = await open(["Fantasy"], []);
+    await userEvent.click(screen.getByRole("button", { name: "Chosen One" }));
+    expect(onChange).toHaveBeenCalledWith(["Fantasy"], ["Chosen One"]);
+  });
+
+  it("counts what's ticked and clears it all", async () => {
+    const onChange = vi.fn();
+    render(<TopicFilter topics={topics} genres={["Fantasy"]} tropes={["Chosen One"]} onChange={onChange} />);
+    expect(screen.getByRole("button", { name: "Filter books, 2 selected" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(onChange).toHaveBeenCalledWith([], []);
+  });
+
+  it("has nothing to clear with nothing ticked", () => {
+    render(<TopicFilter topics={topics} genres={[]} tropes={[]} onChange={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Filter books" })).toBeTruthy();
+  });
+
+  it("says so when the ticked genres have no tropes", async () => {
+    await open(["Horror"], []);
+    expect(screen.getByText("No tropes for these genres.")).toBeTruthy();
+  });
+});

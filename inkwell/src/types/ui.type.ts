@@ -26,10 +26,6 @@ export type BooksContextProps = {
 
 export type ChangedBook = NonNullable<BookChangeResult["book"]>;
 
-// Each word with where it starts in the text, a key that stays unique when a
-// word repeats, as "Oct" does in "5 Oct 25 – 12 Oct 25".
-export type PositionedWord = { word: string; start: number };
-
 export type SearchState =
   | { kind: "idle" }
   | { kind: "loading" }

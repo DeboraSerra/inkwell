@@ -563,3 +563,37 @@ describe("rememberShelfPageSize", () => {
     expect(request.set).not.toHaveBeenCalled();
   });
 });
+
+describe("unexpected errors", () => {
+  const bug = new Error("database down");
+
+  // Anything that isn't a DomainError is a bug, so every action lets it through to a 500.
+  it.each([
+    ["addBookByIsbn", "addBookByIsbn", () => addBookByIsbn({}, form({ isbn: "0441013597", formats: "EBOOK" }))],
+    ["previewSearchResult", "previewSearchResult", () => previewSearchResult({ source: "GOOGLE_BOOKS", sourceId: "g1" })],
+    ["addSearchBook", "addBookFromProvider", () => addSearchBook({}, form({ source: "OPEN_LIBRARY", sourceId: "OL1M" }))],
+    ["changeBookStatus", "updateStatus", () => changeBookStatus("ub-1", "FINISHED")],
+    ["changeBookFormats", "updateFormats", () => changeBookFormats("ub-1", ["EBOOK"])],
+    ["editBook", "editUserBook", () => editBook("ub-1", form({}))],
+    ["moveBookWithDates", "moveUserBook", () => moveBookWithDates("ub-1", ReadingStatus.READING, form({}))],
+    ["removeBook", "removeUserBook", () => removeBook("ub-1")],
+    ["removeBooks", "removeUserBooks", () => removeBooks(["ub-1"])],
+  ] as const)("%s rethrows them", async (_name, method, run) => {
+    service[method].mockRejectedValue(bug);
+    await expect(run()).rejects.toBe(bug);
+  });
+});
+
+describe("adding a book that's already in the library", () => {
+  it("says so for a search result, naming its list", async () => {
+    service.addBookFromProvider.mockResolvedValue(added(ReadingStatus.FINISHED, false));
+    const state = await addSearchBook({}, form({ source: "OPEN_LIBRARY", sourceId: "OL1M", formats: "EBOOK" }));
+    expect(state.message).toBe("“The Hobbit” is already in your library, on Finished. Any new formats were added.");
+  });
+
+  it("says so for an ISBN", async () => {
+    service.addBookByIsbn.mockResolvedValue(added(ReadingStatus.READING, false));
+    const state = await addBookByIsbn({}, form({ isbn: "0441013597" }));
+    expect(state.message).toBe("“The Hobbit” is already in your library, on Reading. Any new formats were added.");
+  });
+});
