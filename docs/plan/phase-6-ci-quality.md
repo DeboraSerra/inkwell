@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j, 6n, 6p, 6l, 6f and 6h ✅ built; 6k and 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j, 6n, 6p, 6l, 6f, 6h and 6k ✅ built; 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
 Phase 11 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 11 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
@@ -246,12 +246,19 @@ From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, k
 - **Fixed:** 19 exports only used in their own file are no longer exported (constants such as `SESSION_COOKIE`, `MIN_QUERY_LENGTH`, `RATE_LIMIT_WINDOW_SECONDS`, and `readerDetails`, `uniqueFormats`, `defaultSortFor`, `mergeDocPair`, `CatalogRecord`…). Removed as unused: `library.service.getUserBook`, the `EnrichmentReply` type and `config/firebase.ts`'s default export.
 - **Checked:** `npm run knip` passes; `tsc`, lint and the 1,612 tests (coverage thresholds included) pass.
 
-## 6k — CodeQL ⏳ planned
+## 6k — CodeQL ✅ set up (2026-11-22), the fix to be confirmed by the next analysis
 
 - GitHub's default setup for JavaScript/TypeScript and GitHub Actions, turned on through `gh api` (no workflow file). Free on a public repository.
 - Findings appear under Security → Code scanning; any found on the first run are triaged here.
 
 **Done when:** the first analysis finishes, and findings are fixed or dismissed with a reason.
+
+### Outcome
+
+- **Default setup** turned on through `gh api` (`PATCH …/code-scanning/default-setup`): JavaScript/TypeScript, the default query suite, weekly and on every push and pull request. The first analysis (run 45080503685, on `main`) succeeded.
+- **GitHub Actions not scanned yet:** GitHub refused `actions` as a language ("not present in the repository"), since the workflows aren't on `main`. Add it once they are: `gh api -X PATCH repos/DeboraSerra/inkwell/code-scanning/default-setup -f state=configured -f 'languages[]=javascript-typescript' -f 'languages[]=actions'`.
+- **One finding, high:** alert 1, `js/xss-through-dom` at `BookCover.tsx:86`. The add form's cover field shows what's typed as the cover at once, and that text went straight into a plain `<img src>`. Browsers don't run a `javascript:` URL in an image, but the server only ever saves https covers (`isHttpsUrl`), so the preview now does the same: `BookCover` parses the URL, shows the placeholder unless it's `https:`, and gives the plain `<img>` the parsed `url.href`. A typed `http:`, `javascript:` or `data:` URL, or text that isn't a URL, now shows the placeholder (before: a broken plain image). Tests updated; all 1,614 pass with coverage.
+- **For the user:** after the push, the next analysis should close alert 1. If it doesn't, dismiss it as "False positive" with that reason.
 
 ## 6o — OpenSSF Scorecard ⏳ planned
 

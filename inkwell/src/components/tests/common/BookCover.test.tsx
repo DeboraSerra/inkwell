@@ -29,12 +29,19 @@ describe("BookCover", () => {
     },
   );
 
-  it.each(["https://m.media-amazon.com/images/I/1.jpg", "http://covers.openlibrary.org/b/id/1-M.jpg", "not a url"])(
-    "shows other covers (%s) as a plain image with no referrer",
+  it("shows a cover from another https host as a plain image with no referrer", () => {
+    show("https://m.media-amazon.com/images/I/1.jpg");
+    expect(image().hasAttribute("data-optimized")).toBe(false);
+    expect(image().getAttribute("src")).toBe("https://m.media-amazon.com/images/I/1.jpg");
+    expect(image().getAttribute("referrerpolicy")).toBe("no-referrer");
+  });
+
+  // What's typed into the cover field is shown as it's typed, so only https.
+  it.each(["http://covers.openlibrary.org/b/id/1-M.jpg", "not a url", "javascript:alert(1)", "data:image/png;base64,AA"])(
+    "shows the placeholder for a cover that isn't https (%s)",
     (src) => {
       show(src);
-      expect(image().hasAttribute("data-optimized")).toBe(false);
-      expect(image().getAttribute("referrerpolicy")).toBe("no-referrer");
+      expect(image().getAttribute("src")).toBe("/assets/cover-placeholder.jpg");
     },
   );
 

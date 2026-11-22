@@ -11,12 +11,15 @@ import { useCallback, useState } from "react";
 // in next.config.ts, or the optimizer answers 400.
 const OPTIMIZED_COVER_HOSTS = new Set(["covers.openlibrary.org", "books.google.com"]);
 
-const isOptimizable = (src: string) => {
+// Only https covers are shown, as the server only saves those. A URL being
+// typed into the cover field (anything, even `javascript:`) shows the
+// placeholder until it's one.
+const httpsUrl = (src: string) => {
   try {
     const url = new URL(src);
-    return url.protocol === "https:" && OPTIMIZED_COVER_HOSTS.has(url.hostname);
+    return url.protocol === "https:" ? url : null;
   } catch {
-    return false;
+    return null;
   }
 };
 
@@ -54,7 +57,8 @@ export function BookCover({
   const classes = cn("shrink-0 rounded-sm object-cover", className);
   const loading = lazy ? "lazy" : undefined;
 
-  if (!src || failedSrc === src) {
+  const url = src ? httpsUrl(src) : null;
+  if (!src || !url || failedSrc === src) {
     return (
       <Image
         src='/assets/cover-placeholder.jpg'
@@ -66,7 +70,7 @@ export function BookCover({
       />
     );
   }
-  if (isOptimizable(src)) {
+  if (OPTIMIZED_COVER_HOSTS.has(url.hostname)) {
     return (
       <Image
         ref={checkLoaded}
@@ -84,7 +88,7 @@ export function BookCover({
     // biome-ignore lint/performance/noImgElement: covers from hosts outside next.config's remotePatterns can't go through the optimizer, and need no-referrer
     <img
       ref={checkLoaded}
-      src={src}
+      src={url.href}
       alt=''
       loading={loading}
       referrerPolicy='no-referrer'
