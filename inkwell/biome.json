@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
-    "includes": ["**", "!src/generated", "!.next", "!src/components/ui", "!next-env.d.ts"]
+    "includes": ["**", "!src/generated", "!.next", "!src/components/ui", "!next-env.d.ts", "!coverage"]
   },
   "formatter": { "enabled": false },
   "assist": { "enabled": false },

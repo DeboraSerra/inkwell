@@ -9,6 +9,18 @@ export default defineConfig({
     },
   },
   test: {
+    // `npm run test:coverage`. Server code and the pure client helpers; the
+    // generated client, vendored shadcn components, tests and type files aren't counted.
+    coverage: {
+      provider: "v8",
+      include: ["src/server/**", "src/components/**/*.ts"],
+      exclude: ["src/generated/**", "src/components/ui/**", "src/server/tests/**", "src/components/tests/**", "**/*.type.ts", "**/*.type.tsx"],
+      // The files not fully covered, the totals, and lcov for CI.
+      reporter: [["text", { skipFull: true }], "text-summary", "lcov"],
+      reportsDirectory: "coverage",
+      // What 5.5a's tests reached, rounded down, so coverage can't drop.
+      thresholds: { statements: 90, branches: 90, functions: 90, lines: 90 },
+    },
     projects: [
       // Server code and pure client helpers run in Node.
       { extends: true, test: { name: "node", include: ["src/**/*.test.ts"] } },

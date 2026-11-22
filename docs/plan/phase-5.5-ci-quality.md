@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress: 5.5a ✅ built (2026-11-22); 5.5b–5.5e wait on the open questions. Asked by the user on 2026-11-22, to come before Phase 6. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 5.5a and 5.5b ✅ built (2026-11-22); 5.5c–5.5e wait on the open questions. Asked by the user on 2026-11-22, to come before Phase 6. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
 Phase 7 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 7 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
@@ -55,7 +55,7 @@ Every file above has a test, run and committed one set at a time. The suite went
   - Pagination links are real `<a href>`s, but the vendored `ui/pagination.tsx` (Base UI `Button` with `nativeButton={false}`) gives them `role="button"`, so screen readers announce them as buttons.
   - `Header.tsx` is unused, and passes `as={Link}` to Base UI's `Button`, which has no `as` prop.
 
-## 5.5b — Test coverage
+## 5.5b — Test coverage ✅ built (2026-11-22)
 
 - **Dependency:** `@vitest/coverage-v8`, the same major as `vitest` 5.
 - **`npm run test:coverage`** (`vitest run --coverage`), with coverage of `src/server/**` and `src/components/**/*.ts` (pure client helpers), excluding `src/generated`, `src/components/ui`, `src/server/tests` and `*.type.ts(x)`.
@@ -63,6 +63,14 @@ Every file above has a test, run and committed one set at a time. The suite went
 - **Reports:** text summary in the terminal, `lcov` for CI (and Sonar, if g is chosen); `coverage/` is gitignored.
 
 **Done when:** `npm run test:coverage` prints the summary and fails when a threshold isn't met.
+
+### Outcome
+
+- `@vitest/coverage-v8` 5.0.3 (2026-09-30), pinned exactly, the same version as `vitest`. `npm audit` still shows only the 4 moderate `shadcn` findings.
+- `npm run test:coverage` runs `vitest run --coverage`. The settings are in `vitest.config.ts`, at the top level so they cover both test projects: `src/server/**` and `src/components/**/*.ts`, without `src/generated`, `src/components/ui`, both test folders and `*.type.ts(x)`.
+- Measured on 2026-11-22: statements 96.95%, branches 93.83%, functions 95.52%, lines 97.12%. Thresholds are 96, 93, 95 and 97. A run with a higher threshold fails ("Coverage for lines (97.12%) does not meet global threshold (98%)", exit 1).
+- Reports: the files not fully covered and the totals in the terminal, and `coverage/lcov.info` for CI. `coverage/` was already in `inkwell/.gitignore`. Biome now skips `coverage/` too (`biome.json`), since the HTML report's scripts gave 299 lint errors.
+- The `.tsx` components aren't counted, as planned, though they now have tests (5.5a). Adding `src/components/**/*.tsx` would need its thresholds measured again.
 
 ## 5.5c — Commit messages: husky and commitlint
 
