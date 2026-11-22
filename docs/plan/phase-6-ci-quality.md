@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i ✅ built; 6j, 6n, 6p, 6l, 6f, 6h, 6k and 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i and 6j ✅ built; 6n, 6p, 6l, 6f, 6h, 6k and 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
 Phase 11 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 11 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
@@ -158,11 +158,16 @@ From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, k
 - **Switched to Node 26** on 2026-11-22 (asked by the user): Vercel now offers 26 LTS for builds and functions, and the machine already ran it. `engines` is `26.x`, `.nvmrc` `26`, every `node-version` in `ci.yml` `26`, and `@types/node` `^26.6.6` (2026-10-28; was `^24.19.2`). `tsc`, lint and the 1,604 tests pass; `npm audit` still shows only the 4 moderate `shadcn` findings.
 - **For the user:** the next CI run and a Vercel preview deploy confirm Node 26 there. Whether the build's lockfile warning is gone shows on the next `npm run build`.
 
-## 6j — Pull request template ⏳ planned
+## 6j — Pull request template ✅ built (2026-11-22)
 
 - `.github/pull_request_template.md`: what changed and which plan step, then boxes for the plan updated, `tsc` / lint / tests passing, checked in the app, and `/privacy` updated when what's collected changed.
 
 **Done when:** a new pull request opens with the template filled in.
+
+### Outcome
+
+- `.github/pull_request_template.md`: "What changed" (with the plan step), then boxes for the plan updated, `tsc` / lint / tests / build passing, checked in the app, `/privacy`, new variables in `.env.example` and on Vercel, and a schema change's migration with row-level security.
+- **For the user:** the next pull request shows it.
 
 ## 6n — `npm audit signatures` in CI ⏳ planned
 
