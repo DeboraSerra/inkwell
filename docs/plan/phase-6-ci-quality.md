@@ -1,10 +1,10 @@
-# Phase 5.5 — CI, code quality and missing tests
+# Phase 6 — CI, code quality and missing tests
 
 [← Plan overview](README.md)
 
-🚧 In progress: 5.5a and 5.5b ✅ built (2026-11-22); 5.5c–5.5e wait on the open questions. Asked by the user on 2026-11-22, to come before Phase 6. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 6a and 6b ✅ built (2026-11-22); 6c–6e wait on the open questions. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
-Phase 7 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 7 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
+Phase 11 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 11 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
 **Applies to every step**
 
@@ -14,7 +14,7 @@ Phase 7 already listed GitHub Actions, `npm audit` in CI and Dependabot; they mo
 - **Secrets never reach CI logs.** The build gets placeholder values for the `NEXT_PUBLIC_*` and server variables; no real key is stored in GitHub except where a step truly needs it (none here).
 - Each step ends with `npx tsc --noEmit`, `npm run lint` and `npm test` passing locally, and the workflow passing on a pushed branch.
 
-## 5.5a — Missing tests ✅ built (2026-11-22)
+## 6a — Missing tests ✅ built (2026-11-22)
 
 Measured on 2026-11-22: these files have no test of their own.
 
@@ -30,7 +30,7 @@ Measured on 2026-11-22: these files have no test of their own.
 - **Components:** no React component has a test. Testing them needs `@testing-library/react`, `@testing-library/user-event` and `jsdom` (open question 4). If approved, start with the riskiest: `AddBookForm` (edit vs add, locked fields, topics), `TopicFilter`, `ShelfFilterBar` (search, ✕, hidden fields), `TapTooltip`, `BookCard` pills.
 - Tests follow the layout rules: server tests in `src/server/tests/<module>/`, component tests in `src/components/tests/<folder>/`.
 
-**Done when:** every file above has a test. Coverage isn't measured yet; 5.5b sets its thresholds from the numbers these tests reach.
+**Done when:** every file above has a test. Coverage isn't measured yet; 6b sets its thresholds from the numbers these tests reach.
 
 ### Outcome
 
@@ -50,12 +50,12 @@ Every file above has a test, run and committed one set at a time. The suite went
 - **Add form:** `TextField`, `PartialDateField`, `AudioLengthField`, `StatusField`, `FormatsField`, `TopicsField`, `BookPreview`, `ScanBarcodeButton`, `IsbnLookupField`, `TitleSearchField`, `LiveScanButton`, `BookCover`, `BooksNew`.
 - **Sign-in and settings:** `EmailSignInForm`, `GoogleSignInButton`, `Login`, `CreateTokenForm`, `Tokens`, `Profile`, `Settings`. The async Server Components are awaited, then rendered.
 - **Layout:** `MobileTabBar`, `AppSidebar`, `Content`, `Footer`, `AccountMenuContent`, `SidebarLink`, `SignOutItem`, and `hooks/use-mobile`. `components/tests/setup.ts` now also stubs `matchMedia`.
-- **Not tested:** `components/layout/Header.tsx`, which nothing imported (deleted in 5.5b), and `src/config/` (`firebase-session.ts` is covered only through the sign-in forms' mocks).
+- **Not tested:** `components/layout/Header.tsx`, which nothing imported (deleted in 6b), and `src/config/` (`firebase-session.ts` is covered only through the sign-in forms' mocks).
 - **Found, not changed:**
   - Pagination links are real `<a href>`s, but the vendored `ui/pagination.tsx` (Base UI `Button` with `nativeButton={false}`) gives them `role="button"`, so screen readers announce them as buttons.
-  - `Header.tsx` was unused, and passed `as={Link}` to Base UI's `Button`, which has no `as` prop. Deleted in 5.5b.
+  - `Header.tsx` was unused, and passed `as={Link}` to Base UI's `Button`, which has no `as` prop. Deleted in 6b.
 
-## 5.5b — Test coverage ✅ built (2026-11-22)
+## 6b — Test coverage ✅ built (2026-11-22)
 
 - **Dependency:** `@vitest/coverage-v8`, the same major as `vitest` 5.
 - **`npm run test:coverage`** (`vitest run --coverage`), with coverage of `src/server/**`, `src/components/**/*.{ts,tsx}` and `src/hooks/**`, excluding `src/generated`, `src/components/ui`, `src/server/tests` and `*.type.ts(x)`.
@@ -68,12 +68,12 @@ Every file above has a test, run and committed one set at a time. The suite went
 
 - `@vitest/coverage-v8` 5.0.3 (2026-09-30), pinned exactly, the same version as `vitest`. `npm audit` still shows only the 4 moderate `shadcn` findings.
 - `npm run test:coverage` runs `vitest run --coverage`. The settings are in `vitest.config.ts`, at the top level so they cover both test projects: `src/server/**`, `src/components/**/*.{ts,tsx}` and `src/hooks/**`, without `src/generated`, `src/components/ui`, both test folders and `*.type.ts(x)`.
-- Measured on 2026-11-22, with components and hooks: statements 97.13%, branches 93.48%, functions 96.01%, lines 97.49%. Branches were low mostly from models' default `db` argument never being passed, controller actions never tested with an unexpected error, and service fallbacks. Three more 5.5a commits cover those (models with a passed-in transaction, every library action's rethrow, and the book service's ISBN-10, race and topic paths), bringing it to statements 98.35%, branches 95.65%, functions 97.88%, lines 98.78% (1,604 tests).
+- Measured on 2026-11-22, with components and hooks: statements 97.13%, branches 93.48%, functions 96.01%, lines 97.49%. Branches were low mostly from models' default `db` argument never being passed, controller actions never tested with an unexpected error, and service fallbacks. Three more 6a commits cover those (models with a passed-in transaction, every library action's rethrow, and the book service's ISBN-10, race and topic paths), bringing it to statements 98.35%, branches 95.65%, functions 97.88%, lines 98.78% (1,604 tests).
 - The thresholds are 95 for each. A run with a threshold above the numbers fails (exit 1).
 - Reports: the files not fully covered and the totals in the terminal, and `coverage/lcov.info` for CI. `coverage/` was already in `inkwell/.gitignore`. Biome now skips `coverage/` too (`biome.json`), since the HTML report's scripts gave 299 lint errors.
 - The `.tsx` components and `src/hooks/` are counted too (asked by the user on 2026-11-22). The unused `components/layout/Header.tsx`, the only file at 0%, is deleted.
 
-## 5.5c — Commit messages: husky and commitlint
+## 6c — Commit messages: husky and commitlint
 
 - **Dependencies:** `husky`, `@commitlint/cli`, `@commitlint/config-conventional`.
 - **`commitlint.config.mjs`** at the root: conventional commits, `header-max-length` 100 (the length used for this project's commit messages), types `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `build`, `ci`, `perf`, `revert`.
@@ -81,11 +81,11 @@ Every file above has a test, run and committed one set at a time. The suite went
   - `commit-msg`: `npx --no -- commitlint --edit "$1"`.
   - `pre-commit`: fast checks only, on staged files: Biome lint (`biome lint --staged` or `lint-staged`, open question 2). Not the full test run, so committing stays quick.
   - `pre-push` (optional, open question 3): `tsc` and `npm test`.
-- Hooks are a convenience; CI (5.5d) is what enforces.
+- Hooks are a convenience; CI (6d) is what enforces.
 
 **Done when:** a commit with a message like "updated stuff" is rejected, `feat(books): …` passes, and a staged file with a lint error stops the commit.
 
-## 5.5d — CI on GitHub Actions
+## 6d — CI on GitHub Actions
 
 `.github/workflows/ci.yml`, on every pull request and on pushes to `main` and `dev`:
 
@@ -102,7 +102,7 @@ Every file above has a test, run and committed one set at a time. The suite went
 
 **Done when:** a pull request shows each check, and a failing test, type error, lint error, broken build, missing migration, high audit finding or bad commit message turns it red.
 
-## 5.5e — Repository settings (the user does these on GitHub)
+## 6e — Repository settings (the user does these on GitHub)
 
 - **Branch protection on `main`:** pull requests only, the CI checks required, no force pushes.
 - **Secret scanning and push protection** turned on.
@@ -131,9 +131,9 @@ Every file above has a test, run and committed one set at a time. The suite went
 
 ## Open questions
 
-1. **Approve the dev dependencies** for 5.5b–5.5c: `@vitest/coverage-v8`, `husky`, `@commitlint/cli`, `@commitlint/config-conventional`.
+1. **Approve the dev dependencies** for 6b–6c: `@vitest/coverage-v8`, `husky`, `@commitlint/cli`, `@commitlint/config-conventional`.
 2. **Pre-commit lint:** Biome's own `--staged` (no extra dependency) or `lint-staged`?
 3. **Pre-push hook** with `tsc` and tests: yes, or leave it to CI?
-4. **React component tests** in 5.5a: approve `@testing-library/react`, `@testing-library/user-event` and `jsdom`, or keep 5.5a to non-UI code for now?
+4. **React component tests** in 6a: approve `@testing-library/react`, `@testing-library/user-event` and `jsdom`, or keep 6a to non-UI code for now?
 5. **Which of f–p** to include.
-6. **Phase numbering:** this is "Phase 5.5" so the existing Phases 6–10 and their links keep their numbers. Rename it to Phase 6 and renumber the rest instead?
+6. **Phase numbering:** answered on 2026-11-22: renamed to Phase 6, and the later phases renumbered (shelf filter fixes 7, dashboard 8, profile 9, journal 10, quality and deploy 11, mobile API 12, mobile app 13, subscriptions 14).

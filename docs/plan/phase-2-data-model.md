@@ -30,7 +30,7 @@ Why it's shaped this way:
 | [2b — Library](#phase-2b--library) | `UserBook` with status and source, status transitions, user-scoped data access | ✅ |
 | [2c — Shelves](#phase-2c--shelves) | `Shelf`/`ShelfItem`, system shelves per user, ordering | ✅ (removed by 3a) |
 
-The journal and goals steps that used to be 2d and 2e moved to [Phase 6](phase-6-journal.md).
+The journal and goals steps that used to be 2d and 2e moved to [Phase 10](phase-10-journal.md).
 
 ---
 
@@ -159,5 +159,5 @@ Goal: the three lists (Ebook TBR, Physical TBR, Wishlist) stored as data, so cus
   - As planned, `AUDIO` + `TO_READ` belongs on no system shelf, so unread audiobooks aren't on any list yet.
   - A book that leaves a shelf and comes back goes to the end; its old position isn't kept.
   - Concurrent moves can tie on position; ties are ordered by id, and the next renumber clears them.
-- **Not built:** reading a shelf's books (Phase 6 needs it) and controllers (no UI calls these yet).
+- **Not built:** reading a shelf's books (Phase 10 needs it) and controllers (no UI calls these yet).
 - **Verified:** 181 tests; against the local database with throwaway rows (repeat and concurrent shelf creation, every shelf move, 5 concurrent adds of one book, renumbering, cross-user blocking, custom shelves untouched); the backfill SQL inside a rolled-back transaction. A real Google sign-in wasn't run, so `createSession` calling `ensureSystemShelves` is covered by a unit test only.

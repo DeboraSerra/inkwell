@@ -1,4 +1,4 @@
-# Phase 10 — Paid subscriptions
+# Phase 14 — Paid subscriptions
 
 [← Plan overview](README.md)
 
@@ -32,11 +32,11 @@ Asked by the user on 2026-11-21. Free accounts get a capped Inkwell, and subscri
 - **On the server:** `POST /api/imports/amazon` counts the books in a free account's import against the book limit below, and refuses the rest with a message saying how many were skipped. A re-import that only adds formats to books already in the library is never refused.
 - **Docs tab imports** follow the same limits.
 
-### Journal (Phase 6)
+### Journal (Phase 10)
 
 - Free accounts get a limited journal, for example: reading sessions for the current year only, a review length cap, and one active goal (the default books per year). Subscribers get full history, longer reviews and any number of goals.
 - **Progress by format** (pages, percentage, audiobook time) works on every plan; it's part of reading a book.
-- Exact limits wait until Phase 6 is planned.
+- Exact limits wait until Phase 10 is planned.
 
 ### AI enrichment
 

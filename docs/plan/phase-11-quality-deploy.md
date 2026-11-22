@@ -1,10 +1,10 @@
-# Phase 7 — Quality and deploy
+# Phase 11 — Quality and deploy
 
 [← Plan overview](README.md)
 
 - zod validation on any input the MVP didn't cover. Every query is scoped by `userId` (write a test for this). Rate-limit the import and AI endpoints.
 - Playwright for one happy path (Vitest and the domain-logic tests already exist).
-- GitHub Actions, `npm audit` and Dependabot moved to [Phase 5.5](phase-5.5-ci-quality.md) (2026-11-22).
+- GitHub Actions, `npm audit` and Dependabot moved to [Phase 6](phase-6-ci-quality.md) (2026-11-22).
 - Vercel deploy. Preview deployments use their own Supabase database, never production's.
 
 ## Row-level security on Supabase ✅ applied on Supabase (2026-11-21)
