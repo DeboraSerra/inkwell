@@ -42,7 +42,7 @@ Every file above has a test, run and committed one set at a time. The suite went
   - `vitest.config.ts` has two projects: `node` (`*.test.ts`) and `dom` (`*.test.tsx`, jsdom, `components/tests/setup.ts`, which unmounts after each test and stubs `ResizeObserver`).
   - Tests: `components/tests/hooks/useBookActions.test.tsx` (`src/hooks` has no components folder, so its tests sit in `components/tests/hooks/`), `pages/context/context.test.tsx`, `pages/books/new/AddBookForm.test.tsx`, `pages/books/shelves/BookShelf/TopicFilter/TopicFilter.test.tsx`, `pages/books/shelves/BookShelf/ShelfFilterBar.test.tsx`, `common/TapTooltip.test.tsx` and `pages/books/shelves/BookCard/BookCard.test.tsx`.
   - `ShelfFilterBar`'s tests fake only `setTimeout` and use `fireEvent`: Testing Library's async helpers wait on a real timer, so `user-event` hangs under fake timers.
-- **Found, not changed:** `CardPill` puts each word in its own `<small>` with no space between them, so the text (and, in jsdom, the accessible name) reads "WarCollege" and "Fantasy(EnemiestoLovers)". Browsers may add spaces between flex items when they compute the name, but copied text has none. The card tests compare the words, not the name.
+- **Fixed after review:** `CardPill` put each word in its own `<small>` with no space between them, so the text and accessible name read "WarCollege" and "Tag:Dragons". The pill's text is now one `<small>`, which wraps between words like any text, and there's a space after the screen-reader label. `wordsWithPositions` and the `PositionedWord` type are removed. `BookCard.test.tsx` checks the names.
 
 ## 5.5b — Test coverage
 

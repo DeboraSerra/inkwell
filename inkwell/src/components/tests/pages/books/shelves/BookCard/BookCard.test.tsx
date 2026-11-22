@@ -32,10 +32,10 @@ const book: ShelfBook = {
   trope: "Enemies to Lovers",
   tags: ["dragons", "war college"],
 };
-// A pill's words, each in its own element so the line wraps between them.
+// A pill's text, without its screen-reader label.
 const words = (element: Element) => [...element.querySelectorAll("small")].map((word) => word.textContent).join(" ");
 const pills = (label: string) =>
-  screen.getAllByRole("button").filter((button) => button.querySelector(".sr-only")?.textContent === `${label}: `);
+  screen.getAllByRole("button").filter((button) => button.querySelector(".sr-only")?.textContent === `${label}:`);
 const pill = (label: string, text: string) => {
   const found = pills(label).find((button) => words(button) === text);
   if (!found) throw new Error(`No ${label} pill reading “${text}”: ${pills(label).map(words).join(" | ")}`);
@@ -112,7 +112,7 @@ describe("BookCard pills", () => {
     show({ earlierReads: 2 });
     expect(screen.getByText("+2")).toBeTruthy();
     expect(screen.getByText(", 2 earlier reads")).toBeTruthy();
-    expect(screen.getByText("Mar")).toBeTruthy();
+    expect(screen.getByText("5 Mar 26")).toBeTruthy();
   });
 
   it("says “1 earlier read” for one", () => {
@@ -123,6 +123,13 @@ describe("BookCard pills", () => {
   it("shows no date pill without a read", () => {
     show({ latestRead: null, earlierReads: 0, genre: null, trope: null, tags: [] });
     expect(document.querySelectorAll("small")).toHaveLength(0);
+  });
+
+  it("names each pill with spaces between its words", () => {
+    show();
+    expect(screen.getByRole("button", { name: "Genre and trope: Fantasy (Enemies to Lovers), Show books like this" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Tag: War College, Search this tag" })).toBeTruthy();
+    expect(pill("Tag", "War College").textContent).toBe("Tag: War College, Search this tag");
   });
 
   it("clicking a pill doesn't select the book", async () => {
