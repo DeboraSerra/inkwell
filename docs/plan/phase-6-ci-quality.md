@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j, 6n, 6p, 6l, 6f, 6h and 6k ✅ built; 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j, 6n, 6p, 6l, 6f, 6h and 6k ✅ built; 6o built, its first run after the merge to `main`. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
 Phase 11 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 11 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
@@ -260,12 +260,19 @@ From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, k
 - **One finding, high:** alert 1, `js/xss-through-dom` at `BookCover.tsx:86`. The add form's cover field shows what's typed as the cover at once, and that text went straight into a plain `<img src>`. Browsers don't run a `javascript:` URL in an image, but the server only ever saves https covers (`isHttpsUrl`), so the preview now does the same: `BookCover` parses the URL, shows the placeholder unless it's `https:`, and gives the plain `<img>` the parsed `url.href`. A typed `http:`, `javascript:` or `data:` URL, or text that isn't a URL, now shows the placeholder (before: a broken plain image). Tests updated; all 1,614 pass with coverage.
 - **For the user:** after the push, the next analysis should close alert 1. If it doesn't, dismiss it as "False positive" with that reason.
 
-## 6o — OpenSSF Scorecard ⏳ planned
+## 6o — OpenSSF Scorecard 🔨 built (2026-11-22), first run after the merge to `main`
 
 - `.github/workflows/scorecard.yml`: weekly and on pushes to `main`, using `ossf/scorecard-action` pinned by SHA, with the permissions it needs (`security-events: write`, `id-token: write`) on that job only. Results go to code scanning.
 - It reports, never blocks. Checks that don't fit a one-person repository (code review by a second person, a fuzzing setup) are noted rather than chased.
 
 **Done when:** the first run publishes a score and its findings are listed in this step's outcome.
+
+### Outcome
+
+- `.github/workflows/scorecard.yml`: weekly (Mondays 06:30 UTC), on pushes to `main` and when branch protection changes. `permissions: read-all` at the top; the job alone gets `security-events: write` (results to code scanning) and `id-token: write` (publishing the score for a badge).
+- Pinned by SHA, each release over two weeks old: `ossf/scorecard-action` v2.5.0 (2026-10-12; v2.6.0 is from 2026-11-19), `github/codeql-action/upload-sarif` v4.39.3 (2026-11-04), and the same `checkout` and `upload-artifact` as CI. The SARIF is also kept as a `scorecard` artifact for 14 days.
+- **Not run yet:** Scorecard runs from the default branch, and there's no published score for the repository (the OpenSSF API answers 404). The score and its findings get listed here after the first run.
+- **For the user:** after merging to `main`, the run shows under Actions → Scorecard, and its findings under Security → Code scanning (tool "Scorecard").
 
 ## Open questions
 
