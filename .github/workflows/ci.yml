@@ -1,0 +1,169 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+
+# A newer push to the same branch or pull request cancels the run before it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The prepare script would set up git hooks, which CI doesn't need.
+  HUSKY: "0"
+
+defaults:
+  run:
+    working-directory: inkwell
+
+jobs:
+  checks:
+    name: Types, lint and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: inkwell/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - name: Unused files, exports and dependencies
+        run: npm run knip
+      - name: Tests with coverage
+        run: npm run test:coverage | tee coverage-output.txt
+      - name: Coverage in the job summary
+        if: always()
+        run: |
+          {
+            echo '### Coverage'
+            echo '```'
+            sed -n '/Coverage summary/,/^=\{3,\}$/p' coverage-output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: coverage
+          path: |
+            inkwell/coverage/
+            inkwell/coverage-output.txt
+          retention-days: 14
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    # Placeholders only: the build needs the variables to exist, not real
+    # values. The Firebase Admin key is left out, so it isn't parsed.
+    env:
+      NEXT_PUBLIC_FIREBASE_API_KEY: ci-placeholder
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ci-placeholder.firebaseapp.com
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: ci-placeholder
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ci-placeholder.appspot.com
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+      NEXT_PUBLIC_FIREBASE_APP_ID: "1:000000000000:web:0000000000000000"
+      NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: G-CIPLACEHOLDER
+      FIREBASE_PROJECT_ID: ci-placeholder
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      ANTHROPIC_API_KEY: ci-placeholder
+      CRON_SECRET: ci-placeholder
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: inkwell/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  migrations:
+    name: Migrations and seed
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: inkwell
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/inkwell
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: inkwell/package-lock.json
+      - run: npm ci
+      - name: Apply every migration to an empty database
+        run: npx prisma migrate deploy
+      - name: Fail when schema.prisma changed without a migration
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+      - name: Seed the curated lists
+        run: npx prisma db seed
+
+  audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: inkwell/package-lock.json
+      # The 4 moderate findings through shadcn don't fail it.
+      - run: npm audit --audit-level=high
+      # Signatures are checked on installed packages; their scripts aren't needed.
+      - run: npm ci --ignore-scripts
+      - name: Registry signatures and attestations
+        run: npm audit signatures
+
+  commitlint:
+    name: Commit messages
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: inkwell/package-lock.json
+      - run: npm ci
+      - name: Check every commit in the pull request
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: npx commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+
+  extension:
+    name: Extension package
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+      - run: node extension/build.mjs https://example.com

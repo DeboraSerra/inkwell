@@ -13,7 +13,7 @@ export const RATE_LIMITS = {
   AI_ENRICH: 10,
 } as const;
 
-export const RATE_LIMIT_WINDOW_SECONDS = 60;
+const RATE_LIMIT_WINDOW_SECONDS = 60;
 
 // Counts one request, and throws RateLimitError once the user is past the
 // bucket's limit for the current minute.

@@ -8,7 +8,7 @@ export const MAX_ATTEMPTS = 3;
 export const MAX_GENRES = 1;
 export const MAX_TROPES = 1;
 export const MAX_TAGS = 10;
-export const MAX_TAG_LENGTH = 30;
+const MAX_TAG_LENGTH = 30;
 // Per batch, to keep one cron run's collecting well inside its time limit.
 export const MAX_BATCH_SIZE = 1000;
 // Synopsis lookups before a batch, each a provider call or two.

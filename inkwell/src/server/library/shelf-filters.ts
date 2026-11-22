@@ -83,11 +83,11 @@ const DEFAULT_SORTS: Record<ReadingStatus, ShelfSort> = {
   FINISHED: "read-desc",
   DNF: "added-desc",
 };
-export const defaultSortFor = (status?: ReadingStatus): ShelfSort =>
+const defaultSortFor = (status?: ReadingStatus): ShelfSort =>
   status ? DEFAULT_SORTS[status] : "acquired-desc";
 
 // Only finished books have a finish date to sort by.
-export const sortsReadDates = (sort: ShelfSort) => sort === "read-desc" || sort === "read-asc";
+const sortsReadDates = (sort: ShelfSort) => sort === "read-desc" || sort === "read-asc";
 
 const parseShelfSort = (value: unknown, status?: ReadingStatus): ShelfSort => {
   const sort = SHELF_SORTS.find((allowed) => allowed === value);

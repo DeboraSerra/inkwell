@@ -7,9 +7,9 @@ import { ProviderError } from "./http";
 import { openLibrary } from "./open-library.provider";
 import type { BookMetadata, IsbnLookup, MetadataProvider, MetadataSourceName } from "@/types/metadata.type";
 
-export const SEARCH_LIMIT = 10;
-export const MIN_QUERY_LENGTH = 3;
-export const MAX_QUERY_LENGTH = 200;
+const SEARCH_LIMIT = 10;
+const MIN_QUERY_LENGTH = 3;
+const MAX_QUERY_LENGTH = 200;
 
 // Open Library first: it's free, needs no key, and asks only for a user agent.
 // Google Books is the fallback and fills gaps.

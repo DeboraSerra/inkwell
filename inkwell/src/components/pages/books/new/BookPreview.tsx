@@ -13,14 +13,7 @@ import type { AddAction } from "@/types/ui.type";
 // A book found by the form's ISBN lookup or title search, as the form's
 // starting point.
 
-const SOURCE_NAMES: Record<IsbnPreview["from"], string | null> = {
-  CATALOG: null,
-  OPEN_LIBRARY: "Open Library",
-  GOOGLE_BOOKS: "Google Books",
-};
-
-// Above the form's fields: what the fields can't show. The year, where the
-// details come from, and whether the reader has the book already. No cover:
+// Above the form's fields: whether the reader has the book already. No cover:
 // the user removed it from the top of the form.
 export function PreviewHeader({ preview }: Readonly<{ preview: IsbnPreview }>) {
   const inLibrary = preview.inLibrary;

@@ -33,7 +33,7 @@ export type MetadataProvider = {
   search(query: string, limit: number): Promise<BookMetadata[]>;
 };
 
-export type CatalogRecord = NonNullable<Awaited<ReturnType<typeof bookModel.findBookByIsbn13>>>;
+type CatalogRecord = NonNullable<Awaited<ReturnType<typeof bookModel.findBookByIsbn13>>>;
 
 export type IsbnLookup =
   | { found: "catalog"; book: CatalogRecord }

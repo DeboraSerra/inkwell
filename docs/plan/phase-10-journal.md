@@ -1,4 +1,4 @@
-# Phase 6 — Journal
+# Phase 10 — Journal
 
 [← Plan overview](README.md)
 
@@ -43,7 +43,7 @@ Goal: flexible reading goals with progress that's always computed.
 1. **`ReadingGoal` model:**
    - Fields: `userId`, `metric` (`BOOKS | PAGES | MINUTES`), `period` (`YEAR | MONTH | CUSTOM`), `startDate`, `endDate`, `target`, `createdAt`.
    - Index on `(userId, startDate, endDate)`. Overlapping goals are allowed, for example a yearly books goal alongside a monthly pages goal.
-2. **Default goal.** On first sign-in, or the first visit in a new year, suggest (don't create) a `BOOKS / YEAR` goal for the current year. The UI in Phase 6 confirms it.
+2. **Default goal.** On first sign-in, or the first visit in a new year, suggest (don't create) a `BOOKS / YEAR` goal for the current year. The UI in Phase 10 confirms it.
 3. **Progress, `src/server/goals/progress.rules.ts`** (queries in `goal.model.ts`, orchestration in `goal.service.ts`). Computed, never stored:
    - `BOOKS`: the number of finished reads inside the goal's dates, so a reread counts. Reads with no date, such as those from a bulk move, don't count.
    - `PAGES`: pages read in the range, from the sessions. Falls back to `pageCount` for books finished with no sessions.
@@ -58,7 +58,7 @@ Goal: flexible reading goals with progress that's always computed.
 
 ## Journal UI
 
-- **Dashboard** (built in [Phase 5.6](phase-5.6-dashboard.md)): add a quick "log progress" to its currently reading books, progress on the active goal, and recent log entries.
+- **Dashboard** (built in [Phase 8](phase-8-dashboard.md)): add a quick "log progress" to its currently reading books, progress on the active goal, and recent log entries.
 - **Lists**: on the MVP's TBR and Wishlist, add genre, trope, length and tag filters, sorting, drag-to-reorder priority for TBR (a `position` column on `UserBook`), and a "Pick my next read" random suggestion.
 - **Book page**: metadata, AI tags, status changes (start, finish, DNF), reading log timeline, review.
 - **Reading log**: quick entry (current page, percent or time remaining depending on the format, minutes, note, mood).

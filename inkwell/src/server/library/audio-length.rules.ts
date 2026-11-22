@@ -3,7 +3,7 @@
 // the shelf card.
 
 // 200 hours, longer than any audiobook.
-export const MAX_AUDIO_MINUTES = 12_000;
+const MAX_AUDIO_MINUTES = 12_000;
 const MAX_HOURS = MAX_AUDIO_MINUTES / 60;
 
 const wholeNumber = (text: string) => (/^\d{1,5}$/.test(text) ? Number(text) : undefined);

@@ -9,7 +9,7 @@ import * as authService from "./auth.service";
 // session cookie is read and written; services never see cookies or requests.
 
 // Firebase Hosting only forwards a cookie with this name, so use it everywhere.
-export const SESSION_COOKIE = "__session";
+const SESSION_COOKIE = "__session";
 
 export async function setSessionCookie(sessionCookie: string) {
   (await cookies()).set(SESSION_COOKIE, sessionCookie, {

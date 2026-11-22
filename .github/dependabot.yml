@@ -1,0 +1,36 @@
+# Version updates. Security alerts are on in the repository settings (6e).
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /inkwell
+    # The working branch; dev reaches main through a pull request.
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+    # The project's rule: no release younger than two weeks.
+    cooldown:
+      default-days: 14
+    # Minor and patch updates in one pull request; each major on its own.
+    groups:
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci

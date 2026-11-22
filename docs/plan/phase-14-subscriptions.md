@@ -1,4 +1,4 @@
-# Phase 10 — Paid subscriptions
+# Phase 14 — Paid subscriptions
 
 [← Plan overview](README.md)
 
@@ -13,6 +13,21 @@ Moved here from Phase 5b (open question 4), where Haiku 5.5 alone enriches every
 - **Cost (2026-11-21 prices):** Sonnet 5.5 is about 20× Haiku 5.5, roughly $0.008 a book inline and $0.004 through Message Batches, against about $0.0004 and $0.0002 for Haiku.
 - **Still applies:** catalog books only, never private documents; curated lists only; AI never overwrites a reader's edits.
 - **Open:** since enrichment is per catalog book, a subscriber's retry improves the book for every reader. Decide whether that's fine or whether subscriber results stay per user.
+
+## SonarQube Cloud in CI
+
+Moved here from Phase 6 (suggestion g) on 2026-11-22, to apply if subscriptions are enabled.
+
+- A SonarQube Cloud scan on each pull request: the "Sonar way" quality gate the user already follows in SonarLint, with the `lcov` coverage from the `checks` job.
+- **Cost:** free while the repository is public; a private repository needs a paid SonarQube Cloud plan (by lines of code).
+- **Setup:** a SonarQube Cloud project, a `SONAR_TOKEN` secret, `sonar-project.properties` (sources `inkwell/src`, exclusions for `generated/` and `components/ui/`), and automatic analysis turned off so it doesn't run twice. Then the quality gate joins the ruleset's required checks.
+
+## Security headers
+
+Moved here from Phase 6 (suggestion m) on 2026-11-22, to apply if subscriptions are enabled.
+
+- In `next.config.ts`: a `Content-Security-Policy` (scripts from self, images from the cover hosts, connections to Firebase and the providers), `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera only for the barcode scanner) and `frame-ancestors 'none'`.
+- **Cost:** free. The CSP must be tested on a preview deploy against Firebase sign-in, covers and the scanner's WASM.
 
 ## Free plan limits
 
@@ -32,11 +47,11 @@ Asked by the user on 2026-11-21. Free accounts get a capped Inkwell, and subscri
 - **On the server:** `POST /api/imports/amazon` counts the books in a free account's import against the book limit below, and refuses the rest with a message saying how many were skipped. A re-import that only adds formats to books already in the library is never refused.
 - **Docs tab imports** follow the same limits.
 
-### Journal (Phase 6)
+### Journal (Phase 10)
 
 - Free accounts get a limited journal, for example: reading sessions for the current year only, a review length cap, and one active goal (the default books per year). Subscribers get full history, longer reviews and any number of goals.
 - **Progress by format** (pages, percentage, audiobook time) works on every plan; it's part of reading a book.
-- Exact limits wait until Phase 6 is planned.
+- Exact limits wait until Phase 10 is planned.
 
 ### AI enrichment
 

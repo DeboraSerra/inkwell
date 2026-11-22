@@ -12,7 +12,7 @@ function earlierAcquired(a: DocEntry, b: DocEntry) {
   return b.acquiredAt.getTime() < a.acquiredAt.getTime() ? b : a;
 }
 
-export function mergeDocPair<T extends DocEntry>(keep: T, drop: T): DocMerge<T> {
+function mergeDocPair<T extends DocEntry>(keep: T, drop: T): DocMerge<T> {
   const { status, formats } = changeFormats(keep, [...keep.formats, ...drop.formats]);
   const { acquiredAt, acquiredAtPrecision } = earlierAcquired(keep, drop);
   return {

@@ -1,8 +1,8 @@
-# Phase 5.6 — Dashboard
+# Phase 8 — Dashboard
 
 [← Plan overview](README.md)
 
-⏳ Planned. Asked by the user on 2026-11-21, to come before Phase 6. It replaces the "Welcome" placeholder at `/` (`src/app/(app)/page.tsx`). Phase 6's journal UI later adds the quick "log progress" and goal progress to this page rather than building a second dashboard.
+⏳ Planned. Asked by the user on 2026-11-21, to come before Phase 10. It replaces the "Welcome" placeholder at `/` (`src/app/(app)/page.tsx`). Phase 10's journal UI later adds the quick "log progress" and goal progress to this page rather than building a second dashboard.
 
 **Applies to every step**
 
@@ -13,41 +13,41 @@
 - **Mobile-first:** one column on phones, a two-column grid from `md`.
 - Tests in `src/server/tests/stats/`: rules directly, the service with the model mocked, the model with the recording fake asserting `userId` scoping.
 
-## 5.6a — Currently reading
+## 8a — Currently reading
 
 1. Books with status `READING`, newest started read first (the latest `ReadThrough.startedAt`, then `addedAt`).
 2. Cover, title, authors, formats, and the start date when there is one; each links to the book on its shelf.
 3. Show up to 6, with "See all" linking to `/books/shelves?shelf=reading`.
 4. Empty state: a link to the TBR shelf.
 
-## 5.6b — Books read by year (chart)
+## 8b — Books read by year (chart)
 
 1. One bar per year: the number of `ReadThrough` rows with `outcome = FINISHED` and an `endedAt` in that year, so a reread counts again (as the `BOOKS` goal will).
 2. A year-only or month-only `endedAt` still counts in its year.
 3. Finished reads with no date (bulk moves) are left out of the bars and shown as one line under the chart: "N finished books have no date".
 4. Years with no reads between the first and the last show as zero, so gaps are visible.
 
-## 5.6c — Books read by genre this year (chart)
+## 8c — Books read by genre this year (chart)
 
-1. The reads counted in 5.6b for the current year, grouped by the book's genre: the reader's own when `genreEdited` is set, otherwise the catalog's (`library/book-topics.rules.ts`), shared in a rule rather than repeated.
+1. The reads counted in 8b for the current year, grouped by the book's genre: the reader's own when `genreEdited` is set, otherwise the catalog's (`library/book-topics.rules.ts`), shared in a rule rather than repeated.
 2. Books with no genre go into "No genre".
 3. A horizontal bar chart, sorted by count; genres past the top 8 fold into "Other".
 4. Empty state when nothing has been finished this year yet.
 
-## 5.6d — Using the extension
+## 8d — Using the extension
 
 1. A short card: what the extension does (imports the Kindle library into the ebook TBR), then three steps: install it, create a token, open Amazon's "Manage Your Content and Devices" page and click the extension.
-2. **Install link:** the Chrome Web Store address, from a new `NEXT_PUBLIC_EXTENSION_URL` variable (documented in `.env.example`). Until the extension is published (Phase 7) the link is hidden and the card says to load it unpacked.
+2. **Install link:** the Chrome Web Store address, from a new `NEXT_PUBLIC_EXTENSION_URL` variable (documented in `.env.example`). Until the extension is published (Phase 11) the link is hidden and the card says to load it unpacked.
 3. **Token link:** `/settings?tab=tokens`. The settings tabs don't read the URL yet, so `components/pages/settings/index.tsx` gets a `defaultValue` from `searchParams.tab` (`profile` or `tokens`, anything else falls back to `profile`).
 4. The card can be dismissed, and comes back from a link in settings (see open question 5).
 
-## 5.6e — Books added per year, by type (chart)
+## 8e — Books added per year, by type (chart)
 
 1. A stacked bar per year, one segment per format (ebook, physical, audiobook, and "not owned" for the wishlist). A book owned in two formats counts once in each (see open question 3).
 2. The year comes from `acquiredAt`, falling back to `addedAt` when it's unknown (see open question 2). The two dates stay separate in the data; this is only how the chart picks one.
 3. A total per year above each bar.
 
-## 5.6f — Closing
+## 8f — Closing
 
 1. `/privacy` doesn't change (nothing new is collected or sent).
 2. Check every section signed in, on a phone width and a desktop width, with an empty account and with the real library.

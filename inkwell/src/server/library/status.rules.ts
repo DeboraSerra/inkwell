@@ -60,7 +60,7 @@ export function readChangeFor(state: ReadingState, to: ReadingStatus): ReadChang
   return state.status === to ? "none" : (TRANSITIONS[state.status][to] ?? "none");
 }
 
-export const uniqueFormats = (formats: readonly BookFormat[]) => [...new Set(formats)];
+const uniqueFormats = (formats: readonly BookFormat[]) => [...new Set(formats)];
 
 // Getting a first format moves a Wishlist book to TBR, and losing the last one
 // moves a TBR book back. Other statuses don't depend on owning the book.

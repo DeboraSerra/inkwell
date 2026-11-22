@@ -19,7 +19,7 @@ The project started as a "book categorizer". The repo folder name still reflects
 |---|---|
 | `inkwell/` | The app: Next.js 16 (App Router), React 19, Tailwind 4, Prisma 7 + Postgres, Firebase Auth |
 | `extension/` | Chrome extension (MV3) that scrapes the Amazon Kindle content list. **The misspelling is intentional for now; don't rename it without asking.** |
-| `extension/build.mjs` | Builds the Chrome Web Store package for a deployed origin (`node extension/build.mjs https://<domain>`) into `extension/dist/` (gitignored). The source folder stays set up for localhost. Steps are in `docs/plan/phase-7-quality-deploy.md`. |
+| `extension/build.mjs` | Builds the Chrome Web Store package for a deployed origin (`node extension/build.mjs https://<domain>`) into `extension/dist/` (gitignored). The source folder stays set up for localhost. Steps are in `docs/plan/phase-11-quality-deploy.md`. |
 | `docs/plan/` | **The plan, and the source of truth for scope and status.** `README.md` holds the decisions and the phase index; there is one file per phase. |
 
 Key files in `inkwell/`:
@@ -74,7 +74,7 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 5b5–5b7 built (2026-11-22): genre, trope and tags on shelf cards (`BookCard/CardPill.tsx`), the genre and trope filter (`BookShelf/TopicFilter/`, tropes by genre through `GenreTrope`), search over tags, genres and tropes (`Book.tagSearch`), tap-friendly tooltips (`common/TapTooltip.tsx`), reader edits on `UserBook` (`genreEdited`/`tropeEdited`/`tagsEdited`, `new/TopicsField.tsx`), and `/privacy` covering Anthropic. 5b5a (telling genre from tags on cards) is pending.
 - ✅ Phase 5b4 built (2026-11-22): imports and the backlog go through Message Batches (`EnrichmentBatch`, `enrichment.service` `submitEnrichmentBatch` / `collectEnrichmentBatches`), collected by the daily `app/api/cron/enrichment` route (`CRON_SECRET`, `inkwell/vercel.json`).
 - ✅ Phase 5b1–5b3 built (2026-11-21): the synopsis lookup by provider id or ISBN after a manual add (`Book.descriptionCheckedAt`); `enrichment/enrichment.service.enrichBook` (Haiku 5.5, structured output, curated lists only); and `library.service.finishAdd`, run in `after()` by every single add: synopsis, then enrichment (rate-limited by `AI_ENRICH`).
-- ⏭️ Next: Phase 5, AI enrichment (`docs/plan/phase-5-ai-enrichment.md`). Publishing the extension is in `docs/plan/phase-7-quality-deploy.md`
+- ⏭️ Next: Phase 5, AI enrichment (`docs/plan/phase-5-ai-enrichment.md`). Publishing the extension is in `docs/plan/phase-11-quality-deploy.md`
 
 ## Workflow rules
 
@@ -204,6 +204,7 @@ inkwell/src/
 
 ## Dependencies
 
+- **Node 26** (`engines: 26.x`, `.nvmrc`, CI and Vercel), since 2026-11-22.
 - Use npm, run from `inkwell/`. npm here blocks dependency install scripts; `prisma generate` runs from the package's own `postinstall` and `build` scripts.
 - **Don't remove the `overrides` in `package.json`.** They patch vulnerable transitive dependencies that upstream hasn't fixed yet. Re-check them with `npm audit` when upgrading.
 - `npm audit` reports 4 moderate findings, all **through the `shadcn` package** (one `minimatch` advisory, GHSA-g3hv-75wg-m249, via `ts-morph`). Anything else is new and needs looking at.
@@ -211,8 +212,10 @@ inkwell/src/
   - `effect` 3.22.4: fixes a ReDoS (GHSA-7589-6fvf-x4pw) in the copy that `prisma` → `@prisma/config` pins at 3.20.0. Drop it once Prisma ships a fixed `@prisma/config`.
   - `fast-xml-parser` 5.12.0: fixes GHSA-474x-hrwr-fgx4, through `firebase-admin` → `@google-cloud/storage`. 5.12.1 (2026-11-13) can replace it from 2026-11-27, but nothing requires that.
 - Never run `npm audit fix --force` without asking: it can silently downgrade packages. It once replaced ESLint 9 with 4.0.0 and broke linting, and today it would downgrade Prisma 7 to 6.12.
-- zod is approved for input validation (Phase 3). It isn't listed in `package.json` yet; it resolves through `shadcn`.
+- zod is approved for input validation (Phase 3), a direct dependency (`^4.6.7`) since Phase 6h.
+- **Knip** 6.44.2 (Phase 6h) finds unused files, exports and dependencies: `npm run knip`, also in CI. Don't export what only its own file uses. Config and the reason for each ignore are in `inkwell/knip.jsonc`.
 - `@anthropic-ai/sdk` 1.6.0 is approved for AI enrichment (Phase 5b2). The client lives in `src/config/anthropic.ts`.
+- `husky` 9.1.7 and `@commitlint/cli` / `@commitlint/config-conventional` 21.2.4 are approved (Phase 6c). Commit messages must pass commitlint (conventional commits, header at most 100 characters); `pre-commit` runs `biome lint --staged`.
 - `barcode-detector` (on `zxing-wasm`) is approved for barcode scanning (Phase 4d); load it only where the browser lacks `BarcodeDetector`.
 - Ask before adding significant dependencies, and pin to an exact or caret version of a release at least two weeks old.
 
