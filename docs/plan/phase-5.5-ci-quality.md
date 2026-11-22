@@ -59,7 +59,7 @@ Every file above has a test, run and committed one set at a time. The suite went
 
 - **Dependency:** `@vitest/coverage-v8`, the same major as `vitest` 5.
 - **`npm run test:coverage`** (`vitest run --coverage`), with coverage of `src/server/**`, `src/components/**/*.{ts,tsx}` and `src/hooks/**`, excluding `src/generated`, `src/components/ui`, `src/server/tests` and `*.type.ts(x)`.
-- **Thresholds** set at the numbers measured after 5.5a's tests, rounded down, so coverage can't drop from there.
+- **Thresholds** at 95% for statements, branches, functions and lines (asked by the user on 2026-11-22).
 - **Reports:** text summary in the terminal, `lcov` for CI (and Sonar, if g is chosen); `coverage/` is gitignored.
 
 **Done when:** `npm run test:coverage` prints the summary and fails when a threshold isn't met.
@@ -68,7 +68,8 @@ Every file above has a test, run and committed one set at a time. The suite went
 
 - `@vitest/coverage-v8` 5.0.3 (2026-09-30), pinned exactly, the same version as `vitest`. `npm audit` still shows only the 4 moderate `shadcn` findings.
 - `npm run test:coverage` runs `vitest run --coverage`. The settings are in `vitest.config.ts`, at the top level so they cover both test projects: `src/server/**`, `src/components/**/*.{ts,tsx}` and `src/hooks/**`, without `src/generated`, `src/components/ui`, both test folders and `*.type.ts(x)`.
-- Measured on 2026-11-22, with components and hooks: statements 97.13%, branches 93.48%, functions 96.01%, lines 97.49%. The thresholds are 90 for each, as the user set them. A run with a threshold above the numbers fails (exit 1).
+- Measured on 2026-11-22, with components and hooks: statements 97.13%, branches 93.48%, functions 96.01%, lines 97.49%. Branches were low mostly from models' default `db` argument never being passed, controller actions never tested with an unexpected error, and service fallbacks. Three more 5.5a commits cover those (models with a passed-in transaction, every library action's rethrow, and the book service's ISBN-10, race and topic paths), bringing it to statements 98.35%, branches 95.65%, functions 97.88%, lines 98.78% (1,604 tests).
+- The thresholds are 95 for each. A run with a threshold above the numbers fails (exit 1).
 - Reports: the files not fully covered and the totals in the terminal, and `coverage/lcov.info` for CI. `coverage/` was already in `inkwell/.gitignore`. Biome now skips `coverage/` too (`biome.json`), since the HTML report's scripts gave 299 lint errors.
 - The `.tsx` components and `src/hooks/` are counted too (asked by the user on 2026-11-22). The unused `components/layout/Header.tsx`, the only file at 0%, is deleted.
 

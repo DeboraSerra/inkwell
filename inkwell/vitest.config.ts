@@ -18,8 +18,8 @@ export default defineConfig({
       // The files not fully covered, the totals, and lcov for CI.
       reporter: [["text", { skipFull: true }], "text-summary", "lcov"],
       reportsDirectory: "coverage",
-      // What 5.5a's tests reached, rounded down, so coverage can't drop.
-      thresholds: { statements: 90, branches: 90, functions: 90, lines: 90 },
+      // 95% on every measure, which the suite passes (asked by the user on 2026-11-22).
+      thresholds: { statements: 95, branches: 95, functions: 95, lines: 95 },
     },
     projects: [
       // Server code and pure client helpers run in Node.
