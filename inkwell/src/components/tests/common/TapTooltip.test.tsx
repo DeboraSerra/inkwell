@@ -56,4 +56,35 @@ describe("TapTooltip", () => {
     );
     expect(screen.getByText("+2").tagName).toBe("SPAN");
   });
+
+  it("does nothing when disabled, and lets the click through", async () => {
+    render(
+      <TapTooltip content='Separate tags with commas.' label='About tags' disabled>
+        i
+      </TapTooltip>,
+    );
+    const trigger = screen.getByRole("button", { name: "About tags" });
+    fireEvent.pointerDown(trigger, { pointerType: "touch" });
+    expect(fireEvent.click(trigger)).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(tooltip()).toBeNull();
+  });
+
+  it("with touchOnly, toggles on a tap and lets a mouse click through", async () => {
+    render(
+      <label>
+        <input type='checkbox' aria-label='Owned' />
+        <TapTooltip content='Separate tags with commas.' label='About owned' render={<span />} touchOnly>
+          i
+        </TapTooltip>
+      </label>,
+    );
+    const trigger = screen.getByText("i");
+    const checkbox = screen.getByRole("checkbox", { name: "Owned" }) as HTMLInputElement;
+    tap(trigger, "touch");
+    expect(await screen.findByText("Separate tags with commas.")).toBeTruthy();
+    expect(checkbox.checked).toBe(false);
+    tap(trigger, "mouse");
+    expect(checkbox.checked).toBe(true);
+  });
 });
