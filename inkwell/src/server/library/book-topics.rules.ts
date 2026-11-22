@@ -1,7 +1,8 @@
 // Which genre, trope and tags a shelf book shows, and what a reader's edit of
 // them stores. Pure, so it's unit-tested without the database.
 import { TagSource } from "@/generated/prisma/enums";
-import type { CatalogTopics, ReaderTopics, TaggedName, TopicChoice } from "@/types/library.type";
+import type { CatalogTopics, LibraryTopicRow, ReaderTopics, TaggedName, TopicChoice } from "@/types/library.type";
+import type { TopicNames } from "@/types/shelf.type";
 
 // The reader's own pick first (USER, from 5b6), then the oldest; null for none.
 export function firstTopic(rows: TaggedName[]) {
@@ -33,4 +34,19 @@ export function topicEdits(edit: TopicChoice, catalog: { genre: string | null; t
     trope: edit.trope === catalog.trope ? { edited: false, name: null } : { edited: true, name: edit.trope },
     tags: sameTags(edit.tags, catalog.tags) ? { edited: false, tags: [] } : { edited: true, tags: edit.tags },
   };
+}
+
+// The genres and tropes in use in a library, the way the shelf filter matches
+// them: a reader's own once edited (none if they removed it), else every one
+// the catalog has. So each name listed finds at least one book.
+export function topicsInUse(rows: LibraryTopicRow[]): TopicNames {
+  const genres = new Set<string>();
+  const tropes = new Set<string>();
+  for (const row of rows) {
+    const rowGenres = row.genreEdited ? [row.genre?.name] : row.book.genres.map(({ genre }) => genre.name);
+    const rowTropes = row.tropeEdited ? [row.trope?.name] : row.book.tropes.map(({ trope }) => trope.name);
+    for (const name of rowGenres) if (name) genres.add(name);
+    for (const name of rowTropes) if (name) tropes.add(name);
+  }
+  return { genres: [...genres].sort(), tropes: [...tropes].sort() };
 }

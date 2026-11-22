@@ -27,3 +27,6 @@ export type ShelfParams = Record<string, string | string[] | undefined>;
 // The curated genres and tropes for the shelf's filter, each trope with the
 // genres it belongs to.
 export type TopicLists = { genres: string[]; tropes: { name: string; genres: string[] }[] };
+
+// The genre and trope names in use in a reader's library.
+export type TopicNames = { genres: string[]; tropes: string[] };

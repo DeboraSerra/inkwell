@@ -22,7 +22,7 @@ import {
   removeBooksSchema,
   shelfParamsSchema,
 } from "./shelf-actions.schema";
-import { PAGE_SIZE_COOKIE, parsePageSize, parseShelfFilters, resolvePageSize } from "./shelf-filters";
+import { PAGE_SIZE_COOKIE, parsePageSize, parseShelfFilters, resolvePageSize, TOPIC_SCOPE_COOKIE } from "./shelf-filters";
 import { LIST_NAMES } from "./status.rules";
 import type { AddIsbnBookState, AddManualBookState, BookChangeResult, IsbnLookupResult, LoadShelfResult, SearchPreviewResult } from "@/types/library.type";
 
@@ -223,6 +223,21 @@ export async function rememberShelfPageSize(size: unknown): Promise<{ error?: st
   const pageSize = parsePageSize(size);
   if (!pageSize) return { error: INVALID_REQUEST };
   (await cookies()).set(PAGE_SIZE_COOKIE, String(pageSize), {
+    path: "/",
+    maxAge: ONE_YEAR_SECONDS,
+    sameSite: "lax",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+  });
+  return {};
+}
+
+// Remembers whether the shelf's genre filter lists only the genres in the
+// reader's books or every curated one. A display preference, like the page size.
+export async function rememberTopicScope(onlyMine: unknown): Promise<{ error?: string }> {
+  await requireUser();
+  if (typeof onlyMine !== "boolean") return { error: INVALID_REQUEST };
+  (await cookies()).set(TOPIC_SCOPE_COOKIE, onlyMine ? "mine" : "all", {
     path: "/",
     maxAge: ONE_YEAR_SECONDS,
     sameSite: "lax",

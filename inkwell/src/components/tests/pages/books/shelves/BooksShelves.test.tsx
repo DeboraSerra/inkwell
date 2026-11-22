@@ -19,7 +19,7 @@ vi.mock("@/components/pages/books/shelves/BookShelf", () => ({
 const topics = { genres: ["Fantasy", "Romance"], tropes: [] };
 const show = (query: string, shelf: ShelfType | null = shelfOf()) => {
   context.current = { ...testContext(), filters: filtersFor(query), shelf };
-  render(<BooksShelves topics={topics} />);
+  render(<BooksShelves topics={topics} libraryTopics={{ genres: [], tropes: [] }} onlyMyTopics />);
 };
 
 beforeEach(() => {

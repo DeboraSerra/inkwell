@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shownTropes, tropesForGenres } from "@/server/library/topic-filter.rules";
+import { onlyInUse, shownTropes, tropesForGenres } from "@/server/library/topic-filter.rules";
 import type { TopicLists } from "@/types/shelf.type";
 
 const topics: TopicLists = {
@@ -47,5 +47,18 @@ describe("shownTropes", () => {
       "Enemies to Lovers",
       "Unreliable Narrator",
     ]);
+  });
+});
+
+describe("onlyInUse", () => {
+  it("keeps only the names in use, in the curated order, with each trope's genres", () => {
+    expect(onlyInUse(topics, { genres: ["Thriller", "Fantasy"], tropes: ["Enemies to Lovers"] })).toEqual({
+      genres: ["Fantasy", "Thriller"],
+      tropes: [{ name: "Enemies to Lovers", genres: ["Fantasy", "Romance"] }],
+    });
+  });
+
+  it("drops a name that isn't curated", () => {
+    expect(onlyInUse(topics, { genres: ["Made Up"], tropes: [] })).toEqual({ genres: [], tropes: [] });
   });
 });

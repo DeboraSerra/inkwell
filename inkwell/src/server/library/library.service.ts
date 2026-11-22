@@ -12,7 +12,7 @@ import * as readModel from "./read-through.model";
 import { canTransition, changeFormats, initialState, notStartedStatusFor, readChangeFor } from "./status.rules";
 import { toDateValues, toEditedReadFields, toReadFields } from "./partial-date.rules";
 import type { EnrichableBook, IsbnPreview, IsbnPreviewResult, ProviderRef, SearchResult, ShelfBook, ShelfRead } from "@/types/books.type";
-import { shownTopics, topicEdits } from "./book-topics.rules";
+import { shownTopics, topicEdits, topicsInUse } from "./book-topics.rules";
 import { sortByLastFinished, sortReads } from "./read-order.rules";
 import { parsePageSize } from "./shelf-filters";
 import type { ManualBookDetails } from "@/types/books.type";
@@ -729,4 +729,10 @@ export function removeUserBooks(userId: string, userBookIds: string[]) {
     throw new ValidationError(`You can delete up to ${MAX_BULK_BOOKS} books at once.`);
   }
   return libraryModel.deleteUserBooks(userId, ids);
+}
+
+// The genres and tropes in use across the reader's whole library, for the
+// shelf filter. The same on every shelf.
+export async function listLibraryTopics(userId: string) {
+  return topicsInUse(await libraryModel.listLibraryTopics(userId));
 }

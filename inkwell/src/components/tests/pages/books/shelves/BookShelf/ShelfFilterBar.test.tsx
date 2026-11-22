@@ -7,6 +7,7 @@ import type { ShelfFilters, TopicLists } from "@/types/shelf.type";
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 // The sort menu reads the shelf from the context; it isn't what's tested here.
+vi.mock("@/server/library/library.controller", () => ({ rememberTopicScope: vi.fn() }));
 vi.mock("@/components/pages/books/shelves/BookShelf/ShelfOrderControls", () => ({ ShelfOrderControls: () => null }));
 
 const topics: TopicLists = { genres: ["Fantasy"], tropes: [{ name: "Chosen One", genres: ["Fantasy"] }] };
@@ -17,7 +18,7 @@ const searchBox = () => screen.getByRole("searchbox", { name: /Search by title/ 
 const type = (value: string) => fireEvent.change(searchBox(), { target: { value } });
 const enter = () => fireEvent.submit(searchBox().form as HTMLFormElement);
 const wait = (ms: number) => act(() => vi.advanceTimersByTime(ms));
-const mount = (filters: ShelfFilters) => render(<ShelfFilterBar filters={filters} topics={topics} />);
+const mount = (filters: ShelfFilters) => render(<ShelfFilterBar filters={filters} topics={topics} libraryTopics={{ genres: [], tropes: [] }} onlyMyTopics={false} />);
 
 beforeEach(() => {
   // Only the search delay: React and Base UI schedule their own work on the other timers.
@@ -82,14 +83,14 @@ describe("ShelfFilterBar search", () => {
 
   it("shows a search changed from outside", () => {
     const { rerender } = mount(filtersFor("shelf=tbr&q=dune"));
-    rerender(<ShelfFilterBar filters={filtersFor("shelf=tbr&q=emma")} topics={topics} />);
+    rerender(<ShelfFilterBar filters={filtersFor("shelf=tbr&q=emma")} topics={topics} libraryTopics={{ genres: [], tropes: [] }} onlyMyTopics={false} />);
     expect(searchBox().value).toBe("emma");
   });
 
   it("runs a pending search on the filters showing when it fires", () => {
     const { rerender } = mount(filtersFor("shelf=tbr"));
     type("dune");
-    rerender(<ShelfFilterBar filters={filtersFor("shelf=tbr&format=AUDIO")} topics={topics} />);
+    rerender(<ShelfFilterBar filters={filtersFor("shelf=tbr&format=AUDIO")} topics={topics} libraryTopics={{ genres: [], tropes: [] }} onlyMyTopics={false} />);
     wait(500);
     expect(router.replace).toHaveBeenCalledWith("/books/shelves?shelf=tbr&format=AUDIO&q=dune");
   });

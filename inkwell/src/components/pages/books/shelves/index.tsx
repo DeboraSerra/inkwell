@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useBooksContext } from "../../context";
 import { BooksShelf } from "./BookShelf";
 import { ShelfFilterBar } from "./BookShelf/ShelfFilterBar";
-import type { TopicLists } from "@/types/shelf.type";
+import type { TopicLists, TopicNames } from "@/types/shelf.type";
 import { TopicsProvider } from "./topics-context";
 
 const PLACEHOLDERS = ["one", "two", "three", "four", "five", "six"];
@@ -31,7 +31,11 @@ const ShelfLoading = () => (
   </ul>
 );
 
-export const BooksShelves = ({ topics }: Readonly<{ topics: TopicLists }>) => {
+export const BooksShelves = ({
+  topics,
+  libraryTopics,
+  onlyMyTopics,
+}: Readonly<{ topics: TopicLists; libraryTopics: TopicNames; onlyMyTopics: boolean }>) => {
   const { filters, shelf } = useBooksContext();
   const { formats, genres, tropes, search } = filters;
 
@@ -67,7 +71,12 @@ export const BooksShelves = ({ topics }: Readonly<{ topics: TopicLists }>) => {
               </TabsTrigger>
             ))}
           </TabsList>
-          <ShelfFilterBar filters={filters} topics={topics} />
+          <ShelfFilterBar
+            filters={filters}
+            topics={topics}
+            libraryTopics={libraryTopics}
+            onlyMyTopics={onlyMyTopics}
+          />
           <TabsContent value={filters.shelf}>
             {/* A new key clears the selection when the shelf or page changes. */}
             {shelf ? (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasFilters, moveDateValues, moveTargets, OWNED_SHELF, SHELF_TABS, pageHolding, pageLinks, parsePageSize, parseShelfFilters, resolvePageSize, searchParamsRecord, shelfHref } from "@/server/library/shelf-filters";
+import { hasFilters, showsAllTopics, moveDateValues, moveTargets, OWNED_SHELF, SHELF_TABS, pageHolding, pageLinks, parsePageSize, parseShelfFilters, resolvePageSize, searchParamsRecord, shelfHref } from "@/server/library/shelf-filters";
 import { ReadingStatus } from "@/generated/prisma/enums";
 
 describe("parseShelfFilters", () => {
@@ -328,5 +328,16 @@ describe("hasFilters", () => {
     ["a trope", { trope: "Chosen One" }],
   ])("is true with %s", (_label, params) => {
     expect(hasFilters(parseShelfFilters({ shelf: "tbr", ...params }))).toBe(true);
+  });
+});
+
+describe("showsAllTopics", () => {
+  it.each([
+    ["all", true],
+    ["mine", false],
+    [undefined, false],
+    ["anything", false],
+  ])("is %j → %j, only on all", (cookie, expected) => {
+    expect(showsAllTopics(cookie)).toBe(expected);
   });
 });

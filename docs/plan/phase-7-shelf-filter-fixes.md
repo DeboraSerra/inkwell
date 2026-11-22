@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-⏳ Planned (2026-11-22), no open questions. Asked by the user on 2026-11-22, to come after Phase 6 and before Phase 8 (accessibility tests). Every fix is on `/books/shelves`.
+✅ Built (2026-11-22): 7a done by the user, 7b–7d built. Asked by the user on 2026-11-22, to come after Phase 6 and before Phase 8 (accessibility tests). Every fix is on `/books/shelves`.
 
 **Applies to every step**
 
@@ -58,11 +58,21 @@
 
 ## 7d — Only the genres in my library
 
+✅ Built (2026-11-22).
+
 1. **A service read:** `library.service.listLibraryTopics(userId)` returns the genres in use in the reader's library, by each book's effective genre (the reader's when `genreEdited` is set, otherwise the catalog's, through `library/book-topics.rules.ts`), and the same for tropes. The model query filters by `userId`.
 2. **A switch in the popover,** "Only genres in my books", on by default; turning it off shows the full curated list. The choice is remembered in a cookie, like `shelfPerPage` (answered 2026-11-22).
 3. **Scope: the whole library,** so the list is the same on every shelf (answered 2026-11-22).
 4. Tropes follow the same choice, still narrowed by the ticked genres through `GenreTrope`.
 5. The page loads both lists (`listTopics()` and the reader's), so the switch doesn't need another request. The edit dialog's pickers keep the full curated list.
+
+**Outcome (7d)**
+
+- `library.model.listLibraryTopics(userId)` reads each library book's edited and catalog genre and trope; `library.service.listLibraryTopics(userId)` turns them into names through `book-topics.rules.topicsInUse`.
+- **Deviation:** a book that isn't edited counts with every catalog genre and trope it has, not only the first one shown on its card, since that's how the filter matches books. So every genre listed finds at least one book.
+- The shelves page loads `listTopics()`, `listLibraryTopics(user.id)` and the `shelfTopics` cookie (`TOPIC_SCOPE_COOKIE`, `showsAllTopics` in `shelf-filters.ts`; only `all` turns the switch off).
+- `TopicFilter` has an "Only genres in my books" switch (shadcn `ui/switch.tsx`, added), on by default. Turning it off or on is saved by `library.controller.rememberTopicScope`, an httpOnly cookie for a year like `shelfPerPage`. `topic-filter.rules.onlyInUse` narrows the curated lists; a ticked genre or trope is always listed so it can be unticked. Tropes are still narrowed by the ticked genres. The edit dialog keeps the full lists.
+- Tests: `topicsInUse`, `onlyInUse`, `showsAllTopics`, the model's `userId` scoping, the service, the controller, and the switch in `TopicFilter.test.tsx`. Coverage 98.4% statements, 95.7% branches.
 
 ### Answered (2026-11-22)
 

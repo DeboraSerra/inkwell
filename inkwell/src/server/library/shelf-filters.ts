@@ -36,6 +36,11 @@ export const moveTargets = (book: ReadingState) =>
 export const PAGE_SIZES = [5, 10, 20, 30, 50] as const;
 export const PAGE_SIZE_COOKIE = "shelfPerPage";
 
+// Whether the genre filter lists only the genres in the reader's books (the
+// default) or every curated one. Only "all" changes it.
+export const TOPIC_SCOPE_COOKIE = "shelfTopics";
+export const showsAllTopics = (cookie?: string) => cookie === "all";
+
 export const parsePageSize = (value: unknown): PageSize | undefined => {
   const size = Number(value);
   return PAGE_SIZES.find((allowed) => allowed === size);

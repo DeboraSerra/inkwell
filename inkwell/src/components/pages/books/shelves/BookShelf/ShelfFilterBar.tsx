@@ -5,7 +5,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { BookFormat } from "@/generated/prisma/enums";
 import { shelfHref } from "@/server/library/shelf-filters";
-import type { ShelfFilters, TopicLists } from "@/types/shelf.type";
+import type { ShelfFilters, TopicLists, TopicNames } from "@/types/shelf.type";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -25,9 +25,13 @@ const SEARCH_DELAY_MS = 500;
 export function ShelfFilterBar({
   filters,
   topics,
+  libraryTopics,
+  onlyMyTopics,
 }: Readonly<{
   filters: ShelfFilters;
   topics: TopicLists;
+  libraryTopics: TopicNames;
+  onlyMyTopics: boolean;
 }>) {
   const router = useRouter();
   const { shelf, formats, genres, tropes, search } = filters;
@@ -201,6 +205,8 @@ export function ShelfFilterBar({
         <div className='flex gap-1 items-center self-end md:self-auto'>
           <TopicFilter
             topics={topics}
+            libraryTopics={libraryTopics}
+            onlyMine={onlyMyTopics}
             genres={genres}
             tropes={tropes}
             onChange={changeTopics}

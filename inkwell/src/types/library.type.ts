@@ -250,3 +250,13 @@ export type TopicRows = {
   tropes: { source: TagSource; createdAt: Date; trope: { name: string } }[];
   tags: string[] | null;
 };
+
+// One library book's genre and trope as the shelf filter sees them: the
+// reader's own once edited, else every one the catalog has (Phase 7d).
+export type LibraryTopicRow = {
+  genreEdited: boolean;
+  genre: { name: string } | null;
+  tropeEdited: boolean;
+  trope: { name: string } | null;
+  book: { genres: { genre: { name: string } }[]; tropes: { trope: { name: string } }[] };
+};
