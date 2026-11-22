@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress: 6a–6c ✅ built and 6d built (2026-11-22), 6d to be checked on a pushed branch; 6e is for the user. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i ✅ built; 6j, 6n, 6p, 6l, 6f, 6h, 6k and 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
 Phase 11 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 11 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
@@ -10,7 +10,7 @@ Phase 11 already listed GitHub Actions, `npm audit` in CI and Dependabot; they m
 
 - **The app lives in `inkwell/`, git at the repo root.** Every workflow step runs with `working-directory: inkwell`, and husky is set up from the root (`.husky/` at the root, `prepare` in `inkwell/package.json` running `cd .. && husky`).
 - **New dev dependencies need approval** (open question 1), each pinned to a release at least two weeks old.
-- **Node 24,** as `engines` says. The local machine runs Node 26, so CI and `.nvmrc` pin 24 to match Vercel.
+- **Node 26,** as `engines` says (`26.x` since 2026-11-22, when Vercel made Node 26 LTS generally available; it was 24). `.nvmrc`, CI and Vercel all use it.
 - **Secrets never reach CI logs.** The build gets placeholder values for the `NEXT_PUBLIC_*` and server variables; no real key is stored in GitHub except where a step truly needs it (none here).
 - Each step ends with `npx tsc --noEmit`, `npm run lint` and `npm test` passing locally, and the workflow passing on a pushed branch.
 
@@ -95,11 +95,11 @@ Every file above has a test, run and committed one set at a time. The suite went
 - **Checked:** "updated stuff", "Feat: Bad Case" and a 107-character header are rejected; `feat(books): add a thing` passes; a staged file with `debugger` stops the commit (staged through a temporary index, so nothing was staged); nothing staged passes.
 - **For the user:** anyone cloning runs `npm install` in `inkwell/` to set up the hooks. `HUSKY=0` skips them. The 2 lint warnings already in the code (`BookCover.tsx` `noImgElement`, `BookPreview.tsx` an unused variable) are warnings, so they don't stop a commit.
 
-## 6d — CI on GitHub Actions 🔨 built (2026-11-22), to be checked on GitHub
+## 6d — CI on GitHub Actions ✅ built (2026-11-22)
 
 `.github/workflows/ci.yml`, on every pull request and on pushes to `main` and `dev`:
 
-1. **Setup:** checkout, Node 24 with npm cache, `npm ci` (in `inkwell/`).
+1. **Setup:** checkout, Node 26 (24 when built) with npm cache, `npm ci` (in `inkwell/`).
 2. **Checks:** `npx tsc --noEmit`, `npm run lint`, `npm run test:coverage`. Coverage goes to the job summary and as an artifact.
 3. **Build:** `npm run build` with placeholder environment variables, so a change that only breaks the build is caught before Vercel.
 4. **Migrations:** a Postgres service container; `npx prisma migrate deploy` on the empty database, then `npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code`, which fails when `schema.prisma` changed without a migration. The seed runs too, so a broken seed or curated list is caught.
@@ -119,10 +119,10 @@ Every file above has a test, run and committed one set at a time. The suite went
 - **Coverage:** the totals go to the job summary, and `coverage/` (with `lcov`) plus the full output to a `coverage` artifact kept 14 days.
 - **Build placeholders:** the `NEXT_PUBLIC_FIREBASE_*` values, `FIREBASE_PROJECT_ID`, `DATABASE_URL`, `ANTHROPIC_API_KEY` and `CRON_SECRET`. `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` are left out, since `cert()` would try to parse a fake key; the Admin SDK only warns. No GitHub secrets are needed.
 - **Checked locally:** coverage passes and the summary extract works; `npm audit --audit-level=high` passes; commitlint passes on the commits since `46c3eb2`; the extension builds; on a throwaway Postgres 17 container, every migration applied, the diff found no difference, and the seed ran.
-- **Not checked yet:** the `build` job (the user runs `npm run build`), and the workflow itself on GitHub.
+- **Checked on GitHub** by the user on 2026-11-22: every job passed, `build` included.
 - **For the user:** push a branch and open a pull request to see the checks; then 6e (branch protection) can require them.
 
-## 6e — Repository settings (the user does these on GitHub)
+## 6e — Repository settings ✅ set (2026-11-22), the push check left to the user
 
 - **Branch protection on `main`:** pull requests only, the CI checks required, no force pushes.
 - **Secret scanning and push protection** turned on.
@@ -130,30 +130,98 @@ Every file above has a test, run and committed one set at a time. The suite went
 
 **Done when:** a direct push to `main` is refused and a PR can't merge with a red check.
 
-## Suggested additions (open question 5: pick any)
+### Outcome
 
-**Code quality**
+Set through `gh api` on 2026-11-22 (the repository is public, so every feature is free):
 
-- **f. Dependabot updates** (`.github/dependabot.yml`): npm in `inkwell/` and GitHub Actions, weekly, grouped, with `cooldown: default-days: 14` so it never proposes a release younger than the project's two-week rule.
-- **g. SonarQube Cloud in CI:** you already use SonarLint; the CI scan adds the quality gate on each PR and imports the `lcov` coverage. Needs a free SonarCloud project and a `SONAR_TOKEN` secret.
-- **h. Knip** (`knip`): finds unused files, exports and dependencies, and dependencies used but not listed. Today it would flag `zod` (imported but only installed through `shadcn`), which should become a direct dependency either way.
-- **i. `.nvmrc`** with 24, and removing the stray `package-lock.json` at the repo root (the build warns about it).
-- **j. A pull request template** with the "Done when" checklist and "checked in the app" boxes.
+- **Ruleset `main`** (id 27861611, active, default branch, no bypass): restrict deletions, block force pushes, pull request required (0 approvals), and the six CI checks required from GitHub Actions: `Types, lint and tests`, `Build`, `Migrations and seed`, `npm audit`, `Commit messages`, `Extension package`. Branches don't have to be up to date before merging.
+- **Secret scanning and push protection** were already on.
+- **Dependabot alerts** turned on. Security and version updates stay off (suggestion f).
+- `Commit messages` only runs on pull requests; on a push run it's skipped, which GitHub counts as passing.
+- **For the user:** check that a direct `git push origin main` is refused. Not tried here, to avoid pushing.
 
-**Security**
+## Additions chosen by the user (2026-11-22)
 
-- **k. CodeQL** code scanning for JavaScript/TypeScript (GitHub's default setup, no workflow to maintain).
-- **l. gitleaks** in CI (and optionally in `pre-commit`), to stop a committed key even before GitHub's push protection.
-- **m. Security headers** in `next.config.ts`: `Content-Security-Policy` (scripts from self, images from the two cover hosts, connections to Firebase), `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera only for the barcode scanner), and `frame-ancestors 'none'`. The CSP needs testing against Firebase sign-in.
-- **n. `npm audit signatures`** in CI, to check packages' registry signatures and provenance.
-- **o. OpenSSF Scorecard** action: a weekly score of the repo's security practices (pinned actions, branch protection, token permissions).
-- **p. A test that every route handler and server action authenticates:** it lists the files and fails on one that doesn't call `requireUser`, `getRequestUser` or `isCronRequest`, so a new endpoint can't ship open.
+From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, keeping their letters. g (SonarQube Cloud) moved to [Phase 14](phase-14-subscriptions.md), to apply if subscriptions are enabled. l (gitleaks) was dropped, then added back on 2026-11-22 as a `pre-commit` hook only (6l): push protection and GitGuardian only act at or after the push, and gitleaks stops a secret before it's committed. m (security headers) moved to Phase 14 as well. One step at a time, in the order below.
+
+## 6i — `.nvmrc` and the stray root lockfile ✅ built (2026-11-22)
+
+- `.nvmrc` at the repo root with `24`, matching `engines`, CI and Vercel.
+- Delete the `package-lock.json` at the repo root, which the build warns about (the repo root has no `package.json`).
+
+**Done when:** `nvm use` picks Node 26 and `npm run build` no longer warns about multiple lockfiles.
+
+### Outcome
+
+- `.nvmrc` at the repo root holds `26` (first `24`; switched the same day, see below). nvm looks upward, so it applies in `inkwell/` and `extension/` too.
+- **No stray lockfile left:** there's no `package-lock.json` at the repo root or in any folder above it; `inkwell/package-lock.json` is the only one. Nothing to delete.
+- **Switched to Node 26** on 2026-11-22 (asked by the user): Vercel now offers 26 LTS for builds and functions, and the machine already ran it. `engines` is `26.x`, `.nvmrc` `26`, every `node-version` in `ci.yml` `26`, and `@types/node` `^26.6.6` (2026-10-28; was `^24.19.2`). `tsc`, lint and the 1,604 tests pass; `npm audit` still shows only the 4 moderate `shadcn` findings.
+- **For the user:** the next CI run and a Vercel preview deploy confirm Node 26 there. Whether the build's lockfile warning is gone shows on the next `npm run build`.
+
+## 6j — Pull request template ⏳ planned
+
+- `.github/pull_request_template.md`: what changed and which plan step, then boxes for the plan updated, `tsc` / lint / tests passing, checked in the app, and `/privacy` updated when what's collected changed.
+
+**Done when:** a new pull request opens with the template filled in.
+
+## 6n — `npm audit signatures` in CI ⏳ planned
+
+- One step in the `audit` job after `npm ci`, which that job then needs: `npm audit signatures`, failing on a missing or invalid registry signature.
+
+**Done when:** the `audit` job runs it and passes.
+
+## 6p — Every endpoint authenticates (test) ⏳ planned
+
+- `src/server/tests/auth/endpoints-auth.test.ts`: lists every `src/app/**/route.ts` and every `*.controller.ts`, and fails on an exported handler or action whose file doesn't call `requireUser`, `getRequestUser` or `isCronRequest`. A short allowlist for endpoints that are public on purpose (sign-in), each with a reason.
+
+**Done when:** the test passes today, and fails when a new route or action without a check is added.
+
+## 6l — gitleaks before each commit ⏳ planned
+
+- **Why:** GitHub's push protection refuses known provider keys only at the push, with the secret already in a local commit, and GitGuardian only reports after it. gitleaks checks the staged files before the commit exists, and its generic and entropy rules also catch what push protection doesn't (a `DATABASE_URL` with a password, `CRON_SECRET`, a key pasted into a test or script).
+- **Install:** `brew install gitleaks` on each machine that commits (a Go binary, not an npm dependency; free, MIT). No CI job.
+- **`.husky/pre-commit`** runs `gitleaks git --staged --redact --no-banner` from the repo root before Biome. When `gitleaks` isn't installed, it prints a warning and skips, so it never blocks a commit.
+- **`.gitleaks.toml`** at the root: extends the default rules, with an allowlist for `inkwell/.env.example`'s placeholders, the test fixtures in `src/server/tests/fixtures/` and anything else a first full scan (`gitleaks git`) flags falsely, each with a reason.
+- The first full scan of the history also shows whether a secret was ever committed. If one was, rotate it; rewriting history is the user's call.
+
+**Done when:** committing a staged file with a fake key is refused, `.env.example` commits cleanly, and the commit still goes through (with a warning) on a machine without gitleaks.
+
+## 6f — Dependabot updates ⏳ planned
+
+- `.github/dependabot.yml`: `npm` in `/inkwell` and `github-actions` in `/`, weekly, minor and patch updates grouped into one PR per ecosystem, majors on their own.
+- `cooldown: default-days: 14`, so no PR proposes a release younger than the project's two-week rule.
+- The `overrides` and exact pins in `package.json` stay the user's call; Dependabot PRs go through CI and are never merged unreviewed.
+
+**Done when:** Dependabot's first run opens grouped PRs (or none, when everything is current), and none for a release under 14 days old.
+
+## 6h — Knip ⏳ planned
+
+- **Dependency:** `knip`, a dev dependency, pinned to a release at least two weeks old.
+- `knip.json` in `inkwell/` with the Next.js, Vitest and Prisma entry points (`prisma/seed.ts`, `prisma/*.ts` scripts, `scripts/*.mjs`), ignoring `src/components/ui/` and `src/generated/`.
+- A `knip` script, run in CI's `checks` job.
+- Fix what it finds: `zod` becomes a direct dependency (already approved); unused files and exports are removed or, when kept on purpose, listed with a reason.
+
+**Done when:** `npx knip` passes locally and in CI.
+
+## 6k — CodeQL ⏳ planned
+
+- GitHub's default setup for JavaScript/TypeScript and GitHub Actions, turned on through `gh api` (no workflow file). Free on a public repository.
+- Findings appear under Security → Code scanning; any found on the first run are triaged here.
+
+**Done when:** the first analysis finishes, and findings are fixed or dismissed with a reason.
+
+## 6o — OpenSSF Scorecard ⏳ planned
+
+- `.github/workflows/scorecard.yml`: weekly and on pushes to `main`, using `ossf/scorecard-action` pinned by SHA, with the permissions it needs (`security-events: write`, `id-token: write`) on that job only. Results go to code scanning.
+- It reports, never blocks. Checks that don't fit a one-person repository (code review by a second person, a fuzzing setup) are noted rather than chased.
+
+**Done when:** the first run publishes a score and its findings are listed in this step's outcome.
 
 ## Open questions
 
 1. ~~**Approve the dev dependencies** for 6b–6c~~ Approved on 2026-11-22.
 2. ~~**Pre-commit lint**~~ Decided 2026-11-22: Biome's own `--staged`.
 3. ~~**Pre-push hook**~~ Decided 2026-11-22: none; CI enforces.
-4. **React component tests** in 6a: approve `@testing-library/react`, `@testing-library/user-event` and `jsdom`, or keep 6a to non-UI code for now?
-5. **Which of f–p** to include.
+4. ~~**React component tests** in 6a~~ Approved: `@testing-library/react`, `@testing-library/user-event` and `jsdom` are in use.
+5. ~~**Which of f–p**~~ Decided 2026-11-22: f, h, i, j, k, n, o, p; g and m to Phase 14; l as a `pre-commit` hook only.
 6. **Phase numbering:** answered on 2026-11-22: renamed to Phase 6, and the later phases renumbered (shelf filter fixes 7, dashboard 8, profile 9, journal 10, quality and deploy 11, mobile API 12, mobile app 13, subscriptions 14).

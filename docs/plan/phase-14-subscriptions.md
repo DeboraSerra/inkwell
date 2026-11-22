@@ -14,6 +14,21 @@ Moved here from Phase 5b (open question 4), where Haiku 5.5 alone enriches every
 - **Still applies:** catalog books only, never private documents; curated lists only; AI never overwrites a reader's edits.
 - **Open:** since enrichment is per catalog book, a subscriber's retry improves the book for every reader. Decide whether that's fine or whether subscriber results stay per user.
 
+## SonarQube Cloud in CI
+
+Moved here from Phase 6 (suggestion g) on 2026-11-22, to apply if subscriptions are enabled.
+
+- A SonarQube Cloud scan on each pull request: the "Sonar way" quality gate the user already follows in SonarLint, with the `lcov` coverage from the `checks` job.
+- **Cost:** free while the repository is public; a private repository needs a paid SonarQube Cloud plan (by lines of code).
+- **Setup:** a SonarQube Cloud project, a `SONAR_TOKEN` secret, `sonar-project.properties` (sources `inkwell/src`, exclusions for `generated/` and `components/ui/`), and automatic analysis turned off so it doesn't run twice. Then the quality gate joins the ruleset's required checks.
+
+## Security headers
+
+Moved here from Phase 6 (suggestion m) on 2026-11-22, to apply if subscriptions are enabled.
+
+- In `next.config.ts`: a `Content-Security-Policy` (scripts from self, images from the cover hosts, connections to Firebase and the providers), `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera only for the barcode scanner) and `frame-ancestors 'none'`.
+- **Cost:** free. The CSP must be tested on a preview deploy against Firebase sign-in, covers and the scanner's WASM.
+
 ## Free plan limits
 
 Asked by the user on 2026-11-21. Free accounts get a capped Inkwell, and subscribers get it without the caps. The numbers are placeholders, to be set when this phase is planned.

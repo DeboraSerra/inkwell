@@ -204,6 +204,7 @@ inkwell/src/
 
 ## Dependencies
 
+- **Node 26** (`engines: 26.x`, `.nvmrc`, CI and Vercel), since 2026-11-22.
 - Use npm, run from `inkwell/`. npm here blocks dependency install scripts; `prisma generate` runs from the package's own `postinstall` and `build` scripts.
 - **Don't remove the `overrides` in `package.json`.** They patch vulnerable transitive dependencies that upstream hasn't fixed yet. Re-check them with `npm audit` when upgrading.
 - `npm audit` reports 4 moderate findings, all **through the `shadcn` package** (one `minimatch` advisory, GHSA-g3hv-75wg-m249, via `ts-morph`). Anything else is new and needs looking at.
