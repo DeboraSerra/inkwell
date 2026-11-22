@@ -106,7 +106,7 @@ async function applyReadChanges(
 
 // Only real differences from what the reader was shown are kept as theirs, so
 // later catalog fixes still reach the book. Empty means the catalog's.
-export function readerDetails(
+function readerDetails(
   edit: { authors?: string[]; pageCount?: number; coverUrl?: string },
   shown: ShownDetails,
 ): ReaderDetails {
@@ -376,10 +376,6 @@ async function enrichAddedBook(userId: string, book: EnrichableBook) {
   } catch (error) {
     console.warn("Enriching a just-added book failed; the backlog job will retry it", error);
   }
-}
-
-export function getUserBook(userId: string, userBookId: string) {
-  return libraryModel.findUserBookWithCatalog(userId, userBookId);
 }
 
 function toArray<T extends string>(value: T | T[] | undefined): T[] | undefined {

@@ -108,7 +108,7 @@ export function audioLengthFor(
 
 // More finished reads of a book, from the date sets the form adds with its +
 // button: pastRead1StartedYear, pastRead1EndedMonth, pastRead1Id and so on.
-export const MAX_PAST_READS = 20;
+const MAX_PAST_READS = 20;
 const PAST_READ_PARTS = ["StartedDay", "StartedMonth", "StartedYear", "EndedDay", "EndedMonth", "EndedYear", "Id"];
 
 export const pastReadsField = z.record(z.string().max(40), z.string().max(64)).optional();

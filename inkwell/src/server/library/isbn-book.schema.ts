@@ -92,7 +92,7 @@ const isbnBookSchema = z.object({ isbn: isbnField, ...choiceFields }).transform(
 
 // A provider and its record id, as a search result carries them. The id is
 // only a lookup key, checked again by the provider.
-export const providerRefFields = {
+const providerRefFields = {
   source: z.enum(["OPEN_LIBRARY", "GOOGLE_BOOKS"], "Choose a search result."),
   sourceId: z.string("Choose a search result.").regex(/^[\w-]{1,64}$/, "Choose a search result."),
 };

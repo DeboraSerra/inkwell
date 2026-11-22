@@ -58,7 +58,7 @@ const formStatus = (status?: ReadingStatus) =>
     : status;
 
 // The book's details as the form's starting values.
-export const bookFormValues = (
+const bookFormValues = (
   book?: BookFormBook,
 ): ManualBookValues | undefined =>
   book && {

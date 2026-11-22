@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j, 6n, 6p, 6l and 6f ✅ built; 6h, 6k and 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j, 6n, 6p, 6l, 6f and 6h ✅ built; 6k and 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
 Phase 11 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 11 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
@@ -229,7 +229,7 @@ From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, k
 - **Commit messages:** prefixes `build(deps)` / `build(deps-dev)` for npm and `ci` for actions, so they're conventional commits. `commitlint.config.mjs` ignores commits signed off by `dependabot[bot]`, whose bodies have lines over 100 characters (release notes, links). Checked: such a message passes, and an ordinary one with a 150-character body line still fails.
 - **For the user:** the first run comes after the push to the default branch, under Insights → Dependency graph → Dependabot; it can also be started there with "Check for updates".
 
-## 6h — Knip ⏳ planned
+## 6h — Knip ✅ built (2026-11-22)
 
 - **Dependency:** `knip`, a dev dependency, pinned to a release at least two weeks old.
 - `knip.json` in `inkwell/` with the Next.js, Vitest and Prisma entry points (`prisma/seed.ts`, `prisma/*.ts` scripts, `scripts/*.mjs`), ignoring `src/components/ui/` and `src/generated/`.
@@ -237,6 +237,14 @@ From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, k
 - Fix what it finds: `zod` becomes a direct dependency (already approved); unused files and exports are removed or, when kept on purpose, listed with a reason.
 
 **Done when:** `npx knip` passes locally and in CI.
+
+### Outcome
+
+- **Dependencies:** `knip` 6.44.2 (2026-11-07), exact; `zod` `^4.6.7` as a direct dependency, the version already installed through `@anthropic-ai/sdk` and `shadcn`. `npm audit` unchanged.
+- **`inkwell/knip.jsonc`:** the one-off scripts in `prisma/` and `scripts/` as entries; CSS and `schema.prisma` in the project, so Tailwind's imports and the generated client are followed; `src/components/ui/` ignored. Ignored dependencies, each with its reason: `@prisma/client` (generated client), `pg` and `@types/pg` (the adapter's driver), `@commitlint/cli` (run from `.husky/` at the root), `zxing-wasm` (must stay the copy `barcode-detector` resolves).
+- **`npm run knip`**, and a step in CI's `checks` job after lint.
+- **Fixed:** 19 exports only used in their own file are no longer exported (constants such as `SESSION_COOKIE`, `MIN_QUERY_LENGTH`, `RATE_LIMIT_WINDOW_SECONDS`, and `readerDetails`, `uniqueFormats`, `defaultSortFor`, `mergeDocPair`, `CatalogRecord`…). Removed as unused: `library.service.getUserBook`, the `EnrichmentReply` type and `config/firebase.ts`'s default export.
+- **Checked:** `npm run knip` passes; `tsc`, lint and the 1,612 tests (coverage thresholds included) pass.
 
 ## 6k — CodeQL ⏳ planned
 

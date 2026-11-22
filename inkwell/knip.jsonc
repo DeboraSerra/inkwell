@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // One-off scripts, run by hand with tsx (see each file's header).
+  "entry": ["prisma/*.ts", "scripts/*.{ts,mjs}"],
+  "project": ["src/**/*.{ts,tsx,css}", "prisma/**/*.{ts,prisma}", "scripts/**/*.{ts,mjs}"],
+  // Vendored shadcn components keep their full export lists.
+  "ignore": ["src/components/ui/**"],
+  "ignoreDependencies": [
+    // Imported by the generated Prisma client, which is ignored above.
+    "@prisma/client",
+    // The driver @prisma/adapter-pg needs, and its types.
+    "pg",
+    "@types/pg",
+    // Run by the commit-msg hook in .husky/ at the repo root, outside this folder.
+    "@commitlint/cli",
+    // copy-zxing-wasm.mjs copies the WASM of the copy barcode-detector resolves,
+    // so it must not be listed (and possibly differ) on its own.
+    "zxing-wasm"
+  ]
+}

@@ -22,8 +22,8 @@ import {
 
 const id = z.string().min(1).max(64);
 
-export const MAX_READER_TAGS = 10;
-export const MAX_READER_TAG_LENGTH = 30;
+const MAX_READER_TAGS = 10;
+const MAX_READER_TAG_LENGTH = 30;
 const topicName = z.string().trim().max(60, "Choose a genre or trope from the list.");
 
 // Tags typed as "cozy, small town", or one per line: lower case,

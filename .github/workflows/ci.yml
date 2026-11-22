@@ -35,6 +35,8 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run lint
+      - name: Unused files, exports and dependencies
+        run: npm run knip
       - name: Tests with coverage
         run: npm run test:coverage | tee coverage-output.txt
       - name: Coverage in the job summary
