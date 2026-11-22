@@ -50,15 +50,15 @@ Every file above has a test, run and committed one set at a time. The suite went
 - **Add form:** `TextField`, `PartialDateField`, `AudioLengthField`, `StatusField`, `FormatsField`, `TopicsField`, `BookPreview`, `ScanBarcodeButton`, `IsbnLookupField`, `TitleSearchField`, `LiveScanButton`, `BookCover`, `BooksNew`.
 - **Sign-in and settings:** `EmailSignInForm`, `GoogleSignInButton`, `Login`, `CreateTokenForm`, `Tokens`, `Profile`, `Settings`. The async Server Components are awaited, then rendered.
 - **Layout:** `MobileTabBar`, `AppSidebar`, `Content`, `Footer`, `AccountMenuContent`, `SidebarLink`, `SignOutItem`, and `hooks/use-mobile`. `components/tests/setup.ts` now also stubs `matchMedia`.
-- **Not tested:** `components/layout/Header.tsx`, which nothing imports, and `src/config/` (`firebase-session.ts` is covered only through the sign-in forms' mocks).
+- **Not tested:** `components/layout/Header.tsx`, which nothing imported (deleted in 5.5b), and `src/config/` (`firebase-session.ts` is covered only through the sign-in forms' mocks).
 - **Found, not changed:**
   - Pagination links are real `<a href>`s, but the vendored `ui/pagination.tsx` (Base UI `Button` with `nativeButton={false}`) gives them `role="button"`, so screen readers announce them as buttons.
-  - `Header.tsx` is unused, and passes `as={Link}` to Base UI's `Button`, which has no `as` prop.
+  - `Header.tsx` was unused, and passed `as={Link}` to Base UI's `Button`, which has no `as` prop. Deleted in 5.5b.
 
 ## 5.5b — Test coverage ✅ built (2026-11-22)
 
 - **Dependency:** `@vitest/coverage-v8`, the same major as `vitest` 5.
-- **`npm run test:coverage`** (`vitest run --coverage`), with coverage of `src/server/**` and `src/components/**/*.ts` (pure client helpers), excluding `src/generated`, `src/components/ui`, `src/server/tests` and `*.type.ts(x)`.
+- **`npm run test:coverage`** (`vitest run --coverage`), with coverage of `src/server/**`, `src/components/**/*.{ts,tsx}` and `src/hooks/**`, excluding `src/generated`, `src/components/ui`, `src/server/tests` and `*.type.ts(x)`.
 - **Thresholds** set at the numbers measured after 5.5a's tests, rounded down, so coverage can't drop from there.
 - **Reports:** text summary in the terminal, `lcov` for CI (and Sonar, if g is chosen); `coverage/` is gitignored.
 
@@ -67,10 +67,10 @@ Every file above has a test, run and committed one set at a time. The suite went
 ### Outcome
 
 - `@vitest/coverage-v8` 5.0.3 (2026-09-30), pinned exactly, the same version as `vitest`. `npm audit` still shows only the 4 moderate `shadcn` findings.
-- `npm run test:coverage` runs `vitest run --coverage`. The settings are in `vitest.config.ts`, at the top level so they cover both test projects: `src/server/**` and `src/components/**/*.ts`, without `src/generated`, `src/components/ui`, both test folders and `*.type.ts(x)`.
-- Measured on 2026-11-22: statements 96.95%, branches 93.83%, functions 95.52%, lines 97.12%. Thresholds are 96, 93, 95 and 97. A run with a higher threshold fails ("Coverage for lines (97.12%) does not meet global threshold (98%)", exit 1).
+- `npm run test:coverage` runs `vitest run --coverage`. The settings are in `vitest.config.ts`, at the top level so they cover both test projects: `src/server/**`, `src/components/**/*.{ts,tsx}` and `src/hooks/**`, without `src/generated`, `src/components/ui`, both test folders and `*.type.ts(x)`.
+- Measured on 2026-11-22, with components and hooks: statements 97.13%, branches 93.48%, functions 96.01%, lines 97.49%. The thresholds are 90 for each, as the user set them. A run with a threshold above the numbers fails (exit 1).
 - Reports: the files not fully covered and the totals in the terminal, and `coverage/lcov.info` for CI. `coverage/` was already in `inkwell/.gitignore`. Biome now skips `coverage/` too (`biome.json`), since the HTML report's scripts gave 299 lint errors.
-- The `.tsx` components aren't counted, as planned, though they now have tests (5.5a). Adding `src/components/**/*.tsx` would need its thresholds measured again.
+- The `.tsx` components and `src/hooks/` are counted too (asked by the user on 2026-11-22). The unused `components/layout/Header.tsx`, the only file at 0%, is deleted.
 
 ## 5.5c — Commit messages: husky and commitlint
 

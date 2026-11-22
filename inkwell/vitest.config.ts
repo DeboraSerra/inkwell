@@ -9,11 +9,11 @@ export default defineConfig({
     },
   },
   test: {
-    // `npm run test:coverage`. Server code and the pure client helpers; the
-    // generated client, vendored shadcn components, tests and type files aren't counted.
+    // `npm run test:coverage`. Server code, components and hooks; the generated
+    // client, vendored shadcn components, tests and type files aren't counted.
     coverage: {
       provider: "v8",
-      include: ["src/server/**", "src/components/**/*.ts"],
+      include: ["src/server/**", "src/components/**/*.{ts,tsx}", "src/hooks/**"],
       exclude: ["src/generated/**", "src/components/ui/**", "src/server/tests/**", "src/components/tests/**", "**/*.type.ts", "**/*.type.tsx"],
       // The files not fully covered, the totals, and lcov for CI.
       reporter: [["text", { skipFull: true }], "text-summary", "lcov"],
