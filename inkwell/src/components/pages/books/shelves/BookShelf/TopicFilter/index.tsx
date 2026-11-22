@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Funnel } from "lucide-react";
+import { shownTropes as tropesToShow, tropesForGenres } from "@/server/library/topic-filter.rules";
 import { FilterChip, FilterList } from "./FilterList";
 import type { TopicLists } from "@/types/shelf.type";
 
@@ -24,13 +25,12 @@ export function TopicFilter({
   onChange: (genres: string[], tropes: string[]) => void;
 }>) {
   const count = genres.length + tropes.length;
-  // With genres ticked, only their tropes, plus any trope already ticked so it
-  // can still be unticked.
-  const shownTropes = genres.length
-    ? topics.tropes.filter(
-        (trope) => tropes.includes(trope.name) || trope.genres.some((genre) => genres.includes(genre)),
-      )
-    : [];
+  const shownTropes = tropesToShow(topics, genres, tropes);
+  // Unticking a genre drops the ticked tropes no remaining genre has.
+  const toggleGenre = (genre: string) => {
+    const next = toggled(genres, genre);
+    onChange(next, tropesForGenres(topics, next, tropes));
+  };
 
   return (
     <div className='flex items-center gap-1'>
@@ -68,7 +68,7 @@ export function TopicFilter({
                 <FilterChip
                   key={genre}
                   selected={genres.includes(genre)}
-                  onToggle={() => onChange(toggled(genres, genre), tropes)}
+                  onToggle={() => toggleGenre(genre)}
                 >
                   {genre}
                 </FilterChip>

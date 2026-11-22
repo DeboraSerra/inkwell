@@ -27,10 +27,19 @@
 
 ## 7b — Unticking a genre clears its tropes
 
+✅ Built (2026-11-22).
+
 1. Clearing every genre also clears every trope, since tropes are only shown when a genre is ticked.
 2. Unticking one genre of several drops the ticked tropes that belong to none of the genres still ticked, and keeps the rest (answered 2026-11-22).
 3. A pure rule, `tropesForGenres(topics, genres, tropes)`, does the pruning; `TopicFilter` calls it in the genre chip's `onToggle`, so the URL never holds an orphan trope.
 4. The "currently ticked trope stays visible so it can be unticked" case in `shownTropes` goes away, since a trope can no longer be ticked without its genre. A URL with an orphan trope (old link, back button) is still shown so it can be unticked.
+
+**Outcome (7b)**
+
+- `library/topic-filter.rules.ts`: `tropesForGenres(topics, genres, tropes)` keeps only the ticked tropes that a ticked genre has (a trope not in the curated list is dropped too), and `shownTropes(topics, genres, tropes)` moved there from `TopicFilter`.
+- `TopicFilter` prunes the tropes on every genre toggle, so ticking or unticking a genre never leaves an orphan trope in the URL.
+- **Deviation:** an orphan trope from an old link or the back button is now shown even with no genre ticked (before, no tropes showed without a genre), so it can always be unticked.
+- Tests: `tests/library/topic-filter.rules.test.ts`, and three new cases in `TopicFilter.test.tsx`.
 
 ## 7c — "No match" instead of "no books"
 

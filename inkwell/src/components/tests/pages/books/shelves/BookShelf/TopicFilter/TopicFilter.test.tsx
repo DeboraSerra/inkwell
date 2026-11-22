@@ -46,6 +46,25 @@ describe("TopicFilter", () => {
     expect(onChange).toHaveBeenCalledWith(["Romance"], []);
   });
 
+  it("clears every trope when the last genre is unticked", async () => {
+    const onChange = await open(["Fantasy"], ["Chosen One"]);
+    await userEvent.click(screen.getByRole("button", { name: "Fantasy" }));
+    expect(onChange).toHaveBeenCalledWith([], []);
+  });
+
+  it("unticking one genre of several keeps the tropes the others have", async () => {
+    const onChange = await open(["Fantasy", "Romance"], ["Chosen One", "Enemies to Lovers"]);
+    await userEvent.click(screen.getByRole("button", { name: "Fantasy" }));
+    expect(onChange).toHaveBeenCalledWith(["Romance"], ["Enemies to Lovers"]);
+  });
+
+  it("still shows a ticked trope with no genre ticked, so it can be unticked", async () => {
+    const onChange = await open([], ["Chosen One"]);
+    expect(chips("Tropes")).toEqual(["Chosen One"]);
+    await userEvent.click(screen.getByRole("button", { name: "Chosen One" }));
+    expect(onChange).toHaveBeenCalledWith([], []);
+  });
+
   it("only shows the ticked genres' tropes", async () => {
     await open(["Romance"], []);
     expect(chips("Tropes")).toEqual(["Enemies to Lovers"]);
