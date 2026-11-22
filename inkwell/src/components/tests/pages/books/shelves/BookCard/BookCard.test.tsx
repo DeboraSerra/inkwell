@@ -99,7 +99,7 @@ describe("BookCard pills", () => {
     const more = pill("More tags", "+2");
     fireEvent.pointerDown(more, { pointerType: "touch" });
     fireEvent.click(more);
-    expect(await screen.findByText("a, b, c, d, e")).toBeTruthy();
+    expect(await screen.findByText("A, B, C, D, E")).toBeTruthy();
   });
 
   it("shows no +N with three tags or fewer", () => {
