@@ -245,3 +245,47 @@ describe("read history safety", () => {
     expect(calls[0].args.where).toMatchObject({ OR: [{ outcome: null }, { outcome: "DNF" }] });
   });
 });
+
+describe("the rest of the queries", () => {
+  it("matches search results against this user's books only", async () => {
+    await model.findUserBooksMatching(USER, { isbn13s: ["978"], dedupeKeys: ["k"] });
+    expect(calls[0].args.where).toEqual({
+      userId: USER,
+      book: { OR: [{ isbn13: { in: ["978"] } }, { dedupeKey: { in: ["k"] } }] },
+    });
+  });
+
+  it("changes only the acquired date of the user's own book", async () => {
+    const acquired = { acquiredAt: new Date("2026-01-01"), acquiredAtPrecision: "MONTH" as const };
+    await model.updateAcquired(USER, "ub", acquired);
+    expect(calls[0]).toEqual({ method: "update", args: { where: { id: "ub", userId: USER }, data: acquired } });
+  });
+
+  it("filters by the given statuses", async () => {
+    await model.countUserBooks(USER, { status: [ReadingStatus.READING, ReadingStatus.DNF] });
+    expect(calls[0].args.where).toMatchObject({ status: { in: ["READING", "DNF"] } });
+  });
+
+  it("pages from a cursor, skipping the cursor's own row", async () => {
+    await model.listUserBooks(USER, { take: 10, cursor: "ub-9" });
+    expect(calls[0].args).toMatchObject({ cursor: { id: "ub-9" }, skip: 1, take: 10 });
+  });
+
+  it("pages by offset without a cursor", async () => {
+    await model.listUserBooks(USER, { take: 10, skip: 20 });
+    expect(calls[0].args).toMatchObject({ skip: 20 });
+    expect(calls[0].args).not.toHaveProperty("cursor");
+  });
+
+  it("leaves out tag matches when the search has no tag text", async () => {
+    await model.listUserBooks(USER, { take: 10, search: { text: "x", normalized: "x", author: "", surname: "", tag: "" } });
+    expect(JSON.stringify(calls[0].args.where)).not.toContain("tagSearch");
+  });
+
+  it("uses the transaction passed in", async () => {
+    const findMany = vi.fn(async () => []);
+    await model.findUserBooksMatching(USER, { isbn13s: [], dedupeKeys: [] }, { userBook: { findMany } } as never);
+    expect(findMany).toHaveBeenCalled();
+    expect(calls).toHaveLength(0);
+  });
+});

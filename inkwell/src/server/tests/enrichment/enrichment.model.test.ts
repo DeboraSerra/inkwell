@@ -128,3 +128,33 @@ describe("enrichment batches", () => {
     });
   });
 });
+
+describe("lookups and batches with the db passed in", () => {
+  it("reads one book's enrichment fields", async () => {
+    const findUnique = vi.fn(async (_args: unknown) => ({ id: "b1" }));
+    await expect(model.findBookForEnrichment("b1", { book: { findUnique } } as never)).resolves.toEqual({ id: "b1" });
+    expect(findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "b1" } }));
+  });
+
+  it("records a submitted batch", async () => {
+    const create = vi.fn(async (_args: unknown) => ({ id: "eb1" }));
+    await model.createEnrichmentBatch("msgbatch_1", ["b1", "b2"], { enrichmentBatch: { create } } as never);
+    expect(create).toHaveBeenCalledWith({ data: { anthropicBatchId: "msgbatch_1", bookIds: ["b1", "b2"] } });
+  });
+
+  it("lists submitted batches, oldest first", async () => {
+    await model.findSubmittedBatches();
+    expect(batchFindMany).toHaveBeenCalledWith({ where: { status: "SUBMITTED" }, orderBy: { createdAt: "asc" } });
+  });
+
+  it("loads the curated lists with their descriptions", async () => {
+    const genres = vi.fn(async (_args: unknown) => [{ id: "g1", name: "Fantasy", description: null }]);
+    const tropes = vi.fn(async (_args: unknown) => [{ id: "t1", name: "Chosen One", description: "x" }]);
+    await expect(
+      model.findEnrichmentLists({ genre: { findMany: genres }, trope: { findMany: tropes } } as never),
+    ).resolves.toEqual({
+      genres: [{ id: "g1", name: "Fantasy", description: null }],
+      tropes: [{ id: "t1", name: "Chosen One", description: "x" }],
+    });
+  });
+});
