@@ -19,7 +19,7 @@ The project started as a "book categorizer". The repo folder name still reflects
 |---|---|
 | `inkwell/` | The app: Next.js 16 (App Router), React 19, Tailwind 4, Prisma 7 + Postgres, Firebase Auth |
 | `extension/` | Chrome extension (MV3) that scrapes the Amazon Kindle content list. **The misspelling is intentional for now; don't rename it without asking.** |
-| `extension/build.mjs` | Builds the Chrome Web Store package for a deployed origin (`node extension/build.mjs https://<domain>`) into `extension/dist/` (gitignored). The source folder stays set up for localhost. Steps are in `docs/plan/phase-11-quality-deploy.md`. |
+| `extension/build.mjs` | Builds the Chrome Web Store package for a deployed origin (`node extension/build.mjs https://<domain>`) into `extension/dist/` (gitignored). The source folder stays set up for localhost. Steps are in `docs/plan/phase-12-quality-deploy.md`. |
 | `docs/plan/` | **The plan, and the source of truth for scope and status.** `README.md` holds the decisions and the phase index; there is one file per phase. |
 
 Key files in `inkwell/`:
@@ -74,7 +74,7 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 5b5–5b7 built (2026-11-22): genre, trope and tags on shelf cards (`BookCard/CardPill.tsx`), the genre and trope filter (`BookShelf/TopicFilter/`, tropes by genre through `GenreTrope`), search over tags, genres and tropes (`Book.tagSearch`), tap-friendly tooltips (`common/TapTooltip.tsx`), reader edits on `UserBook` (`genreEdited`/`tropeEdited`/`tagsEdited`, `new/TopicsField.tsx`), and `/privacy` covering Anthropic. 5b5a (telling genre from tags on cards) is pending.
 - ✅ Phase 5b4 built (2026-11-22): imports and the backlog go through Message Batches (`EnrichmentBatch`, `enrichment.service` `submitEnrichmentBatch` / `collectEnrichmentBatches`), collected by the daily `app/api/cron/enrichment` route (`CRON_SECRET`, `inkwell/vercel.json`).
 - ✅ Phase 5b1–5b3 built (2026-11-21): the synopsis lookup by provider id or ISBN after a manual add (`Book.descriptionCheckedAt`); `enrichment/enrichment.service.enrichBook` (Haiku 5.5, structured output, curated lists only); and `library.service.finishAdd`, run in `after()` by every single add: synopsis, then enrichment (rate-limited by `AI_ENRICH`).
-- ⏭️ Next: Phase 5, AI enrichment (`docs/plan/phase-5-ai-enrichment.md`). Publishing the extension is in `docs/plan/phase-11-quality-deploy.md`
+- ⏭️ Next: Phase 5, AI enrichment (`docs/plan/phase-5-ai-enrichment.md`). Publishing the extension is in `docs/plan/phase-12-quality-deploy.md`
 
 ## Workflow rules
 

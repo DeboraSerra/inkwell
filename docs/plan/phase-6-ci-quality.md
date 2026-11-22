@@ -2,9 +2,9 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j, 6n, 6p, 6l, 6f, 6h, 6k and 6o ✅ built. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j, 6n, 6p, 6l, 6f, 6h, 6k and 6o ✅ built. Asked by the user on 2026-11-22, to come before Phase 11. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
-Phase 11 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 11 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
+Phase 12 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 12 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
 **Applies to every step**
 
@@ -142,7 +142,7 @@ Set through `gh api` on 2026-11-22 (the repository is public, so every feature i
 
 ## Additions chosen by the user (2026-11-22)
 
-From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, keeping their letters. g (SonarQube Cloud) moved to [Phase 14](phase-14-subscriptions.md), to apply if subscriptions are enabled. l (gitleaks) was dropped, then added back on 2026-11-22 as a `pre-commit` hook only (6l): push protection and GitGuardian only act at or after the push, and gitleaks stops a secret before it's committed. m (security headers) moved to Phase 14 as well. One step at a time, in the order below.
+From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, keeping their letters. g (SonarQube Cloud) moved to [Phase 15](phase-15-subscriptions.md), to apply if subscriptions are enabled. l (gitleaks) was dropped, then added back on 2026-11-22 as a `pre-commit` hook only (6l): push protection and GitGuardian only act at or after the push, and gitleaks stops a secret before it's committed. m (security headers) moved to Phase 15 as well. One step at a time, in the order below.
 
 ## 6i — `.nvmrc` and the stray root lockfile ✅ built (2026-11-22)
 
@@ -285,5 +285,5 @@ From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, k
 2. ~~**Pre-commit lint**~~ Decided 2026-11-22: Biome's own `--staged`.
 3. ~~**Pre-push hook**~~ Decided 2026-11-22: none; CI enforces.
 4. ~~**React component tests** in 6a~~ Approved: `@testing-library/react`, `@testing-library/user-event` and `jsdom` are in use.
-5. ~~**Which of f–p**~~ Decided 2026-11-22: f, h, i, j, k, n, o, p; g and m to Phase 14; l as a `pre-commit` hook only.
+5. ~~**Which of f–p**~~ Decided 2026-11-22: f, h, i, j, k, n, o, p; g and m to Phase 15; l as a `pre-commit` hook only.
 6. **Phase numbering:** answered on 2026-11-22: renamed to Phase 6, and the later phases renumbered (shelf filter fixes 7, dashboard 8, profile 9, journal 10, quality and deploy 11, mobile API 12, mobile app 13, subscriptions 14).

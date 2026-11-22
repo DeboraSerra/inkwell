@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-⏳ Planned (2026-11-22), no open questions. Asked by the user on 2026-11-22, to come after Phase 6 and before Phase 8. Every fix is on `/books/shelves`.
+⏳ Planned (2026-11-22), no open questions. Asked by the user on 2026-11-22, to come after Phase 6 and before Phase 8 (accessibility tests). Every fix is on `/books/shelves`.
 
 **Applies to every step**
 
