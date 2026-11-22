@@ -157,6 +157,11 @@ export function moveDateValues(
   return newRead ? toDateValues("started", today, "DAY") : known;
 }
 
+// Whether anything narrows the shelf, so an empty result is "no match" rather
+// than an empty shelf.
+export const hasFilters = ({ search, formats, genres, tropes }: ShelfFilters) =>
+  Boolean(search) || formats.length > 0 || genres.length > 0 || tropes.length > 0;
+
 // Leaving out `page` goes back to the first page, as a change of filters should.
 export function shelfHref({
   shelf,

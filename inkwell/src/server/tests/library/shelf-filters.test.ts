@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moveDateValues, moveTargets, OWNED_SHELF, SHELF_TABS, pageHolding, pageLinks, parsePageSize, parseShelfFilters, resolvePageSize, searchParamsRecord, shelfHref } from "@/server/library/shelf-filters";
+import { hasFilters, moveDateValues, moveTargets, OWNED_SHELF, SHELF_TABS, pageHolding, pageLinks, parsePageSize, parseShelfFilters, resolvePageSize, searchParamsRecord, shelfHref } from "@/server/library/shelf-filters";
 import { ReadingStatus } from "@/generated/prisma/enums";
 
 describe("parseShelfFilters", () => {
@@ -313,5 +313,20 @@ describe("the Owned shelf", () => {
 
   it("leaves the five lists unowned-only", () => {
     expect(parseShelfFilters({ shelf: "tbr" }).owned).toBe(false);
+  });
+});
+
+describe("hasFilters", () => {
+  it("is false on a bare shelf, whatever its sort, page or page size", () => {
+    expect(hasFilters(parseShelfFilters({ shelf: "tbr", sort: "title-asc", page: "2", per: "20" }))).toBe(false);
+  });
+
+  it.each([
+    ["a search", { q: "dune" }],
+    ["a format", { format: "PHYSICAL" }],
+    ["a genre", { genre: "Fantasy" }],
+    ["a trope", { trope: "Chosen One" }],
+  ])("is true with %s", (_label, params) => {
+    expect(hasFilters(parseShelfFilters({ shelf: "tbr", ...params }))).toBe(true);
   });
 });

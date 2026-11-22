@@ -73,10 +73,19 @@ describe("BooksShelf", () => {
   it.each([
     ["a search", "shelf=tbr&q=dune", "No books on TBR match these filters."],
     ["a format", "shelf=tbr&format=AUDIO", "No books on TBR match these filters."],
+    ["a genre", "shelf=tbr&genre=Fantasy", "No books on TBR match these filters."],
+    ["a trope", "shelf=tbr&trope=Chosen+One", "No books on TBR match these filters."],
     ["Owned with a search", "shelf=owned&q=dune", "No owned books match these filters."],
   ])("says nothing matches %s", (_label, query, message) => {
     show(query);
     expect(screen.getByText(message)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Add a book" })).toBeNull();
+  });
+
+  it("clears every filter but keeps the shelf, the sort and the page size", () => {
+    show("shelf=finished&q=dune&format=AUDIO&genre=Fantasy&trope=Chosen+One&per=20&sort=title-asc");
+    expect(screen.getByRole("button", { name: "Clear filters" }).getAttribute("href")).toBe(
+      "/books/shelves?shelf=finished&per=20&sort=title-asc",
+    );
   });
 });

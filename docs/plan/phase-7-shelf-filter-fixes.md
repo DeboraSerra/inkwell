@@ -43,10 +43,18 @@
 
 ## 7c — "No match" instead of "no books"
 
+✅ Built (2026-11-22).
+
 1. **Today** `BooksShelf` only treats a search or a format as a filter, so a genre or trope filter with no result says "Nothing on TBR yet." with "Add a book".
 2. Any of search, formats, genres or tropes being set counts as filtering (a shared `hasFilters(filters)` in `library/shelf-filters.ts`).
 3. One generic line, `No books on <list> match these filters.` (`No owned books match these filters.` on Owned), with a "Clear filters" button that clears search, formats, genres and tropes and keeps the shelf, the sort and the per-page (answered 2026-11-22).
 4. "Nothing on <list> yet." with "Add a book" stays for a shelf that's truly empty.
+
+**Outcome (7c)**
+
+- `hasFilters(filters)` in `library/shelf-filters.ts`: a search, a format, a genre or a trope counts; the sort, page and page size don't.
+- `BooksShelf`'s empty state uses it. A filtered shelf with no result shows the no-match line and a "Clear filters" link to `shelfHref` with only the shelf, the sort and the page size. A truly empty shelf keeps "Nothing on <list> yet." and "Add a book".
+- Tests: `hasFilters` in `shelf-filters.test.ts`; genre, trope and the clear link in `BooksShelf.test.tsx`.
 
 ## 7d — Only the genres in my library
 
