@@ -81,6 +81,7 @@ export function BookCover({
     );
   }
   return (
+    // biome-ignore lint/performance/noImgElement: covers from hosts outside next.config's remotePatterns can't go through the optimizer, and need no-referrer
     <img
       ref={checkLoaded}
       src={src}
