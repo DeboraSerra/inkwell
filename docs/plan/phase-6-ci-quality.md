@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j and 6n ✅ built; 6p, 6l, 6f, 6h, 6k and 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j, 6n and 6p ✅ built; 6l, 6f, 6h, 6k and 6o planned. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
 Phase 11 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 11 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
@@ -181,11 +181,19 @@ From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, k
 - **Checked locally:** every installed package has a valid registry signature, and 202 also have verified attestations; it exits 0.
 - **For the user:** the next CI run shows it in the `npm audit` job.
 
-## 6p — Every endpoint authenticates (test) ⏳ planned
+## 6p — Every endpoint authenticates (test) ✅ built (2026-11-22)
 
 - `src/server/tests/auth/endpoints-auth.test.ts`: lists every `src/app/**/route.ts` and every `*.controller.ts`, and fails on an exported handler or action whose file doesn't call `requireUser`, `getRequestUser` or `isCronRequest`. A short allowlist for endpoints that are public on purpose (sign-in), each with a reason.
 
 **Done when:** the test passes today, and fails when a new route or action without a check is added.
+
+### Outcome
+
+- `src/server/tests/auth/endpoints-auth.test.ts` parses the source with the TypeScript compiler (already a dev dependency) rather than matching text: every exported HTTP method in `src/app/**/route.ts`, and every export of any file starting with `"use server"` (found anywhere under `src/`, not only `*.controller.ts`), must **call** `requireUser`, `getRequestUser` or `isCronRequest` in its own body. Checked per function, not per file, so one guarded action can't cover an open one beside it.
+- **Public on purpose:** `signIn` (it's how a visitor gets a session; Firebase verifies the ID token) and `signOut` (only clears the caller's cookie), each with its reason in the test. The test also fails if one of those gets a check or disappears, so the list can't go stale.
+- **Also checked:** `"use server"` files are only `*.controller.ts`, as AGENTS.md requires.
+- Unit tests of the checker itself: an unguarded export is flagged, a guard in an arrow function counts, a guard only mentioned and not called doesn't, and unexported helpers and non-method exports (`maxDuration`) are ignored.
+- **Checked:** it passes on the 4 routes and 2 controllers today; a temporary `app/api/zz-tmp/route.ts` without a check made it fail with `app/api/zz-tmp/route.ts#GET`, and was removed.
 
 ## 6l — gitleaks before each commit ⏳ planned
 
