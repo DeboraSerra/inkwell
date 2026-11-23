@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TitleSearchField } from "@/components/pages/books/new/TitleSearchField";
 import { previewSearchResult } from "@/server/library/library.controller";
 import type { IsbnPreview, SearchResult } from "@/types/books.type";
+import { expectAccessible } from "../../../a11y";
 
 vi.mock("@/server/library/library.controller", () => ({ previewSearchResult: vi.fn() }));
 vi.mock("@/components/common/BookCover", () => ({ BookCover: () => null }));
@@ -34,6 +35,7 @@ afterEach(() => {
 describe("TitleSearchField", () => {
   it("searches once typing pauses, from three characters", async () => {
     show();
+    await expectAccessible();
     await userEvent.type(title(), "du");
     await new Promise((resolve) => setTimeout(resolve, 450));
     expect(fetch).not.toHaveBeenCalled();
@@ -50,6 +52,7 @@ describe("TitleSearchField", () => {
       "DuneFrank Herbert1965",
       "Dune MessiahIn your library · Finished",
     ]);
+    await expectAccessible();
   });
 
   it("opens a picked result and hands it on with the typed title", async () => {

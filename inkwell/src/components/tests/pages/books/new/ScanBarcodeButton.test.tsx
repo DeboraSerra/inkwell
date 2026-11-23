@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readBarcodes } from "@/components/pages/books/new/barcode-scan";
 import { ScanBarcodeButton } from "@/components/pages/books/new/ScanBarcodeButton";
 import { NO_BARCODE, NOT_A_BOOK } from "@/server/books/barcode.rules";
+import { expectAccessible } from "../../../a11y";
 
 vi.mock("@/components/pages/books/new/barcode-scan", () => ({ readBarcodes: vi.fn() }));
 
@@ -22,12 +23,13 @@ beforeEach(() => {
 });
 
 describe("ScanBarcodeButton", () => {
-  it("is a hidden camera input for images", () => {
+  it("is a hidden camera input for images", async () => {
     const { input } = show();
     expect(input.type).toBe("file");
     expect(input.accept).toBe("image/*");
     expect(input.getAttribute("capture")).toBe("environment");
     expect(input.getAttribute("aria-hidden")).toBe("true");
+    await expectAccessible();
   });
 
   it("reads the ISBN from a photo, saying when it's reading", async () => {

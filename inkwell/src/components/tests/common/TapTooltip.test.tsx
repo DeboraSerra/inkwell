@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { TapTooltip } from "@/components/common/TapTooltip";
+import { expectAccessible } from "../a11y";
 
 const tooltip = () => screen.queryByText("Separate tags with commas.");
 const tap = (element: Element, pointerType: string) => {
@@ -13,8 +14,10 @@ describe("TapTooltip", () => {
     render(<TapTooltip content='Separate tags with commas.' label='About tags'>i</TapTooltip>);
     const trigger = screen.getByRole("button", { name: "About tags" });
     expect(tooltip()).toBeNull();
+    await expectAccessible();
     tap(trigger, "touch");
     expect(await screen.findByText("Separate tags with commas.")).toBeTruthy();
+    await expectAccessible();
     tap(trigger, "touch");
     await waitFor(() => expect(tooltip()).toBeNull());
   });

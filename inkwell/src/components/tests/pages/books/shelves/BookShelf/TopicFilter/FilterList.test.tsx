@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { FilterChip, FilterList } from "@/components/pages/books/shelves/BookShelf/TopicFilter/FilterList";
+import { expectAccessible } from "../../../../../a11y";
 
 describe("FilterList", () => {
   it("is a labelled list of toggle buttons", async () => {
@@ -20,6 +21,7 @@ describe("FilterList", () => {
     expect(screen.getByRole("button", { name: "Romance" }).getAttribute("aria-pressed")).toBe("true");
     await userEvent.click(fantasy);
     expect(onToggle).toHaveBeenCalledTimes(1);
+    await expectAccessible();
   });
 
   it("marks a ticked chip with a hidden ✕", () => {

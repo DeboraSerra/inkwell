@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BooksShelf } from "@/components/pages/books/shelves/BookShelf";
 import { bookWith, filtersFor, shelfOf, testContext } from "../shelf-fixtures";
+import { expectAccessible } from "../../../../a11y";
 
 const context = vi.hoisted(() => ({ current: {} as ReturnType<typeof testContext> }));
 vi.mock("@/components/pages/context", () => ({
@@ -40,11 +41,12 @@ beforeEach(() => {
 });
 
 describe("BooksShelf", () => {
-  it("lists the page's books and which of them these are", () => {
+  it("lists the page's books and which of them these are", async () => {
     show("shelf=tbr", shelfOf({ books: [bookWith("a"), bookWith("b")], total: 12, firstIndex: 11, page: 2, pageCount: 2 }));
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByText("11 - 12 of 12")).toBeTruthy();
     expect(screen.getByText("Pages")).toBeTruthy();
+    await expectAccessible();
   });
 
   it("has no page links on a single page", () => {
@@ -59,10 +61,11 @@ describe("BooksShelf", () => {
     expect(screen.getByText("Selection bar")).toBeTruthy();
   });
 
-  it("offers to add a book on an empty list", () => {
+  it("offers to add a book on an empty list", async () => {
     show("shelf=reading");
     expect(screen.getByText("Nothing on Reading yet.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Add a book" }).getAttribute("href")).toBe("/books/new");
+    await expectAccessible();
   });
 
   it("says no books are owned on an empty Owned shelf", () => {

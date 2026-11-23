@@ -6,6 +6,7 @@ import { toast } from "@/components/ui/toast";
 import * as controller from "@/server/library/library.controller";
 import type { BookFormBook, BookFormResult, IsbnPreview } from "@/types/books.type";
 import type { TopicLists } from "@/types/shelf.type";
+import { expectAccessible } from "../../../a11y";
 
 vi.mock("@/components/ui/toast", () => ({ toast: { add: vi.fn() } }));
 vi.mock("@/server/library/library.controller", () => ({
@@ -47,12 +48,14 @@ describe("AddBookForm: adding by hand", () => {
   it("asks for the title and authors before sending anything", async () => {
     const submit = vi.fn();
     render(<AddBookForm submit={submit} />);
+    await expectAccessible();
     await userEvent.click(screen.getByRole("button", { name: "Add book" }));
     expect(submit).not.toHaveBeenCalled();
     expect(toast.add).toHaveBeenCalledWith({ description: "Title is required.", type: "error" });
     expect(toast.add).toHaveBeenCalledWith({ description: "Authors is required.", type: "error" });
     expect(field("Title*").getAttribute("aria-invalid")).toBe("true");
     expect(document.activeElement).toBe(field("Title*"));
+    await expectAccessible();
   });
 
   it("clears a field's error once it's typed in", async () => {

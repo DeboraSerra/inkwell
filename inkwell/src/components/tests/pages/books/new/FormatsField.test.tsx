@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { FormatsField } from "@/components/pages/books/new/FormatsField";
+import { expectAccessible } from "../../../a11y";
 
 const box = (name: string) => screen.getByRole("checkbox", { name });
 const sent = () => new FormData(document.querySelector("form") as HTMLFormElement).getAll("formats");
@@ -18,6 +19,7 @@ describe("FormatsField", () => {
     expect(box("Ebook").getAttribute("aria-checked")).toBe("true");
     await userEvent.click(box("Physical"));
     expect(sent()).toEqual(["EBOOK", "PHYSICAL"]);
+    await expectAccessible();
   });
 
   it("tells the form whether any format is ticked, on mount too", async () => {
@@ -33,6 +35,7 @@ describe("FormatsField", () => {
     expect(screen.queryByLabelText("Hours")).toBeNull();
     await userEvent.click(box("Audiobook"));
     expect((screen.getByLabelText("Hours") as HTMLInputElement).value).toBe("9");
+    await expectAccessible();
   });
 
   it("asks no length when it would be ignored", () => {

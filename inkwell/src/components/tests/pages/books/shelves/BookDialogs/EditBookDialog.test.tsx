@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EditBookDialog } from "@/components/pages/books/shelves/BookDialogs/EditBookDialog";
 import { TopicsProvider } from "@/components/pages/books/shelves/topics-context";
 import { bookWith } from "../shelf-fixtures";
+import { expectAccessible } from "../../../../a11y";
 
 vi.mock("@/components/ui/toast", () => ({ toast: { add: vi.fn() } }));
 vi.mock("@/server/library/library.controller", () => ({
@@ -20,20 +21,22 @@ beforeEach(() => {
 });
 
 describe("EditBookDialog", () => {
-  it("opens on the book's details, with the catalog's title locked", () => {
+  it("opens on the book's details, with the catalog's title locked", async () => {
     render(<EditBookDialog book={book} open onOpenChange={vi.fn()} onSave={vi.fn()} />);
     expect(screen.getByRole("dialog", { name: "Dune" })).toBeTruthy();
     expect((screen.getByLabelText(/^Title/, { selector: "input" }) as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByLabelText("Pages", { selector: "input" }) as HTMLInputElement).value).toBe("412");
+    await expectAccessible();
   });
 
-  it("shows the genre, trope and tag pickers from the shelf's lists", () => {
+  it("shows the genre, trope and tag pickers from the shelf's lists", async () => {
     render(
       <TopicsProvider topics={topics}>
         <EditBookDialog book={book} open onOpenChange={vi.fn()} onSave={vi.fn()} />
       </TopicsProvider>,
     );
     expect((screen.getByRole("textbox", { name: /^Tags/ }) as HTMLTextAreaElement).value).toBe("desert");
+    await expectAccessible();
   });
 
   it("has no pickers without the lists", () => {

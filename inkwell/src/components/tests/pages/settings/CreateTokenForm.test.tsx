@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CreateTokenForm from "@/components/pages/settings/CreateTokenForm";
 import { toast } from "@/components/ui/toast";
 import { createApiToken } from "@/server/auth/auth.controller";
+import { expectAccessible } from "../../a11y";
 
 vi.mock("@/components/ui/toast", () => ({ toast: { add: vi.fn() } }));
 vi.mock("@/server/auth/auth.controller", () => ({ createApiToken: vi.fn() }));
@@ -32,6 +33,7 @@ describe("CreateTokenForm", () => {
     expect(await screen.findByText("ink_secret")).toBeTruthy();
     expect((vi.mocked(createApiToken).mock.calls[0][1] as FormData).get("name")).toBe("Laptop");
     expect(screen.getByText(/won't be able to see it again/)).toBeTruthy();
+    await expectAccessible();
   });
 
   it("shows why a token couldn't be created", async () => {
@@ -39,6 +41,7 @@ describe("CreateTokenForm", () => {
     await create("x");
     expect(await screen.findByText("Give the token a name (up to 100 characters).")).toBeTruthy();
     expect(screen.queryByText("ink_secret")).toBeNull();
+    await expectAccessible();
   });
 
   it("copies the token, says so, then offers to copy again", async () => {

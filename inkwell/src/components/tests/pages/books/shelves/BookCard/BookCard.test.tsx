@@ -5,6 +5,7 @@ import { BookCard } from "@/components/pages/books/shelves/BookCard";
 import { ShelfSelectionProvider } from "@/components/pages/books/shelves/BookShelf/ShelfSelection";
 import { parseShelfFilters } from "@/server/library/shelf-filters";
 import type { ShelfBook } from "@/types/books.type";
+import { expectAccessible } from "../../../../a11y";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -58,6 +59,7 @@ beforeEach(() => {
 describe("BookCard pills", () => {
   it("shows genre and trope together, and filters the shelf by both", async () => {
     show();
+    await expectAccessible();
     const genre = pill("Genre and trope", "Fantasy (Enemies to Lovers)");
     expect(genre.getAttribute("title")).toBe("Show books like this");
     await userEvent.click(genre);

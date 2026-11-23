@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MoveBookDialog } from "@/components/pages/books/shelves/BookDialogs/MoveBookDialog";
 import { bookWith } from "../shelf-fixtures";
+import { expectAccessible } from "../../../../a11y";
 
 const dates = (legend: string) => {
   const group = within(screen.getByRole("group", { name: legend }));
@@ -19,18 +20,20 @@ afterEach(() => {
 });
 
 describe("MoveBookDialog", () => {
-  it("starts a new read today when moving a TBR book to Reading", () => {
+  it("starts a new read today when moving a TBR book to Reading", async () => {
     render(<MoveBookDialog book={bookWith("a")} status='READING' onClose={vi.fn()} onSave={vi.fn()} />);
     expect(screen.getByRole("dialog", { name: "Book a" }).textContent).toContain("Move to Reading");
     expect(dates("Started")).toEqual(["21", "11", "2026"]);
     expect(screen.queryByRole("group", { name: "Finished" })).toBeNull();
+    await expectAccessible();
   });
 
-  it("asks for a finish date too when moving to Finished, empty", () => {
+  it("asks for a finish date too when moving to Finished, empty", async () => {
     const reading = bookWith("a", { status: "READING", readDates: { startedDay: "1", startedMonth: "10", startedYear: "2026" } });
     render(<MoveBookDialog book={reading} status='FINISHED' onClose={vi.fn()} onSave={vi.fn()} />);
     expect(dates("Started")).toEqual(["1", "10", "2026"]);
     expect(dates("Finished")).toEqual(["", "", ""]);
+    await expectAccessible();
   });
 
   it("saves the dates and closes when the save works", async () => {

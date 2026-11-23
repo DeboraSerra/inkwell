@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BooksPerPageSelect } from "@/components/pages/books/shelves/BookShelf/BooksPerPageSelect";
 import { rememberShelfPageSize } from "@/server/library/library.controller";
 import { filtersFor, shelfOf, testContext } from "../shelf-fixtures";
+import { expectAccessible } from "../../../../a11y";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -27,9 +28,10 @@ beforeEach(() => {
 });
 
 describe("BooksPerPageSelect", () => {
-  it("shows the current page size", () => {
+  it("shows the current page size", async () => {
     render(<BooksPerPageSelect />);
     expect(screen.getByRole("combobox", { name: "Books per page" }).textContent).toMatch(/^10\D*$/);
+    await expectAccessible();
   });
 
   it("opens the page holding the first book shown now, and remembers the size", async () => {

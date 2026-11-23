@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BooksPagination } from "@/components/pages/books/shelves/BookShelf/BooksPagination";
 import { filtersFor, shelfOf, testContext } from "../shelf-fixtures";
+import { expectAccessible } from "../../../../a11y";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -22,11 +23,12 @@ beforeEach(() => {
 });
 
 describe("BooksPagination", () => {
-  it("links every page of a short shelf, marking the current one", () => {
+  it("links every page of a short shelf, marking the current one", async () => {
     show(2, 3);
     expect(pageLinks()).toEqual(["Go to previous page", "1", "2", "3", "Go to next page"]);
     expect(link("2").getAttribute("aria-current")).toBe("page");
     expect(link("1").getAttribute("aria-current")).toBeNull();
+    await expectAccessible();
   });
 
   it("has no previous link on the first page, nor next on the last", () => {

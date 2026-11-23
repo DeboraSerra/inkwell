@@ -5,6 +5,7 @@ import { Tokens } from "@/components/pages/settings/Tokens";
 import { revokeApiToken } from "@/server/auth/auth.controller";
 import { requireUser } from "@/server/auth/auth.guard";
 import { listApiTokens } from "@/server/auth/auth.service";
+import { expectAccessible } from "../../a11y";
 
 vi.mock("@/server/auth/auth.controller", () => ({ revokeApiToken: vi.fn() }));
 vi.mock("@/server/auth/auth.guard", () => ({ requireUser: vi.fn() }));
@@ -32,6 +33,7 @@ describe("Tokens", () => {
     expect(items[0]).toContain("ink_abcdef… · created Nov 1, 2026 · last used Nov 20, 2026");
     expect(items[1]).toContain("never used");
     expect(screen.getByText("Create form")).toBeTruthy();
+    await expectAccessible();
   });
 
   it("revokes a token through the controller, by its id", async () => {

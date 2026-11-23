@@ -4,6 +4,7 @@ import { BooksShelves } from "@/components/pages/books/shelves";
 import { useTopics } from "@/components/pages/books/shelves/topics-context";
 import type { ShelfType } from "@/types";
 import { filtersFor, shelfOf, testContext } from "./shelf-fixtures";
+import { expectAccessible } from "../../../a11y";
 
 const context = vi.hoisted(() => ({ current: {} as Omit<ReturnType<typeof testContext>, "shelf"> & { shelf: ShelfType | null } }));
 vi.mock("@/components/pages/context", () => ({ useBooksContext: () => context.current }));
@@ -27,11 +28,12 @@ beforeEach(() => {
 });
 
 describe("BooksShelves", () => {
-  it("has a tab per list plus Owned, with the current one selected", () => {
+  it("has a tab per list plus Owned, with the current one selected", async () => {
     show("shelf=finished");
     const tabs = screen.getAllByRole("tab");
     expect(tabs.map((tab) => tab.textContent)).toEqual(["TBR", "Wishlist", "Reading", "Finished", "DNF", "Owned"]);
     expect(screen.getByRole("tab", { name: "Finished" }).getAttribute("aria-selected")).toBe("true");
+    await expectAccessible();
   });
 
   it("keeps the filters and page size on the tabs, but not the sort or page", () => {
@@ -41,9 +43,10 @@ describe("BooksShelves", () => {
     );
   });
 
-  it("shows placeholders until the first load", () => {
+  it("shows placeholders until the first load", async () => {
     show("shelf=tbr", null);
     expect(screen.getByRole("list", { name: "Loading your books" }).getAttribute("aria-busy")).toBe("true");
+    await expectAccessible();
   });
 
   it("shows the shelf with the curated lists once loaded", () => {

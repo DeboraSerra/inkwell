@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { StatusField } from "@/components/common/StatusField";
 import type { ManualBookValues } from "@/types/library.type";
+import { expectAccessible } from "../a11y";
 
 const groups = (legend: string) => screen.queryAllByRole("group", { name: legend });
 const sent = () => new FormData(document.querySelector("form") as HTMLFormElement);
@@ -14,10 +15,11 @@ const show = (props: Parameters<typeof StatusField>[0] = {}) =>
   );
 
 describe("StatusField", () => {
-  it("starts as not started, with no dates", () => {
+  it("starts as not started, with no dates", async () => {
     show();
     expect(screen.getByRole("radio", { name: "Not started" }).getAttribute("aria-checked")).toBe("true");
     expect(groups("Started")).toHaveLength(0);
+    await expectAccessible();
   });
 
   it("asks when a book being read was started", async () => {
@@ -33,6 +35,7 @@ describe("StatusField", () => {
     await userEvent.click(screen.getByRole("radio", { name: "Already read" }));
     expect(groups("Started")).toHaveLength(1);
     expect(groups("Finished")).toHaveLength(1);
+    await expectAccessible();
   });
 
   it("asks no dates for a book not finished", async () => {

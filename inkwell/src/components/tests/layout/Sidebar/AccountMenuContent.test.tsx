@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AccountMenuContent } from "@/components/layout/Sidebar/AccountMenuContent";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { withSidebar } from "../sidebar-wrapper";
+import { expectAccessible } from "../../a11y";
 
 const open = async () => {
   render(
@@ -29,6 +30,7 @@ describe("AccountMenuContent", () => {
     Object.defineProperty(globalThis, "innerWidth", { configurable: true, value: 1024 });
     const menu = await open();
     expect(menu.closest("[data-side]")?.getAttribute("data-side")).toBe("right");
+    await expectAccessible();
   });
 
   it("opens above the footer in the phone drawer, so it doesn't overflow", async () => {

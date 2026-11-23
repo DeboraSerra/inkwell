@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ShelfFilterBar } from "@/components/pages/books/shelves/BookShelf/ShelfFilterBar";
 import { parseShelfFilters, searchParamsRecord } from "@/server/library/shelf-filters";
 import type { ShelfFilters, TopicLists } from "@/types/shelf.type";
+import { expectAccessible } from "../../../../a11y";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -131,5 +132,6 @@ describe("ShelfFilterBar formats and topics", () => {
     fireEvent.click(screen.getByRole("button", { name: "Filter books" }));
     fireEvent.click(await screen.findByRole("button", { name: "Fantasy" }));
     expect(router.push).toHaveBeenCalledWith("/books/shelves?shelf=tbr&genre=Fantasy&per=20");
+    await expectAccessible();
   });
 });

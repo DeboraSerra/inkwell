@@ -6,6 +6,7 @@ import { ShelfSelectionProvider, useShelfSelection } from "@/components/pages/bo
 import { toast } from "@/components/ui/toast";
 import { moveBooks, removeBooks } from "@/server/library/library.controller";
 import { bookWith, filtersFor, shelfOf, testContext } from "../shelf-fixtures";
+import { expectAccessible } from "../../../../a11y";
 
 vi.mock("@/components/ui/toast", () => ({ toast: { add: vi.fn() } }));
 vi.mock("@/server/library/library.controller", () => ({ moveBooks: vi.fn(), removeBooks: vi.fn() }));
@@ -42,9 +43,10 @@ beforeEach(() => {
 });
 
 describe("SelectedBooksBar", () => {
-  it("counts the selection", () => {
+  it("counts the selection", async () => {
     show(["a", "b"]);
     expect(screen.getByRole("status").textContent).toBe("2 selected");
+    await expectAccessible();
   });
 
   it("offers every other list as a target", async () => {
@@ -52,6 +54,7 @@ describe("SelectedBooksBar", () => {
     await userEvent.click(screen.getByRole("button", { name: "Move selected to" }));
     const targets = (await screen.findAllByRole("menuitem")).map((item) => item.textContent);
     expect(targets).toEqual(["Wishlist", "Reading", "Finished", "DNF"]);
+    await expectAccessible();
   });
 
   it("moves the selected books, then clears and reloads", async () => {
@@ -88,6 +91,7 @@ describe("SelectedBooksBar", () => {
     const selected = show(["a", "b"]);
     await userEvent.click(screen.getByRole("button", { name: "Delete selected books" }));
     expect(await screen.findByRole("dialog", { name: "Delete 2 books?" })).toBeTruthy();
+    await expectAccessible();
     expect(removeBooks).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(removeBooks).toHaveBeenCalledWith(["a", "b"]);

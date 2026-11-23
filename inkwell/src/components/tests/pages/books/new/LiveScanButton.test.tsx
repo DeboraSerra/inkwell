@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { prepareReader, readVideoFrame } from "@/components/pages/books/new/barcode-scan";
 import { LiveScanButton, useCameraSupported } from "@/components/pages/books/new/LiveScanButton";
 import { CAMERA_REFUSED, NO_CAMERA, NOT_A_BOOK, SCANNER_FAILED } from "@/server/books/barcode.rules";
+import { expectAccessible } from "../../../a11y";
 
 vi.mock("@/components/pages/books/new/barcode-scan", () => ({ prepareReader: vi.fn(), readVideoFrame: vi.fn() }));
 
@@ -65,6 +66,7 @@ describe("LiveScanButton", () => {
     await waitFor(() => expect(getUserMedia).toHaveBeenCalled());
     expect(getUserMedia).toHaveBeenCalledWith({ video: { facingMode: { ideal: "environment" } }, audio: false });
     expect(screen.getByRole("status").textContent).toBe("Hold the barcode inside the frame.");
+    await expectAccessible();
   });
 
   it("hands on a book's ISBN, closing and stopping the camera", async () => {

@@ -6,6 +6,7 @@ import { rememberTopicScope } from "@/server/library/library.controller";
 
 vi.mock("@/server/library/library.controller", () => ({ rememberTopicScope: vi.fn() }));
 import type { TopicLists } from "@/types/shelf.type";
+import { expectAccessible } from "../../../../../a11y";
 
 const topics: TopicLists = {
   genres: ["Fantasy", "Romance", "Thriller"],
@@ -36,6 +37,7 @@ describe("TopicFilter", () => {
     expect(chips("Genres")).toEqual(["Fantasy", "Romance", "Thriller"]);
     expect(screen.queryByRole("list", { name: "Tropes" })).toBeNull();
     expect(screen.getByText("No genre selected")).toBeTruthy();
+    await expectAccessible();
   });
 
   it("ticks a genre", async () => {
@@ -74,6 +76,7 @@ describe("TopicFilter", () => {
   it("only shows the ticked genres' tropes", async () => {
     await open(["Romance"], []);
     expect(chips("Tropes")).toEqual(["Enemies to Lovers"]);
+    await expectAccessible();
   });
 
   it("keeps a ticked trope from another genre, so it can be unticked", async () => {
