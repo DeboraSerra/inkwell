@@ -73,7 +73,7 @@ export function TopicFilter({
           {count > 0 && (
             <span
               aria-hidden='true'
-              className='absolute -top-1 -right-2 flex size-4 items-center justify-center rounded-full bg-chip-selected text-[10px] font-medium text-chip-selected-foreground'
+              className='absolute top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-chip-selected text-[10px] font-medium text-chip-selected-foreground'
             >
               {count}
             </span>

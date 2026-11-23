@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { A11Y_ALLOWLIST } from "./a11y-allowlist";
 import { AUTH_STATE } from "./global-setup";
 
 // WCAG 2.2 A and AA, plus axe's best practices for landmarks and headings,
@@ -8,7 +9,12 @@ const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-prac
 
 async function expectAccessible(page: Page) {
   const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();
-  const found = violations.map((violation) =>
+  const allowed = (rule: string, target: string) =>
+    A11Y_ALLOWLIST.some((entry) => entry.rule === rule && target.startsWith(entry.target));
+  const open = violations
+    .map((violation) => ({ ...violation, nodes: violation.nodes.filter((node) => !allowed(violation.id, node.target.join(" "))) }))
+    .filter((violation) => violation.nodes.length > 0);
+  const found = open.map((violation) =>
     [`${violation.id}: ${violation.help}`, ...violation.nodes.map((node) => `  ${node.target.join(" ")}  ${node.html}\n    ${node.failureSummary?.replaceAll("\n", " ") ?? ""}`)].join("\n"),
   );
   expect(found.join("\n\n"), "axe found accessibility violations").toBe("");

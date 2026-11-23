@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress. 8a and 8b built (2026-11-22); 8c–8d planned, questions 3–4 pending. Asked by the user on 2026-11-22, to come after Phase 7 and before the dashboard (Phase 9), so new pages are built against these checks.
+🚧 In progress. 8a, 8b and 8c built (2026-11-22); 8d planned, question 4 pending. Asked by the user on 2026-11-22, to come after Phase 7 and before the dashboard (Phase 9), so new pages are built against these checks.
 
 **Applies to every step**
 
@@ -56,11 +56,18 @@
 - A reused `.next-e2e` once kept an old stylesheet, so each run deletes it and builds from scratch.
 - Each run's emulator user has a new uid, so the setup deletes last run's `User` row with the same email first. The app has the same gap: a Firebase account deleted and recreated with the same email can't sign in (`upsertUser` by id hits the unique email). Not fixed here.
 
-## 8c — In CI
+## 8c — In CI ✅ (2026-11-22, first CI run pending)
 
 1. The component axe checks run with `npm test`, so they're in CI as soon as 8a is done.
 2. A new job in `.github/workflows/ci.yml` runs the Playwright checks against a Postgres service (question 3).
 3. A violation fails the build. A known issue that can't be fixed yet goes in an allowlist with a reason, rather than a rule being turned off.
+
+### Outcome (8c)
+
+- `.github/workflows/ci.yml` has an "Accessibility in a browser" job (`a11y`), on every pull request and on pushes to `main` and `dev` like the other jobs (question 3, answered by the user on 2026-11-22). It runs Postgres 17 as a service with the `inkwell_e2e` database `.env.test` points at, installs Chromium with its system libraries, and runs `npm run test:a11y`; on failure it uploads `e2e/.results/` (traces) for 14 days. With `CI` set, Playwright reports in GitHub's format, retries a failed test once, and never reuses a running emulator.
+- The allowlist is `e2e/a11y-allowlist.ts`: entries of rule, the start of axe's selector, and a reason. It's empty. Matching elements are left out of the failure; everything else still fails.
+- Chromium is cached with `actions/cache` v6.1.0 (pinned by commit, like the other actions), keyed by the Playwright version; its system libraries are installed on every run.
+- Checked locally with `CI=1 npm run test:a11y` (26 passed); the job itself first runs on the next push.
 
 ## 8d — Manual pass and the extension
 
@@ -72,5 +79,5 @@
 
 1. **Dependencies:** `axe-core` approved for 8a (2026-11-22); `@playwright/test`, `@axe-core/playwright` and `firebase-tools` approved for 8b (2026-11-22).
 2. ~~**Signing in for browser tests**~~: the Firebase Auth emulator (2026-11-22).
-3. **Browser tests in CI:** on every PR, or only on `main` and nightly, since they're slower?
+3. ~~**Browser tests in CI**~~: on every PR and push, like the other jobs (2026-11-22).
 4. **The extension:** include it here, or leave it to Phase 12 with the store release?
