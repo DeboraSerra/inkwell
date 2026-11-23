@@ -188,6 +188,7 @@ inkwell/src/
 - **Match the surrounding code:** TypeScript, two-space indentation, double quotes, named exports for helpers and default exports for pages and components. Mobile-first layouts.
 - **`components/ui/sidebar.tsx` is edited by hand** (Phase 8b): `Sidebar` renders a `<nav>` named by its `aria-label`. Re-apply it if `npx shadcn add sidebar` ever overwrites the file.
 - **UI uses shadcn (`base-nova`, on Base UI).** Use `src/components/ui/` rather than raw `<button>` and `<input>`, and theme tokens (`text-muted-foreground`, `border`) rather than colors like `zinc-500`. Add components with `npx shadcn add <name>`.
+- **Keyboard focus outside `components/ui` uses the `focus-ring` utility** (`app/globals.css`): a solid 2px gold ring, with `focus-visible:ring-inset` where an outer ring would be clipped. Don't hand-roll `outline-none focus-visible:ring-…`.
 - **Base UI checkboxes keep their own state,** so React's automatic form reset doesn't clear them. See how `AddBookForm` remounts the form.
 - **Comments are sparse and explain *why*,** not what.
 - **Keep pure logic in `*.rules.ts` (or pure helpers like `dedupe.ts`)** so it can be unit-tested without Prisma. Tests follow the "Directory layout" section above: rules are tested directly, services with their model mocked (`vi.mock("@/server/<module>/<entity>.model")`), and models with a recording fake of Prisma that asserts every query is scoped by `userId`.

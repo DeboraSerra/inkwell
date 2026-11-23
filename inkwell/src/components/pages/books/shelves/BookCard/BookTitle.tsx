@@ -44,7 +44,7 @@ export function BookTitle({
       // checkbox. It's focusable only when clamped, so the full text can be
       // read from the keyboard too.
       render={<p tabIndex={clamped ? 0 : undefined} className='grow' />}
-      className='block rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+      className='block rounded-sm focus-ring'
       content={
         <span className='flex flex-col gap-0.5'>
           <span className='font-medium'>{title}</span>

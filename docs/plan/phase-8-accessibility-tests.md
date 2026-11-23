@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress. 8a, 8b and 8c built (2026-11-22); 8d planned, question 4 pending. Asked by the user on 2026-11-22, to come after Phase 7 and before the dashboard (Phase 9), so new pages are built against these checks.
+🚧 In progress. 8a–8c built (2026-11-22); 8d's automated checks built (2026-11-22), its manual pass is the user's. Asked by the user on 2026-11-22, to come after Phase 7 and before the dashboard (Phase 9), so new pages are built against these checks.
 
 **Applies to every step**
 
@@ -69,15 +69,72 @@
 - Chromium is cached with `actions/cache` v6.1.0 (pinned by commit, like the other actions), keyed by the Playwright version; its system libraries are installed on every run.
 - Checked locally with `CI=1 npm run test:a11y` (26 passed); the job itself first runs on the next push.
 
-## 8d — Manual pass and the extension
+## 8d — Manual pass and the extension 🚧 (checks built 2026-11-22; manual pass to do)
 
 1. A checklist in this file: keyboard-only use of every page (focus order, visible focus, no traps, Escape closes popovers and dialogs), VoiceOver on macOS and iOS, 200% zoom and reflow at 320px, reduced motion.
 2. The Chrome extension's popup and options page (`extension/`): axe on the pages and the same keyboard pass (question 4).
 3. Record what was found and fixed in an "Outcome" section.
+
+### Manual checklist
+
+What the tests can't judge. Tick each with the device and date; note anything found under "Outcome (8d)".
+
+**Keyboard** (desktop Chrome and Safari; `e2e/keyboard.spec.ts` already checks that Tab never gets stuck, every stop shows a focus ring, and Escape closes the shelf's popups, the edit dialog, the scan and account menus and the phone drawer, giving focus back)
+
+- [ ] Every page: the focus order follows the reading order, and nothing is skipped or reached twice.
+- [ ] Shelves: tick books, move them and delete them with the keyboard only; arrow keys move within the tabs, menus and the sort list.
+- [ ] Add a book: the title search's results are chosen with the arrow keys and Enter; scanning can be cancelled.
+- [ ] Every dialog: focus starts on its first field or button, stays inside while it's open, and returns to the button that opened it.
+- [ ] Toasts: a message after saving is announced and doesn't steal focus.
+
+**VoiceOver on macOS** (Safari)
+
+- [ ] Landmarks (VO+U): the sidebar, the main content and, on the shelves, the tab list are listed, with clear names.
+- [ ] Headings: one level-1 heading per page, the rest in order.
+- [ ] Every control is read with its name, role and state (ticked, pressed, expanded, current page).
+- [ ] Shelves: a card reads its title, authors and details once each; changing a filter or page announces the new results.
+- [ ] Add a book: errors are read when the form is sent; "Searching…" and "Opening the book…" are announced.
+
+**VoiceOver on iOS** (Safari)
+
+- [ ] The tab bar, the "More" drawer and every dialog work by swiping and double-tapping; the drawer closes with the two-finger scrub.
+- [ ] Tap-only tooltips (the ⓘ buttons, cut-off titles) open and are read.
+- [ ] Barcode scanning: the camera dialog is announced and can be closed.
+
+**Zoom and reflow** (`keyboard.spec.ts` already checks no sideways scroll at 320px)
+
+- [ ] 200% browser zoom on a 1280px-wide window: nothing is cut off or overlapping, and nothing needs scrolling sideways.
+- [ ] 200% text size only (Safari's text zoom, or iOS's larger text): labels and buttons grow without clipping.
+
+**Reduced motion** (`keyboard.spec.ts` already checks that dialogs and popovers don't animate)
+
+- [ ] With "Reduce motion" on in macOS or iOS: the drawer, dialogs, menus and toasts appear without sliding or zooming; spinners stand still with their text.
+
+**The extension** (`e2e/extension.spec.ts` already runs axe on the options page in light and dark, and on the import dialog)
+
+- [ ] Options page: Tab order is App URL, the Settings link, API token, Save and test; the result is announced.
+- [ ] On Amazon's real page: the toolbar shortcut (Ctrl/⌘+Shift+S) opens the dialog with focus in the pages field; it can be sent and cancelled with the keyboard, and the result is announced.
+
+### Outcome (8d, so far)
+
+- Question 4 and the automation, answered by the user on 2026-11-22: the extension is included here, and what a browser can check is automated. Both new spec files run with `npm run test:a11y`, so in CI too (now 78 checks; the CI step's name says so).
+- `e2e/keyboard.spec.ts`:
+  - Tab through every page (signed out and in) until focus leaves it: no trap, every stop on screen with an outline or ring.
+  - Escape closes the filter popover, the sort, card and scan menus, the books-per-page list, the edit dialog, the account menu and the phone drawer, and focus goes back to the button that opened it.
+  - No sideways scroll at 320px wide on any page.
+  - Reduced motion: no animation runs when the filter popover or the edit dialog opens.
+- `e2e/extension.spec.ts`: axe on the options page (empty, connected and token refused; light and dark) and on the import dialog (open and a failed account check), from the extension's own files with its Chrome APIs stubbed; the dialog opens with focus in the pages field and is used with the keyboard.
+- Fixed:
+  - **Phone tab bar:** its links showed focus only by a text colour; they now have an inset ring.
+  - **Tab panels** on the shelves and settings pages are focusable (Base UI) but showed no focus; they now have the same ring as buttons.
+  - **One focus style:** a `focus-ring` utility in `globals.css` (a solid 2px ring in `--ring`, 3:1 against the background) replaces the hand-written rings on the tab bar, the tab panels, card pills, cut-off titles and filter chips; the title's and the panels' were a faded ring.
+  - **Reduced motion:** dialogs, menus, popovers, the drawer and toasts still zoomed and slid. `globals.css` now cuts animations and transitions to nothing under `prefers-reduced-motion: reduce` (spinners stop; each has text).
+- Not changed: the extension's import dialog doesn't close on Escape (Cancel does). It's a form in Amazon's page rather than a modal, so WCAG doesn't ask for it; adding it would need a new extension release.
+- **To do (user):** the manual checklist above.
 
 ### Open questions
 
 1. **Dependencies:** `axe-core` approved for 8a (2026-11-22); `@playwright/test`, `@axe-core/playwright` and `firebase-tools` approved for 8b (2026-11-22).
 2. ~~**Signing in for browser tests**~~: the Firebase Auth emulator (2026-11-22).
 3. ~~**Browser tests in CI**~~: on every PR and push, like the other jobs (2026-11-22).
-4. **The extension:** include it here, or leave it to Phase 12 with the store release?
+4. ~~**The extension**~~: included here (2026-11-22).

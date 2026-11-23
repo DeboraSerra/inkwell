@@ -46,7 +46,7 @@ export function CardPill({
       type='button'
       title={action}
       onClick={onClick}
-      className={`${PILL} cursor-pointer text-left hover:border-chip-selected/60 hover:bg-chip-selected/20 hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+      className={`${PILL} cursor-pointer text-left hover:border-chip-selected/60 hover:bg-chip-selected/20 hover:text-foreground focus-ring`}
     >
       {content}
       {action && <span className='sr-only'>, {action}</span>}

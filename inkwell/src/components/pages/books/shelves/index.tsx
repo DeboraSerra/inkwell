@@ -77,7 +77,7 @@ export const BooksShelves = ({
             libraryTopics={libraryTopics}
             onlyMyTopics={onlyMyTopics}
           />
-          <TabsContent value={filters.shelf}>
+          <TabsContent className='rounded-md focus-ring' value={filters.shelf}>
             {/* A new key clears the selection when the shelf or page changes. */}
             {shelf ? (
               <BooksShelf key={shelfHref({ ...filters, page: shelf.page })} />

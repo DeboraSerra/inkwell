@@ -14,7 +14,7 @@ const tabs = [
 ];
 
 const tabClass =
-  "flex flex-1 flex-col items-center gap-1 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none";
+  "flex flex-1 flex-col items-center gap-1 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground focus-ring focus-visible:ring-inset focus-visible:text-foreground";
 
 // Phone navigation: the main pages stay one tap away, and "More" opens the
 // sidebar drawer for everything else (settings, account, sign out).

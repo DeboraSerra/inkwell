@@ -29,7 +29,7 @@ export const Settings = () => {
         ))}
       </TabsList>
       {PAGES.map((it) => (
-        <TabsContent key={`${it.slug}-content`} value={it.slug}>
+        <TabsContent className='rounded-md focus-ring' key={`${it.slug}-content`} value={it.slug}>
           <it.Component />
         </TabsContent>
       ))}
