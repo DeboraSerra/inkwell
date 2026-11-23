@@ -209,17 +209,18 @@ inkwell/src/
 - **Node 26** (`engines: 26.x`, `.nvmrc`, CI and Vercel), since 2026-11-22.
 - Use npm, run from `inkwell/`. npm here blocks dependency install scripts; `prisma generate` runs from the package's own `postinstall` and `build` scripts.
 - **Don't remove the `overrides` in `package.json`.** They patch vulnerable transitive dependencies that upstream hasn't fixed yet. Re-check them with `npm audit` when upgrading.
-- `npm audit` reports 4 moderate findings **through the `shadcn` package**, plus 12 through `firebase-tools` (Phase 8b) (one `minimatch` advisory, GHSA-g3hv-75wg-m249, via `ts-morph`). Anything else is new and needs looking at.
+- `npm audit` reports 4 moderate findings **through the `shadcn` package**, plus 10 through `firebase-tools` (Phase 8b) (one `minimatch` advisory, GHSA-g3hv-75wg-m249, via `ts-morph`; its GitHub alert is dismissed as unused code until `shadcn` moves to `ts-morph` 28). Anything else is new and needs looking at.
 - **Two exact-version overrides were added on 2026-11-21 (Phase 5.0),** pinned exactly because the next releases weren't two weeks old yet:
   - `effect` 3.22.4: fixes a ReDoS (GHSA-7589-6fvf-x4pw) in the copy that `prisma` → `@prisma/config` pins at 3.20.0. Drop it once Prisma ships a fixed `@prisma/config`.
   - `fast-xml-parser` 5.12.0: fixes GHSA-474x-hrwr-fgx4, through `firebase-admin` → `@google-cloud/storage`. 5.12.1 (2026-11-13) can replace it from 2026-11-27, but nothing requires that.
+- **`uuid` ^11.1.1 (2026-11-22)** fixes GHSA-w5hq-g745-h8pq in the 9.0.1 that `firebase-tools` → `gaxios` brings (dev-only; gaxios only calls `v4`). Drop it once `gaxios` moves past uuid 9.
 - Never run `npm audit fix --force` without asking: it can silently downgrade packages. It once replaced ESLint 9 with 4.0.0 and broke linting, and today it would downgrade Prisma 7 to 6.12.
 - zod is approved for input validation (Phase 3), a direct dependency (`^4.6.7`) since Phase 6h.
 - **Knip** 6.44.2 (Phase 6h) finds unused files, exports and dependencies: `npm run knip`, also in CI. Don't export what only its own file uses. Config and the reason for each ignore are in `inkwell/knip.jsonc`.
 - `@anthropic-ai/sdk` 1.6.0 is approved for AI enrichment (Phase 5b2). The client lives in `src/config/anthropic.ts`.
 - `husky` 9.1.7 and `@commitlint/cli` / `@commitlint/config-conventional` 21.2.4 are approved (Phase 6c). Commit messages must pass commitlint (conventional commits, header at most 100 characters); `pre-commit` runs `biome lint --staged`.
 - `axe-core` 4.14.0 (exact) is approved for accessibility checks (Phase 8a): component tests call `expectAccessible()` from `components/tests/a11y.ts`.
-- `@playwright/test` 1.65.0, `@axe-core/playwright` 4.14.0, `playwright-core` 1.65.0 and `firebase-tools` 15.35.0 (all exact, dev-only) are approved for the browser accessibility tests (Phase 8b, `npm run test:a11y`, `e2e/`). They sign in through the Firebase Auth emulator; never set `FIREBASE_AUTH_EMULATOR_HOST` or `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` outside `inkwell/.env.test` (read by `e2e/env.ts`). `.env.test` is committed, so it holds only placeholders and fakes; this machine's values go in the gitignored `.env.test.local`. `firebase-tools` brings 12 moderate dev-only `npm audit` findings.
+- `@playwright/test` 1.65.0, `@axe-core/playwright` 4.14.0, `playwright-core` 1.65.0 and `firebase-tools` 15.35.0 (all exact, dev-only) are approved for the browser accessibility tests (Phase 8b, `npm run test:a11y`, `e2e/`). They sign in through the Firebase Auth emulator; never set `FIREBASE_AUTH_EMULATOR_HOST` or `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` outside `inkwell/.env.test` (read by `e2e/env.ts`). `.env.test` is committed, so it holds only placeholders and fakes; this machine's values go in the gitignored `.env.test.local`. `firebase-tools` brings 10 moderate dev-only `npm audit` findings.
 - `barcode-detector` (on `zxing-wasm`) is approved for barcode scanning (Phase 4d); load it only where the browser lacks `BarcodeDetector`.
 - Ask before adding significant dependencies, and pin to an exact or caret version of a release at least two weeks old.
 
