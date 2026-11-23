@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { APP_ENV, BASE_URL, E2E_PORT, EMULATOR_HOST, PROJECT_ID } from "./e2e/env";
+import { APP_ENV, BASE_URL, E2E_PORT, EMULATOR_HOST } from "./e2e/env";
 
 // Accessibility checks in a real browser (Phase 8b): `npm run test:a11y`.
 // Playwright starts the Auth emulator and a production build of the app on
@@ -18,8 +18,8 @@ export default defineConfig({
   ],
   webServer: [
     {
-      // The project and host come from .env.test; the port must match e2e/firebase.json.
-      command: `npm run e2e:emulator -- --project ${PROJECT_ID || "demo-inkwell"}`,
+      // e2e/emulator.ts takes the project from .env.test; the port must match e2e/firebase.json.
+      command: "npm run e2e:emulator",
       url: `http://${EMULATOR_HOST || "127.0.0.1:9099"}`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,

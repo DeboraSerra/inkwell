@@ -81,11 +81,11 @@ What the tests can't judge. Tick each with the device and date; note anything fo
 
 **Keyboard** (desktop Chrome and Safari; `e2e/keyboard.spec.ts` already checks that Tab never gets stuck, every stop shows a focus ring, and Escape closes the shelf's popups, the edit dialog, the scan and account menus and the phone drawer, giving focus back)
 
-- [ ] Every page: the focus order follows the reading order, and nothing is skipped or reached twice.
-- [ ] Shelves: tick books, move them and delete them with the keyboard only; arrow keys move within the tabs, menus and the sort list.
-- [ ] Add a book: the title search's results are chosen with the arrow keys and Enter; scanning can be cancelled.
-- [ ] Every dialog: focus starts on its first field or button, stays inside while it's open, and returns to the button that opened it.
-- [ ] Toasts: a message after saving is announced and doesn't steal focus.
+- [x] Every page: the focus order follows the reading order, and nothing is skipped or reached twice. — ✅ Chromium via Playwright, 2026-11-22
+- [ ] Shelves: tick books, move them and delete them with the keyboard only; arrow keys move within the tabs, menus and the sort list. *Works, but focus is lost after a move or delete (finding 1).*
+- [ ] Add a book: the title search's results are chosen with the arrow keys and Enter; scanning can be cancelled. *Works, but focus is lost after picking a result (finding 1).*
+- [x] Every dialog: focus starts on its first field or button, stays inside while it's open, and returns to the button that opened it. — ✅ Chromium via Playwright, 2026-11-22 (edit, delete, scan; see finding 8)
+- [x] Toasts: a message after saving is announced and doesn't steal focus. — ✅ Chromium via Playwright, 2026-11-22
 
 **VoiceOver on macOS** (Safari)
 
@@ -103,17 +103,37 @@ What the tests can't judge. Tick each with the device and date; note anything fo
 
 **Zoom and reflow** (`keyboard.spec.ts` already checks no sideways scroll at 320px)
 
-- [ ] 200% browser zoom on a 1280px-wide window: nothing is cut off or overlapping, and nothing needs scrolling sideways.
-- [ ] 200% text size only (Safari's text zoom, or iOS's larger text): labels and buttons grow without clipping.
+- [x] 200% browser zoom on a 1280px-wide window: nothing is cut off or overlapping, and nothing needs scrolling sideways. — ✅ Chromium via Playwright, 2026-11-22
+- [ ] 200% text size only (Safari's text zoom, or iOS's larger text): labels and buttons grow without clipping. *Fails on shelf cards in Chromium (finding 6); recheck in Safari.*
 
 **Reduced motion** (`keyboard.spec.ts` already checks that dialogs and popovers don't animate)
 
-- [ ] With "Reduce motion" on in macOS or iOS: the drawer, dialogs, menus and toasts appear without sliding or zooming; spinners stand still with their text.
+- [x] With "Reduce motion" on in macOS or iOS: the drawer, dialogs, menus and toasts appear without sliding or zooming; spinners stand still with their text. — ✅ Chromium via Playwright, 2026-11-22 (emulated)
 
 **The extension** (`e2e/extension.spec.ts` already runs axe on the options page in light and dark, and on the import dialog)
 
-- [ ] Options page: Tab order is App URL, the Settings link, API token, Save and test; the result is announced.
+- [x] Options page: Tab order is App URL, API token, the Settings link (in the token's hint), Save and test; the result is announced (`role="status"`). — ✅ Chromium via Playwright, 2026-11-22
 - [ ] On Amazon's real page: the toolbar shortcut (Ctrl/⌘+Shift+S) opens the dialog with focus in the pages field; it can be sent and cancelled with the keyboard, and the result is announced.
+
+### Manual pass in Chromium (2026-11-22)
+
+Run with the Playwright MCP against `npm run e2e:serve` and the test user. VoiceOver, iOS, Safari and Amazon's real page still need the user; the VoiceOver findings below come from Chromium's accessibility tree, so check them with VoiceOver too.
+
+**Findings, not fixed yet:**
+
+1. **Focus is lost after an action removes its control.** After a bulk move, a bulk delete, "Mark as" from a card menu, and picking a title search result, focus falls to `<body>`, so a keyboard or screen-reader user starts again from the top. Send it somewhere sensible (the tab panel, the next card, or the form's first unlocked field).
+2. **Every signed-in page is titled "Inkwell"** (WCAG 2.4.2). `/privacy` already has "Privacy · Inkwell"; `/`, `/books/shelves`, `/books/new` and `/settings` need their own `metadata.title`.
+3. **The shelves' and settings' tab lists have no name.** Landmarks read "navigation Sidebar", "main", "search", "tablist" with nothing after it.
+4. **Filter and search results aren't announced.** Changing the shelf, searching or filtering updates the list (and "No books on … match these filters") with no live message; the "1 - 2 of 2" count isn't live either.
+5. **Repeated text on cards and fields.**
+   - Card pills read "Genre (trope): Genre and trope: Action (…), Show books like this" and "Tags: Tag: Slow Burn, Search this tag": the visible label and the hidden prefix say the same thing (`BookCard/index.tsx`, `CardPill.tsx`).
+   - Fields with an ⓘ button take its name into their label: "Subtitle About Subtitle", "Tags About tags", "Status About status", "Formats you own About formats".
+6. **200% text size breaks shelf cards** (root font size doubled, 1280px wide): the title and author cut to one word ("The…", "Mara…"), the card menu overlaps the title, the format icon sits outside the card, and the genre pill spills over its edge. The rest of the pages grow cleanly; the sidebar's menu items are 4–8px taller than their fixed height.
+7. **`/settings`'s level-1 heading is "Welcome, Ada Reader"**, the same as Home; it should name the page.
+8. **The delete confirmation** is a `dialog`, with focus on "Delete": pressing Enter twice deletes. An `alertdialog` with focus on "Cancel" is safer for an action that can't be undone.
+9. Minor: the bulk move's message reads "Moved 1 to Reading, skipped 0."; leave out "skipped 0".
+
+**Passed:** focus order on every page (no skips, no repeats), dialog focus (start, trap, return) for the edit, delete and scan dialogs, Escape returning focus, arrow keys in tabs, menus, submenus, sort and books-per-page lists, the title search by keyboard, toasts announced without moving focus, one level-1 heading per page with no skipped levels, every control named, 200% browser zoom (640×400) with no sideways scroll or clipping, and reduced motion (every animation and transition 0.01 ms, the "Searching…" spinner stopped with its text).
 
 ### Outcome (8d, so far)
 
@@ -129,8 +149,9 @@ What the tests can't judge. Tick each with the device and date; note anything fo
   - **Tab panels** on the shelves and settings pages are focusable (Base UI) but showed no focus; they now have the same ring as buttons.
   - **One focus style:** a `focus-ring` utility in `globals.css` (a solid 2px ring in `--ring`, 3:1 against the background) replaces the hand-written rings on the tab bar, the tab panels, card pills, cut-off titles and filter chips; the title's and the panels' were a faded ring.
   - **Reduced motion:** dialogs, menus, popovers, the drawer and toasts still zoomed and slid. `globals.css` now cuts animations and transitions to nothing under `prefers-reduced-motion: reduce` (spinners stop; each has text).
+- **For the manual pass:** the test user's email, password and name are in `.env.test` (`E2E_USER_*`, emulator-only fakes). To use it by hand: `npm run e2e:emulator`, then `npm run e2e:serve` (the emulator build on port 3100), then `npm run e2e:user` (fresh user and its six books); sign in at `http://localhost:3100/login`.
 - Not changed: the extension's import dialog doesn't close on Escape (Cancel does). It's a form in Amazon's page rather than a modal, so WCAG doesn't ask for it; adding it would need a new extension release.
-- **To do (user):** the manual checklist above.
+- **To do (user):** the unticked checklist items (VoiceOver, iOS, Safari text zoom, Amazon). **To decide:** whether to fix findings 1–9 here, before 8d closes.
 
 ### Open questions
 

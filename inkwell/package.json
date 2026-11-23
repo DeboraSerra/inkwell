@@ -18,7 +18,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:a11y": "playwright test",
-    "e2e:emulator": "firebase emulators:start --only auth --config e2e/firebase.json"
+    "e2e:emulator": "tsx e2e/emulator.ts",
+    "e2e:serve": "tsx e2e/serve.ts",
+    "e2e:user": "tsx e2e/create-user.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.6.0",

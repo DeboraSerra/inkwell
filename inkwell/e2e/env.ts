@@ -48,7 +48,12 @@ export const BASE_URL = `http://localhost:${E2E_PORT}`;
 export const EMULATOR_HOST = APP_ENV.FIREBASE_AUTH_EMULATOR_HOST;
 export const PROJECT_ID = APP_ENV.FIREBASE_PROJECT_ID;
 export const DATABASE_URL = APP_ENV.DATABASE_URL;
-export const TEST_USER = { email: "reader@example.com", password: "a11y-test-password", name: "Ada Reader" };
+// Not in KEYS: only the setup and the tests use it, never the app.
+export const TEST_USER = {
+  email: testEnv.E2E_USER_EMAIL ?? "",
+  password: testEnv.E2E_USER_PASSWORD ?? "",
+  name: testEnv.E2E_USER_NAME ?? "",
+};
 
 // Called by the global setup rather than on import, so tools that only load the
 // config (Knip) never fail on it. Playwright starts the servers first.
@@ -56,6 +61,8 @@ export function assertTestEnv() {
   const missing = ["DATABASE_URL", "NEXT_DIST_DIR", "FIREBASE_AUTH_EMULATOR_HOST", "FIREBASE_PROJECT_ID", "NEXT_PUBLIC_FIREBASE_API_KEY"].filter(
     (key) => !APP_ENV[key],
   );
+  if (!TEST_USER.email) missing.push("E2E_USER_EMAIL");
+  if (!TEST_USER.password) missing.push("E2E_USER_PASSWORD");
   if (missing.length) throw new Error(`Set ${missing.join(", ")} in .env.test or .env.test.local for the browser tests.`);
   // The tests replace the test user's library, so they never run on the app's own database.
   if (DATABASE_URL === readEnvFile(".env.local").DATABASE_URL) {

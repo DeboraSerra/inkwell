@@ -1,0 +1,28 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - heading "Inkwell" [level=1] [ref=e6]
+        - paragraph [ref=e7]: Your reading journal.
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - group [ref=e10]:
+            - generic [ref=e11]: Email
+            - textbox "Email" [ref=e12]
+          - group [ref=e13]:
+            - generic [ref=e14]:
+              - generic [ref=e15]: Password
+              - button "Forgot password?" [ref=e16] [cursor=pointer]
+            - textbox "Password" [ref=e17]
+        - button "Sign in" [ref=e18] [cursor=pointer]
+        - paragraph [ref=e19]:
+          - text: New to Inkwell?
+          - button "Create an account" [ref=e20] [cursor=pointer]
+      - generic [ref=e21]:
+        - separator [ref=e22]
+        - generic [ref=e23]: or
+      - button "Continue with Google" [ref=e25] [cursor=pointer]
+      - paragraph [ref=e26]:
+        - link "Privacy" [ref=e27] [cursor=pointer]:
+          - /url: /privacy
+  - button "Open Next.js Dev Tools" [ref=e33] [cursor=pointer]

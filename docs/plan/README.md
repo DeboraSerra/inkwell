@@ -67,7 +67,7 @@
 7. [Phase 7 — Shelf filter fixes](phase-7-shelf-filter-fixes.md) ✅ built (2026-11-22): 7a done, 7b–7d built; open questions answered: 40px filter targets on every screen size, unticking a genre clears its tropes, "no match" wording, only the reader's genres in the filter
 8. [Phase 8 — Accessibility tests](phase-8-accessibility-tests.md) 🚧 8a–8c built (2026-11-22): axe in component tests, Playwright and axe on every page, in CI; 8d's keyboard, reflow, reduced-motion and extension checks built, its manual keyboard and screen-reader pass to do
 9. [Phase 9 — Dashboard](phase-9-dashboard.md) ⏳ planned (2026-11-21), open questions pending: currently reading, books read per year, this year's reads by genre, how to use the extension, books added per year by type
-10. [Phase 10 — Profile](phase-10-profile.md) ⏳ planned (2026-11-21), open questions pending: edit the name, photo and other profile details (not the email)
+10. [Phase 10 — Profile](phase-10-profile.md) ⏳ planned (2026-11-21), open questions pending: edit the name, photo and other profile details (not the email); name and age, optional, when creating an account (10c)
 11. [Phase 11 — Journal](phase-11-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)
 12. [Phase 12 — Quality and deploy](phase-12-quality-deploy.md)
    - Row-level security on every table (Supabase advisor, 2026-11-14) ✅ applied locally and on Supabase on 2026-11-21
