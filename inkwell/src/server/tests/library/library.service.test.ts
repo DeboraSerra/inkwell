@@ -1437,3 +1437,19 @@ describe("add by ISBN", () => {
     });
   });
 });
+
+describe("listLibraryTopics", () => {
+  it("lists the genres and tropes in use in the reader's library", async () => {
+    model.listLibraryTopics.mockResolvedValue([
+      {
+        genreEdited: false,
+        genre: null,
+        tropeEdited: true,
+        trope: { name: "Found Family" },
+        book: { genres: [{ genre: { name: "Fantasy" } }], tropes: [{ trope: { name: "Chosen One" } }] },
+      },
+    ]);
+    await expect(service.listLibraryTopics(USER)).resolves.toEqual({ genres: ["Fantasy"], tropes: ["Found Family"] });
+    expect(model.listLibraryTopics).toHaveBeenCalledWith(USER);
+  });
+});

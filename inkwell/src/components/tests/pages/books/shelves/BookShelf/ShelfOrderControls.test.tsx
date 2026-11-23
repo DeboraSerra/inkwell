@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ShelfOrderControls } from "@/components/pages/books/shelves/BookShelf/ShelfOrderControls";
 import { filtersFor, testContext } from "../shelf-fixtures";
+import { expectAccessible } from "../../../../a11y";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -30,6 +31,7 @@ describe("ShelfOrderControls", () => {
       "Title: A to Z",
       "Title: Z to A",
     ]);
+    await expectAccessible();
   });
 
   it("adds the read date orders on Finished only", async () => {

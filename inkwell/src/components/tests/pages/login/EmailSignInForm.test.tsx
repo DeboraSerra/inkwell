@@ -4,6 +4,7 @@ import { createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmail
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import EmailSignInForm from "@/components/pages/login/EmailSignInForm";
 import { signInWithFirebase } from "@/config/firebase-session";
+import { expectAccessible } from "../../a11y";
 
 vi.mock("@/config/firebase", () => ({ auth: { name: "auth" } }));
 vi.mock("@/config/firebase-session", () => ({ signInWithFirebase: vi.fn() }));
@@ -34,6 +35,7 @@ describe("EmailSignInForm", () => {
   it("signs in with the trimmed email and the password, then goes to the next page", async () => {
     runSignIn();
     render(<EmailSignInForm next='/books/shelves' />);
+    await expectAccessible();
     await fill("  reader@example.com ", "correct horse");
     await submit("Sign in");
     await waitFor(() => expect(signInWithEmailAndPassword).toHaveBeenCalledWith({ name: "auth" }, "reader@example.com", "correct horse"));
@@ -77,6 +79,7 @@ describe("EmailSignInForm", () => {
     await submit("Create account");
     expect(await screen.findByText("Use at least 8 characters for your password.")).toBeTruthy();
     expect(signInWithFirebase).not.toHaveBeenCalled();
+    await expectAccessible();
   });
 
   it("says an email is taken on sign-up", async () => {
@@ -96,6 +99,7 @@ describe("EmailSignInForm", () => {
     await submit("Send reset link");
     expect((await screen.findByRole("status")).textContent).toMatch(/If there's an account for that email/);
     expect(sendPasswordResetEmail).toHaveBeenCalledWith({ name: "auth" }, "reader@example.com");
+    await expectAccessible();
   });
 
   it("reports a reset as sent for an unknown email too", async () => {

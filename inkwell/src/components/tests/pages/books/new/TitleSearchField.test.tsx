@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TitleSearchField } from "@/components/pages/books/new/TitleSearchField";
 import { previewSearchResult } from "@/server/library/library.controller";
 import type { IsbnPreview, SearchResult } from "@/types/books.type";
+import { expectAccessible } from "../../../a11y";
 
 vi.mock("@/server/library/library.controller", () => ({ previewSearchResult: vi.fn() }));
 vi.mock("@/components/common/BookCover", () => ({ BookCover: () => null }));
@@ -13,7 +14,8 @@ const results: SearchResult[] = [
   { source: "GOOGLE_BOOKS", sourceId: "g2", title: "Dune Messiah", authors: [], inLibrary: "FINISHED" },
 ];
 const preview: IsbnPreview = { title: "Dune", authors: ["Frank Herbert"], from: "OPEN_LIBRARY" };
-const title = () => screen.getByRole("combobox", { name: /^Title/ }) as HTMLInputElement;
+// Named by the label's text alone, without the ⓘ button or the star.
+const title = () => screen.getByRole("combobox", { name: "Title" }) as HTMLInputElement;
 const respond = (status: number, body: unknown) =>
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(body), { status })));
 const show = () => {
@@ -34,6 +36,7 @@ afterEach(() => {
 describe("TitleSearchField", () => {
   it("searches once typing pauses, from three characters", async () => {
     show();
+    await expectAccessible();
     await userEvent.type(title(), "du");
     await new Promise((resolve) => setTimeout(resolve, 450));
     expect(fetch).not.toHaveBeenCalled();
@@ -50,6 +53,7 @@ describe("TitleSearchField", () => {
       "DuneFrank Herbert1965",
       "Dune MessiahIn your library · Finished",
     ]);
+    await expectAccessible();
   });
 
   it("opens a picked result and hands it on with the typed title", async () => {

@@ -19,7 +19,7 @@ The project started as a "book categorizer". The repo folder name still reflects
 |---|---|
 | `inkwell/` | The app: Next.js 16 (App Router), React 19, Tailwind 4, Prisma 7 + Postgres, Firebase Auth |
 | `extension/` | Chrome extension (MV3) that scrapes the Amazon Kindle content list. **The misspelling is intentional for now; don't rename it without asking.** |
-| `extension/build.mjs` | Builds the Chrome Web Store package for a deployed origin (`node extension/build.mjs https://<domain>`) into `extension/dist/` (gitignored). The source folder stays set up for localhost. Steps are in `docs/plan/phase-11-quality-deploy.md`. |
+| `extension/build.mjs` | Builds the Chrome Web Store package for a deployed origin (`node extension/build.mjs https://<domain>`) into `extension/dist/` (gitignored). The source folder stays set up for localhost. Steps are in `docs/plan/phase-12-quality-deploy.md`. |
 | `docs/plan/` | **The plan, and the source of truth for scope and status.** `README.md` holds the decisions and the phase index; there is one file per phase. |
 
 Key files in `inkwell/`:
@@ -74,7 +74,7 @@ See `docs/plan/README.md` for live status. At the time of writing:
 - ✅ Phase 5b5–5b7 built (2026-11-22): genre, trope and tags on shelf cards (`BookCard/CardPill.tsx`), the genre and trope filter (`BookShelf/TopicFilter/`, tropes by genre through `GenreTrope`), search over tags, genres and tropes (`Book.tagSearch`), tap-friendly tooltips (`common/TapTooltip.tsx`), reader edits on `UserBook` (`genreEdited`/`tropeEdited`/`tagsEdited`, `new/TopicsField.tsx`), and `/privacy` covering Anthropic. 5b5a (telling genre from tags on cards) is pending.
 - ✅ Phase 5b4 built (2026-11-22): imports and the backlog go through Message Batches (`EnrichmentBatch`, `enrichment.service` `submitEnrichmentBatch` / `collectEnrichmentBatches`), collected by the daily `app/api/cron/enrichment` route (`CRON_SECRET`, `inkwell/vercel.json`).
 - ✅ Phase 5b1–5b3 built (2026-11-21): the synopsis lookup by provider id or ISBN after a manual add (`Book.descriptionCheckedAt`); `enrichment/enrichment.service.enrichBook` (Haiku 5.5, structured output, curated lists only); and `library.service.finishAdd`, run in `after()` by every single add: synopsis, then enrichment (rate-limited by `AI_ENRICH`).
-- ⏭️ Next: Phase 5, AI enrichment (`docs/plan/phase-5-ai-enrichment.md`). Publishing the extension is in `docs/plan/phase-11-quality-deploy.md`
+- ⏭️ Next: Phase 5, AI enrichment (`docs/plan/phase-5-ai-enrichment.md`). Publishing the extension is in `docs/plan/phase-12-quality-deploy.md`
 
 ## Workflow rules
 
@@ -166,7 +166,7 @@ inkwell/src/
 
 ## Secrets and environment
 
-- Real values live in `inkwell/.env.local`; `inkwell/.env` holds only `DATABASE_URL`. **Never print, copy, or commit their values.** If you need to know what's configured, list the variable names only.
+- Real values live in `inkwell/.env.local`; `inkwell/.env` holds only `DATABASE_URL`. The browser tests' variables are in the committed `inkwell/.env.test` (no secrets) and the gitignored `.env.test.local`. **Never print, copy, or commit their values.** If you need to know what's configured, list the variable names only.
 - Don't edit `.env.local`. Tell the user which variables to add, and document new ones with placeholders in `inkwell/.env.example`, which is the only env file that gets committed.
 - `NEXT_PUBLIC_*` variables are shipped to the browser. Use the prefix only for genuinely public values (the Firebase web config). Server secrets (`FIREBASE_PRIVATE_KEY`, `DATABASE_URL`, and `ANTHROPIC_API_KEY` from Phase 5) must never have it.
 - The Next dev server logs server-action arguments, including the sign-in ID token. Don't paste those logs anywhere public.
@@ -186,7 +186,9 @@ inkwell/src/
 - **Types live in `src/types/` (rule).** Every named `type` and `interface` is declared in `src/types/<module>.type.ts` (or `.tsx`) and imported from there with `import type`; never declare one next to the code that uses it, exported or not. That includes types derived from code (`z.infer<…>`, `ReturnType<typeof …>`, `(typeof X)[number]`): import the value with `import type` in the types file. Exceptions: inline props (`Readonly<{ book: ShelfBook }>`), helper types local to a test file, the generated Prisma client, and shadcn's vendored `components/ui/`. A name must be unique across `src/types/`, so give file-local names a specific one (`AddBookTab`, not `Tab`).
 - **Every book add and edit uses `AddBookForm` (rule).** `components/pages/books/new/AddBookForm.tsx` is the only form for adding or editing a book: `/books/new` (no tabs: `lookups` puts the ISBN lookup and scanning in its ISBN field and the search in its title field) and the shelf's edit dialog. Configure it with its props (`book` to fill it, `canEdit` to lock the catalog's title, subtitle and ISBN, `submit`, `hidden`, `editing`, `formId`, `addFormatsOnly`, `header`, `lookups`) rather than building another form; if it can't do something a new screen needs, extend it.
 - **Match the surrounding code:** TypeScript, two-space indentation, double quotes, named exports for helpers and default exports for pages and components. Mobile-first layouts.
+- **`components/ui/sidebar.tsx` is edited by hand** (Phase 8b): `Sidebar` renders a `<nav>` named by its `aria-label`. Re-apply it if `npx shadcn add sidebar` ever overwrites the file.
 - **UI uses shadcn (`base-nova`, on Base UI).** Use `src/components/ui/` rather than raw `<button>` and `<input>`, and theme tokens (`text-muted-foreground`, `border`) rather than colors like `zinc-500`. Add components with `npx shadcn add <name>`.
+- **Keyboard focus outside `components/ui` uses the `focus-ring` utility** (`app/globals.css`): a solid 2px gold ring, with `focus-visible:ring-inset` where an outer ring would be clipped. Don't hand-roll `outline-none focus-visible:ring-…`.
 - **Base UI checkboxes keep their own state,** so React's automatic form reset doesn't clear them. See how `AddBookForm` remounts the form.
 - **Comments are sparse and explain *why*,** not what.
 - **Keep pure logic in `*.rules.ts` (or pure helpers like `dedupe.ts`)** so it can be unit-tested without Prisma. Tests follow the "Directory layout" section above: rules are tested directly, services with their model mocked (`vi.mock("@/server/<module>/<entity>.model")`), and models with a recording fake of Prisma that asserts every query is scoped by `userId`.
@@ -207,7 +209,7 @@ inkwell/src/
 - **Node 26** (`engines: 26.x`, `.nvmrc`, CI and Vercel), since 2026-11-22.
 - Use npm, run from `inkwell/`. npm here blocks dependency install scripts; `prisma generate` runs from the package's own `postinstall` and `build` scripts.
 - **Don't remove the `overrides` in `package.json`.** They patch vulnerable transitive dependencies that upstream hasn't fixed yet. Re-check them with `npm audit` when upgrading.
-- `npm audit` reports 4 moderate findings, all **through the `shadcn` package** (one `minimatch` advisory, GHSA-g3hv-75wg-m249, via `ts-morph`). Anything else is new and needs looking at.
+- `npm audit` reports 4 moderate findings **through the `shadcn` package**, plus 12 through `firebase-tools` (Phase 8b) (one `minimatch` advisory, GHSA-g3hv-75wg-m249, via `ts-morph`). Anything else is new and needs looking at.
 - **Two exact-version overrides were added on 2026-11-21 (Phase 5.0),** pinned exactly because the next releases weren't two weeks old yet:
   - `effect` 3.22.4: fixes a ReDoS (GHSA-7589-6fvf-x4pw) in the copy that `prisma` → `@prisma/config` pins at 3.20.0. Drop it once Prisma ships a fixed `@prisma/config`.
   - `fast-xml-parser` 5.12.0: fixes GHSA-474x-hrwr-fgx4, through `firebase-admin` → `@google-cloud/storage`. 5.12.1 (2026-11-13) can replace it from 2026-11-27, but nothing requires that.
@@ -216,6 +218,8 @@ inkwell/src/
 - **Knip** 6.44.2 (Phase 6h) finds unused files, exports and dependencies: `npm run knip`, also in CI. Don't export what only its own file uses. Config and the reason for each ignore are in `inkwell/knip.jsonc`.
 - `@anthropic-ai/sdk` 1.6.0 is approved for AI enrichment (Phase 5b2). The client lives in `src/config/anthropic.ts`.
 - `husky` 9.1.7 and `@commitlint/cli` / `@commitlint/config-conventional` 21.2.4 are approved (Phase 6c). Commit messages must pass commitlint (conventional commits, header at most 100 characters); `pre-commit` runs `biome lint --staged`.
+- `axe-core` 4.14.0 (exact) is approved for accessibility checks (Phase 8a): component tests call `expectAccessible()` from `components/tests/a11y.ts`.
+- `@playwright/test` 1.65.0, `@axe-core/playwright` 4.14.0, `playwright-core` 1.65.0 and `firebase-tools` 15.35.0 (all exact, dev-only) are approved for the browser accessibility tests (Phase 8b, `npm run test:a11y`, `e2e/`). They sign in through the Firebase Auth emulator; never set `FIREBASE_AUTH_EMULATOR_HOST` or `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` outside `inkwell/.env.test` (read by `e2e/env.ts`). `.env.test` is committed, so it holds only placeholders and fakes; this machine's values go in the gitignored `.env.test.local`. `firebase-tools` brings 12 moderate dev-only `npm audit` findings.
 - `barcode-detector` (on `zxing-wasm`) is approved for barcode scanning (Phase 4d); load it only where the browser lacks `BarcodeDetector`.
 - Ask before adding significant dependencies, and pin to an exact or caret version of a release at least two weeks old.
 

@@ -149,6 +149,8 @@ function SidebarProvider({
   )
 }
 
+// Edited by hand (Phase 8b): the part holding the children is a <nav> landmark,
+// named by `aria-label`, so screen readers can jump to the sidebar.
 function Sidebar({
   side = "left",
   variant = "sidebar",
@@ -156,6 +158,7 @@ function Sidebar({
   className,
   children,
   dir,
+  "aria-label": ariaLabel,
   ...props
 }: React.ComponentProps<"div"> & {
   side?: "left" | "right"
@@ -166,16 +169,17 @@ function Sidebar({
 
   if (collapsible === "none") {
     return (
-      <div
+      <nav
         data-slot="sidebar"
+        aria-label={ariaLabel}
         className={cn(
           "flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground",
           className
         )}
-        {...props}
+        {...(props as React.ComponentProps<"nav">)}
       >
         {children}
-      </div>
+      </nav>
     )
   }
 
@@ -199,7 +203,9 @@ function Sidebar({
             <SheetTitle>Sidebar</SheetTitle>
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
+          <nav aria-label={ariaLabel} className="flex h-full w-full flex-col">
+            {children}
+          </nav>
         </SheetContent>
       </Sheet>
     )
@@ -239,13 +245,14 @@ function Sidebar({
         )}
         {...props}
       >
-        <div
+        <nav
           data-sidebar="sidebar"
+          aria-label={ariaLabel}
           data-slot="sidebar-inner"
           className="flex size-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:shadow-sm group-data-[variant=floating]:ring-1 group-data-[variant=floating]:ring-sidebar-border"
         >
           {children}
-        </div>
+        </nav>
       </div>
     </div>
   )

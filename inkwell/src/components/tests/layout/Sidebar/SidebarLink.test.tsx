@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import { SidebarLink } from "@/components/layout/Sidebar/SidebarLink";
 import { withSidebar } from "../sidebar-wrapper";
+import { expectAccessible } from "../../a11y";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
 vi.mock("next/link", () => ({ default: (props: Record<string, unknown>) => <a {...props} /> }));
@@ -23,6 +24,7 @@ describe("SidebarLink", () => {
     const more = screen.getByRole("button", { name: "More" });
     await userEvent.click(more);
     expect(more.getAttribute("aria-expanded")).toBe("true");
+    await expectAccessible();
     await userEvent.click(screen.getByRole("link", { name: "Settings" }));
     expect(onClick).toHaveBeenCalled();
     expect(more.getAttribute("aria-expanded")).toBe("false");

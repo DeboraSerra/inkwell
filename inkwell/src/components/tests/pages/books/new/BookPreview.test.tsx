@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { actionSubmit, PreviewHeader, previewBook, previewHidden } from "@/components/pages/books/new/BookPreview";
 import type { IsbnPreview } from "@/types/books.type";
+import { expectAccessible } from "../../../a11y";
 
 vi.mock("next/link", () => ({ default: (props: Record<string, unknown>) => <a {...props} /> }));
 
@@ -17,10 +18,11 @@ const preview: IsbnPreview = {
 };
 
 describe("PreviewHeader", () => {
-  it("says which list a book already in the library is on, with a link to it", () => {
+  it("says which list a book already in the library is on, with a link to it", async () => {
     render(<PreviewHeader preview={{ ...preview, inLibrary: { status: "FINISHED", formats: [] } }} />);
     expect(screen.getByText(/Already in your library, on Finished/)).toBeTruthy();
     expect(screen.getByRole("link", { name: "View the shelf" }).getAttribute("href")).toBe("/books/shelves?shelf=finished");
+    await expectAccessible();
   });
 
   it("says nothing for a new book", () => {

@@ -11,9 +11,10 @@ import { moveBooks, removeBooks } from "@/server/library/library.controller";
 import { SHELVES } from "@/server/library/shelf-filters";
 import { LIST_NAMES } from "@/server/library/status.rules";
 import { Trash } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useBooksContext, useLoadedShelf } from "../../../context";
 import { BookDialog } from "../BookDialogs";
+import { refocusShelfIfLost } from "../shelf-focus";
 import { MAX_SELECTED, useShelfSelection } from "./ShelfSelection";
 
 const showError = (description: string) =>
@@ -31,6 +32,8 @@ export const SelectedBooksBar = () => {
   const { refresh } = useBooksContext();
   const [isPending, startTransition] = useTransition();
   const [deletingSelected, setDeletingSelected] = useState(false);
+  // The bar goes once nothing is selected, taking focus with it.
+  useEffect(() => refocusShelfIfLost, []);
 
   const moveSelected = (status: ReadingStatus) =>
     startTransition(async () => {
@@ -45,7 +48,9 @@ export const SelectedBooksBar = () => {
       }
       clear();
       refresh();
-      const note = `Moved ${moved.length} to ${LIST_NAMES[status]}, skipped ${skipped}.`;
+      const note = `Moved ${bookCount(moved.length)} to ${LIST_NAMES[status]}${
+        skipped > 0 ? `, skipped ${skipped}` : ""
+      }.`;
       toast.add({
         description: note,
         type: moved.length === 0 ? "error" : undefined,

@@ -25,6 +25,7 @@ import {
   type SubmitEvent,
   useEffect,
   useId,
+  useRef,
   useState,
   useTransition,
 } from "react";
@@ -101,6 +102,9 @@ const searchAdd = actionSubmit(addSearchBook);
 //   title (only on /books/new). A found book fills the form with the catalog's
 //   details locked, and is added by its ISBN or search record; "Not this
 //   book" goes back to a blank form with the typed ISBN and title kept.
+const foundLabel = ({ title, authors }: IsbnPreview) =>
+  authors.length > 0 ? `Found ${title} by ${authors.join(", ")}` : `Found ${title}`;
+
 export default function AddBookForm({
   defaultIsbn,
   book,
@@ -188,6 +192,16 @@ export default function AddBookForm({
     setTitleDraft(title);
     resetLookup(next);
   };
+
+  // A lookup remounts the form, and the field or result that had focus goes
+  // with it: focus moves to the found book, so a screen reader reads which one
+  // it is, or back to the ISBN when "Not this book" empties the form.
+  const previewRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (lookupCount === 0) return;
+    if (previewRef.current) previewRef.current.focus();
+    else document.getElementById(`${uid}-isbn`)?.focus();
+  }, [lookupCount, uid]);
 
   useEffect(() => {
     onPendingChange?.(isPending);
@@ -283,7 +297,13 @@ export default function AddBookForm({
       ))}
       <FieldGroup>
         {preview ? (
-          <div className='flex flex-wrap items-center justify-between gap-2'>
+          <section
+            ref={previewRef}
+            tabIndex={-1}
+            // Says which book was found when focus lands here.
+            aria-label={foundLabel(preview)}
+            className='flex flex-wrap items-center justify-between gap-2 rounded-md focus-ring'
+          >
             <PreviewHeader preview={preview} />
             <Button
               type='button'
@@ -292,7 +312,7 @@ export default function AddBookForm({
             >
               Not this book
             </Button>
-          </div>
+          </section>
         ) : (
           header
         )}

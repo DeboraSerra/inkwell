@@ -1,6 +1,7 @@
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { BookCover } from "@/components/common/BookCover";
+import { expectAccessible } from "../a11y";
 
 // Next's Image as a marked <img>, so a test can tell it from the plain one.
 vi.mock("next/image", () => ({
@@ -29,11 +30,12 @@ describe("BookCover", () => {
     },
   );
 
-  it("shows a cover from another https host as a plain image with no referrer", () => {
+  it("shows a cover from another https host as a plain image with no referrer", async () => {
     show("https://m.media-amazon.com/images/I/1.jpg");
     expect(image().hasAttribute("data-optimized")).toBe(false);
     expect(image().getAttribute("src")).toBe("https://m.media-amazon.com/images/I/1.jpg");
     expect(image().getAttribute("referrerpolicy")).toBe("no-referrer");
+    await expectAccessible();
   });
 
   // What's typed into the cover field is shown as it's typed, so only https.

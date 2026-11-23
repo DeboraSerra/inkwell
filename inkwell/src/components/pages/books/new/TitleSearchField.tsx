@@ -17,6 +17,7 @@ import { Info, Loader } from "lucide-react";
 import {
   type KeyboardEvent,
   useEffect,
+  useId,
   useState,
   useTransition,
 } from "react";
@@ -118,6 +119,7 @@ export function TitleSearchField({
   // The title as typed, so a blank form can start from it again.
   onFound: (preview: IsbnPreview, title: string) => void;
 }>) {
+  const labelId = useId();
   const [query, setQuery] = useState(defaultValue);
   const [open, setOpen] = useState(false);
   const search = useBookSearch(query);
@@ -146,7 +148,7 @@ export function TitleSearchField({
   return (
     <Field>
       <FieldLabel htmlFor={id}>
-        Title
+        <span id={labelId}>Title</span>
         <span className='font-normal text-muted-foreground'>*</span>
         <TapTooltip
           label='About the title search'
@@ -187,6 +189,10 @@ export function TitleSearchField({
         <ComboboxInput
           id={id}
           name='title'
+          // Base UI hides the rest of the page from screen readers while the
+          // list is open, label included; a reference still names the field.
+          // Only the label's text, without the ⓘ button's name.
+          aria-labelledby={labelId}
           autoComplete='off'
           required
           aria-invalid={invalid || error ? true : undefined}

@@ -63,16 +63,17 @@
      - 5b5b — Tooltips that work on phones ✅ built (2026-11-22)
      - 5b6 — Edit them ✅ built (2026-11-22)
      - 5b7 — Privacy policy and closing ✅ built (2026-11-22)
-6. [Phase 6 — CI, code quality and missing tests](phase-6-ci-quality.md) 🚧 in progress: 6a missing tests, 6b coverage and 6c husky and commitlint ✅ built (2026-11-22); 6d GitHub Actions (checks, build, migrations, audit, commit messages, extension) ✅ passing on GitHub; 6e ruleset on `main`, secret scanning and Dependabot alerts ✅ set; 6i `.nvmrc`, 6j PR template and 6n `npm audit signatures`, 6p endpoint auth test, 6l gitleaks pre-commit, 6f Dependabot updates, 6h Knip and 6k CodeQL ✅ built; 6o OpenSSF Scorecard built, first run after the merge to `main`
-7. [Phase 7 — Shelf filter fixes](phase-7-shelf-filter-fixes.md) ⏳ planned (2026-11-22), open questions answered: 40px filter targets on every screen size, unticking a genre clears its tropes, "no match" wording, only the reader's genres in the filter
-8. [Phase 8 — Dashboard](phase-8-dashboard.md) ⏳ planned (2026-11-21), open questions pending: currently reading, books read per year, this year's reads by genre, how to use the extension, books added per year by type
-9. [Phase 9 — Profile](phase-9-profile.md) ⏳ planned (2026-11-21), open questions pending: edit the name, photo and other profile details (not the email)
-10. [Phase 10 — Journal](phase-10-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)
-11. [Phase 11 — Quality and deploy](phase-11-quality-deploy.md)
+6. [Phase 6 — CI, code quality and missing tests](phase-6-ci-quality.md) 🚧 in progress: 6a missing tests, 6b coverage and 6c husky and commitlint ✅ built (2026-11-22); 6d GitHub Actions (checks, build, migrations, audit, commit messages, extension) ✅ passing on GitHub; 6e ruleset on `main`, secret scanning and Dependabot alerts ✅ set; 6i `.nvmrc`, 6j PR template and 6n `npm audit signatures`, 6p endpoint auth test, 6l gitleaks pre-commit, 6f Dependabot updates, 6h Knip, 6k CodeQL and 6o OpenSSF Scorecard (6.3/10) ✅ built
+7. [Phase 7 — Shelf filter fixes](phase-7-shelf-filter-fixes.md) ✅ built (2026-11-22): 7a done, 7b–7d built; open questions answered: 40px filter targets on every screen size, unticking a genre clears its tropes, "no match" wording, only the reader's genres in the filter
+8. [Phase 8 — Accessibility tests](phase-8-accessibility-tests.md) ✅ done (2026-11-22): axe in component tests, Playwright and axe on every page, in CI; keyboard, reflow, reduced-motion and extension checks; a manual pass in Chromium with its findings fixed. VoiceOver and Safari/iOS device checks left to the user
+9. [Phase 9 — Dashboard](phase-9-dashboard.md) ⏳ planned (2026-11-21), open questions pending: currently reading, books read per year, this year's reads by genre, how to use the extension, books added per year by type
+10. [Phase 10 — Profile](phase-10-profile.md) ⏳ planned (2026-11-21), open questions pending: edit the name, photo and other profile details (not the email); name and age, optional, when creating an account (10c)
+11. [Phase 11 — Journal](phase-11-journal.md): reading log, reviews, goals, and progress by format (page, percentage, audiobook time remaining)
+12. [Phase 12 — Quality and deploy](phase-12-quality-deploy.md)
    - Row-level security on every table (Supabase advisor, 2026-11-14) ✅ applied locally and on Supabase on 2026-11-21
-12. [Phase 12 — Mobile API](phase-12-mobile-api.md) ⏳ planned, when a mobile app is: Firebase ID tokens in `getRequestUser`, a versioned JSON API (`/api/v1`) over the existing services, OpenAPI
-13. [Phase 13 — Mobile app](phase-13-mobile-app.md) ⏳ planned, after Phase 12: native app or PWA to decide; sign-in, shelves, adding with camera scanning, journal, store release
-14. [Phase 14 — Paid subscriptions](phase-14-subscriptions.md) ⏳ idea: free plan limits (Amazon import pages, books, journal, lookups, API tokens) and a Sonnet 5.5 retry of weak AI enrichment, for subscribers
+13. [Phase 13 — Mobile API](phase-13-mobile-api.md) ⏳ planned, when a mobile app is: Firebase ID tokens in `getRequestUser`, a versioned JSON API (`/api/v1`) over the existing services, OpenAPI
+14. [Phase 14 — Mobile app](phase-14-mobile-app.md) ⏳ planned, after Phase 13: native app or PWA to decide; sign-in, shelves, adding with camera scanning, journal, store release
+15. [Phase 15 — Paid subscriptions](phase-15-subscriptions.md) ⏳ idea: free plan limits (Amazon import pages, books, journal, lookups, API tokens) and a Sonnet 5.5 retry of weak AI enrichment, for subscribers
 11. [Later / nice to have](later.md)
 
 ## Architecture

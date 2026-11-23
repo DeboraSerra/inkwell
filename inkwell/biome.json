@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
-    "includes": ["**", "!src/generated", "!.next", "!src/components/ui", "!next-env.d.ts", "!coverage"]
+    "includes": ["**", "!src/generated", "!.next", "!.next-e2e", "!src/components/ui", "!next-env.d.ts", "!coverage"]
   },
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": false, "root": ".." },
   "formatter": { "enabled": false },

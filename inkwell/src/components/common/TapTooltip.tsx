@@ -9,6 +9,8 @@ import { type MouseEvent, type PointerEvent, type ReactElement, type ReactNode, 
 // and tapping elsewhere still work as before. The click's
 // default is stopped, so a trigger inside a label doesn't also tick or focus
 // the field.
+// With touchOnly, only a tap toggles it and any other click goes through
+// untouched (BookTitle's mouse click selects its card).
 export function TapTooltip({
   content,
   label,
@@ -17,6 +19,8 @@ export function TapTooltip({
   side,
   align,
   className,
+  disabled = false,
+  touchOnly = false,
 }: Readonly<{
   content: ReactNode;
   // For a trigger with no text of its own, such as an icon.
@@ -27,6 +31,8 @@ export function TapTooltip({
   side?: "top" | "bottom" | "left" | "right";
   align?: "start" | "center" | "end";
   className?: string;
+  disabled?: boolean;
+  touchOnly?: boolean;
 }>) {
   const [open, setOpen] = useState(false);
   const pointerType = useRef("");
@@ -34,6 +40,7 @@ export function TapTooltip({
     pointerType.current = event.pointerType;
   };
   const toggle = (event: MouseEvent) => {
+    if (disabled || (touchOnly && pointerType.current !== "touch")) return;
     event.preventDefault();
     event.stopPropagation();
     if (pointerType.current === "mouse") setOpen(true);
@@ -41,7 +48,7 @@ export function TapTooltip({
   };
 
   return (
-    <Tooltip open={open} onOpenChange={setOpen}>
+    <Tooltip disabled={disabled} open={open} onOpenChange={setOpen}>
       <TooltipTrigger
         aria-label={label}
         closeOnClick={false}

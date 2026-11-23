@@ -24,7 +24,7 @@ vi.mock("@/server/auth/auth.guard");
 vi.mock("@/server/library/library.service");
 vi.mock("@/server/rate-limit/rate-limit.service");
 
-const { addBookByIsbn, addManualBook, addSearchBook, previewSearchResult, changeBookFormats, loadShelf, lookUpIsbn, rememberShelfPageSize, changeBookStatus, editBook, moveBooks, moveBookWithDates, removeBook, removeBooks } = await import(
+const { addBookByIsbn, addManualBook, addSearchBook, previewSearchResult, changeBookFormats, loadShelf, lookUpIsbn, rememberShelfPageSize, rememberTopicScope, changeBookStatus, editBook, moveBooks, moveBookWithDates, removeBook, removeBooks } = await import(
   "@/server/library/library.controller"
 );
 const service = vi.mocked(libraryService);
@@ -560,6 +560,31 @@ describe("rememberShelfPageSize", () => {
   it("needs a signed-in user", async () => {
     vi.mocked(requireUser).mockRejectedValue(new Error("redirect"));
     await expect(rememberShelfPageSize(20)).rejects.toThrow("redirect");
+    expect(request.set).not.toHaveBeenCalled();
+  });
+});
+
+describe("rememberTopicScope", () => {
+  it.each([
+    [true, "mine"],
+    [false, "all"],
+  ])("remembers %j as %s for a year", async (onlyMine, value) => {
+    await expect(rememberTopicScope(onlyMine)).resolves.toEqual({});
+    expect(request.set).toHaveBeenCalledWith(
+      "shelfTopics",
+      value,
+      expect.objectContaining({ path: "/", maxAge: 31_536_000, sameSite: "lax", httpOnly: true }),
+    );
+  });
+
+  it.each(["all", 1, null])("rejects %j without setting anything", async (value) => {
+    await expect(rememberTopicScope(value)).resolves.toEqual({ error: "That request isn't valid." });
+    expect(request.set).not.toHaveBeenCalled();
+  });
+
+  it("needs a signed-in user", async () => {
+    vi.mocked(requireUser).mockRejectedValue(new Error("redirect"));
+    await expect(rememberTopicScope(true)).rejects.toThrow("redirect");
     expect(request.set).not.toHaveBeenCalled();
   });
 });

@@ -5,6 +5,7 @@ import { Footer } from "@/components/layout/Sidebar/Footer";
 import { signOut } from "@/server/auth/auth.controller";
 import { requireUser } from "@/server/auth/auth.guard";
 import { withSidebar } from "../sidebar-wrapper";
+import { expectAccessible } from "../../a11y";
 
 vi.mock("@/server/auth/auth.guard", () => ({ requireUser: vi.fn() }));
 vi.mock("@/server/auth/auth.controller", () => ({ signOut: vi.fn() }));
@@ -25,6 +26,7 @@ describe("Sidebar Footer", () => {
     await show({ name: "ada lovelace", email: "ada@example.com", photoUrl: null });
     const account = screen.getByRole("button", { name: /ada lovelace/ });
     expect(account.textContent).toBe("Aada lovelace");
+    await expectAccessible();
   });
 
   it("falls back to the email without a name", async () => {
@@ -38,5 +40,6 @@ describe("Sidebar Footer", () => {
     expect((await screen.findByRole("menuitem", { name: "Settings" })).getAttribute("href")).toBe("/settings");
     await userEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
     await waitFor(() => expect(signOut).toHaveBeenCalledWith());
+    await expectAccessible();
   });
 });

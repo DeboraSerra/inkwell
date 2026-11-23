@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // The browser tests (e2e/) build into their own folder, so their build, wired
+  // to the Auth emulator, never replaces the real one in .next.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   images: {
     // Covers from the book APIs are fetched by the app's server rather than the
     // reader's browser (see components/common/BookCover.tsx). Older Open Library

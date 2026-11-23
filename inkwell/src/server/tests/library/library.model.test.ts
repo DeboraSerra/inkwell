@@ -47,6 +47,7 @@ describe("every model function is scoped by userId", () => {
     ["countUserBooks", () => model.countUserBooks(USER, { formats: [BookFormat.EBOOK] })],
     ["listUserBookReadDates", () => model.listUserBookReadDates(USER, { formats: [BookFormat.EBOOK] })],
     ["findUserBooksWithCatalog", () => model.findUserBooksWithCatalog(USER, ["ub"])],
+    ["listLibraryTopics", () => model.listLibraryTopics(USER)],
     ["updateUserBookState", () => model.updateUserBookState(USER, "ub", state)],
     ["updateUserBookStatuses", () => model.updateUserBookStatuses(USER, ["ub"], ReadingStatus.FINISHED)],
     ["findChangeableReads", () => reads.findChangeableReads(USER, ["ub"])],

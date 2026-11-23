@@ -21,7 +21,7 @@ export const Footer = async () => {
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <SidebarMenuButton className='group-data-[collapsible=icon]:justify-center'>
+            <SidebarMenuButton className='h-auto min-h-8 group-data-[collapsible=icon]:justify-center'>
               <Avatar size='sm'>
                 {/* Google's photo host can refuse requests that carry a referrer. */}
                 {user.photoUrl && (

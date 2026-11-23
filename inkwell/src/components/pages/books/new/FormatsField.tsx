@@ -46,9 +46,10 @@ export function FormatsField({
   const toggle = (format: string, checked: boolean) =>
     setTicked((current) => (checked ? [...current, format] : current.filter((item) => item !== format)));
   return (
-    <FieldSet className='flex flex-col'>
+    // Named by the legend's text alone, without the ⓘ button's "About formats".
+    <FieldSet className='flex flex-col' aria-labelledby={`${uid}-formats-legend`}>
       <FieldLegend variant='label' className='flex gap-1 items-center'>
-        <span>Formats you own</span>
+        <span id={`${uid}-formats-legend`}>Formats you own</span>
         <TapTooltip label='About formats' content={<p>Leave these empty if you don’t own the book.</p>}>
           <Info size={16} />
         </TapTooltip>

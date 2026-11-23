@@ -1,5 +1,5 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { connectAuthEmulator, getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -14,3 +14,10 @@ const firebaseConfig = {
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
+
+// Only the browser tests' build sets this (e2e/env.ts), to sign in against the
+// local Firebase Auth emulator instead of the real project.
+const emulatorHost = process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST;
+if (emulatorHost) {
+  connectAuthEmulator(auth, `http://${emulatorHost}`, { disableWarnings: true });
+}

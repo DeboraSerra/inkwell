@@ -1,5 +1,6 @@
 "use client";
 
+import { hasFilters, shelfHref } from "@/server/library/shelf-filters";
 import { LIST_NAMES } from "@/server/library/status.rules";
 import Link from "next/link";
 import { Button } from "../../../../ui/button";
@@ -24,12 +25,29 @@ export const BooksShelf = () => {
 
   if (books.length === 0) {
     const label = filters.status ? LIST_NAMES[filters.status] : undefined;
-    return filters.search || filters.formats.length > 0 ? (
-      <p className='py-10 text-center text-muted-foreground'>
-        {label
-          ? `No books on ${label} match these filters.`
-          : "No owned books match these filters."}
-      </p>
+    // Clearing keeps the shelf, its order and the page size.
+    const cleared = shelfHref({
+      shelf: filters.shelf,
+      formats: [],
+      search: "",
+      perPage: filters.perPage,
+      sort: filters.sort,
+    });
+    return hasFilters(filters) ? (
+      <div className='flex flex-col items-center gap-3 py-10 text-muted-foreground'>
+        <p>
+          {label
+            ? `No books on ${label} match these filters.`
+            : "No owned books match these filters."}
+        </p>
+        <Button
+          render={<Link href={cleared} />}
+          nativeButton={false}
+          variant='outline'
+        >
+          Clear filters
+        </Button>
+      </div>
     ) : (
       <div className='flex flex-col items-center gap-3 py-10 text-muted-foreground'>
         <p>
@@ -51,7 +69,7 @@ export const BooksShelf = () => {
       <div className='flex flex-col gap-5'>
         <SelectionBar />
 
-        <ul className='grid grid-cols-1 gap-3 md:grid-cols-2'>
+        <ul className='grid grid-cols-1 gap-3 lg:grid-cols-2'>
           {books.map((book) => (
             <BookCard key={book.id} book={book} />
           ))}

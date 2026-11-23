@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { TopicsField } from "@/components/pages/books/new/TopicsField";
 import type { TopicLists } from "@/types/shelf.type";
+import { expectAccessible } from "../../../a11y";
 
 const topics: TopicLists = {
   genres: ["Fantasy", "Thriller"],
@@ -24,11 +25,13 @@ const options = async (picker: string) => {
 };
 
 describe("TopicsField", () => {
-  it("starts from the reader's genre, trope and tags", () => {
+  it("starts from the reader's genre, trope and tags", async () => {
     show({ genre: "Fantasy", trope: "Chosen One", tags: ["fae", "court"] });
     expect(sent().get("genre")).toBe("Fantasy");
     expect(sent().get("trope")).toBe("Chosen One");
     expect(sent().get("tags")).toBe("fae, court");
+    expect(screen.getByRole("textbox", { name: "Tags" })).toBeTruthy();
+    await expectAccessible();
   });
 
   it("sends nothing for no genre or trope", () => {
@@ -40,6 +43,7 @@ describe("TopicsField", () => {
   it("offers None and every genre", async () => {
     show();
     expect(await options("Genre")).toEqual(["None", "Fantasy", "Thriller"]);
+    await expectAccessible();
   });
 
   it("picks a genre", async () => {

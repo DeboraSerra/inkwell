@@ -15,8 +15,8 @@ export const FilterChip = ({
         aria-pressed={selected}
         onClick={onToggle}
         className={cn(
-          "rounded-sm border border-chip-border px-2 py-1 text-xs flex items-center gap-1 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          selected && "border-chip-selected bg-chip-selected/30",
+          "rounded-sm border border-chip-border px-2 py-1 text-xs flex items-center gap-1 cursor-pointer focus-ring",
+          selected && "border-chip-selected bg-chip-selected/15",
         )}
       >
         {children} {selected && <X aria-hidden='true' size={12} />}

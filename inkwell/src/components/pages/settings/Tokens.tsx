@@ -12,8 +12,6 @@ export const Tokens = async () => {
   const tokens = await listApiTokens(user.id);
   return (
     <div className='space-y-8'>
-      <h1 className='text-2xl font-semibold'>Settings</h1>
-
       <section className='space-y-4'>
         <div className='space-y-1'>
           <h2 className='text-lg font-semibold'>API tokens</h2>

@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { AudioLengthField } from "@/components/common/AudioLengthField";
+import { expectAccessible } from "../a11y";
 
 const submitWith = async (hours: string, minutes: string) => {
   let sent: FormData | undefined;
@@ -22,10 +23,11 @@ const submitWith = async (hours: string, minutes: string) => {
 };
 
 describe("AudioLengthField", () => {
-  it("starts from the saved length", () => {
+  it("starts from the saved length", async () => {
     render(<AudioLengthField values={{ audioHours: "11", audioMinutes: "5" }} />);
     expect((screen.getByLabelText("Hours") as HTMLInputElement).value).toBe("11");
     expect((screen.getByLabelText("Minutes") as HTMLInputElement).value).toBe("5");
+    await expectAccessible();
   });
 
   it("sends both parts as typed", async () => {

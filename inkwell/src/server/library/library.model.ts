@@ -190,6 +190,26 @@ export function countUserBooks(userId: string, query: UserBookFilter, db: Db = p
 
 // When the reader got the book. Only this column changes, so the shelf order
 // (addedAt), status and reads stay as they are.
+// Every library book's genre and trope, edited and catalog, for the shelf
+// filter's "only genres in my books".
+export function listLibraryTopics(userId: string, db: Db = prisma) {
+  return db.userBook.findMany({
+    where: { userId },
+    select: {
+      genreEdited: true,
+      genre: { select: { name: true } },
+      tropeEdited: true,
+      trope: { select: { name: true } },
+      book: {
+        select: {
+          genres: { select: { genre: { select: { name: true } } } },
+          tropes: { select: { trope: { select: { name: true } } } },
+        },
+      },
+    },
+  });
+}
+
 export function updateAcquired(
   userId: string,
   userBookId: string,

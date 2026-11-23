@@ -5,6 +5,7 @@ import { BookCard } from "@/components/pages/books/shelves/BookCard";
 import { ShelfSelectionProvider } from "@/components/pages/books/shelves/BookShelf/ShelfSelection";
 import { parseShelfFilters } from "@/server/library/shelf-filters";
 import type { ShelfBook } from "@/types/books.type";
+import { expectAccessible } from "../../../../a11y";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -34,8 +35,17 @@ const book: ShelfBook = {
 };
 // A pill's text, without its screen-reader label.
 const words = (element: Element) => [...element.querySelectorAll("small")].map((word) => word.textContent).join(" ");
+// Genre and tag pills are named by the card's visible "Genre (trope):" and
+// "Tags:", so they're found by their action; others by their hidden label.
+const PILL_ACTIONS: Record<string, string> = { "Genre and trope": "Show books like this", Tag: "Search this tag" };
 const pills = (label: string) =>
-  screen.getAllByRole("button").filter((button) => button.querySelector(".sr-only")?.textContent === `${label}:`);
+  screen
+    .getAllByRole("button")
+    .filter((button) =>
+      label in PILL_ACTIONS
+        ? button.getAttribute("title") === PILL_ACTIONS[label]
+        : button.querySelector(".sr-only")?.textContent === `${label}:`,
+    );
 const pill = (label: string, text: string) => {
   const found = pills(label).find((button) => words(button) === text);
   if (!found) throw new Error(`No ${label} pill reading “${text}”: ${pills(label).map(words).join(" | ")}`);
@@ -58,6 +68,7 @@ beforeEach(() => {
 describe("BookCard pills", () => {
   it("shows genre and trope together, and filters the shelf by both", async () => {
     show();
+    await expectAccessible();
     const genre = pill("Genre and trope", "Fantasy (Enemies to Lovers)");
     expect(genre.getAttribute("title")).toBe("Show books like this");
     await userEvent.click(genre);
@@ -127,9 +138,17 @@ describe("BookCard pills", () => {
 
   it("names each pill with spaces between its words", () => {
     show();
-    expect(screen.getByRole("button", { name: "Genre and trope: Fantasy (Enemies to Lovers), Show books like this" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Tag: War College, Search this tag" })).toBeTruthy();
-    expect(pill("Tag", "War College").textContent).toBe("Tag: War College, Search this tag");
+    expect(screen.getByRole("button", { name: "Fantasy (Enemies to Lovers), Show books like this" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "War College, Search this tag" })).toBeTruthy();
+    expect(pill("Tag", "War College").textContent).toBe("War College, Search this tag");
+  });
+
+  it("names the genre and tags once, by the card's own labels", () => {
+    show();
+    const card = screen.getByRole("listitem");
+    expect(card.textContent).toContain("Genre (trope): Fantasy (Enemies to Lovers)");
+    expect(card.textContent).not.toContain("Genre and trope:");
+    expect(card.textContent).not.toContain("Tag:");
   });
 
   it("clicking a pill doesn't select the book", async () => {

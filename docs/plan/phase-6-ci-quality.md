@@ -2,9 +2,9 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j, 6n, 6p, 6l, 6f, 6h and 6k ✅ built; 6o built, its first run after the merge to `main`. Asked by the user on 2026-11-22, to come before Phase 10. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
+🚧 In progress: 6a–6e ✅ done (2026-11-22); 6i, 6j, 6n, 6p, 6l, 6f, 6h, 6k and 6o ✅ built. Asked by the user on 2026-11-22, to come before Phase 11. The missing tests come first (asked by the user on 2026-11-22), so coverage starts from a fuller suite.
 
-Phase 11 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 11 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
+Phase 12 already listed GitHub Actions, `npm audit` in CI and Dependabot; they move here, and Phase 12 keeps Playwright, the remaining zod and rate-limit checks, and the deploy.
 
 **Applies to every step**
 
@@ -142,7 +142,7 @@ Set through `gh api` on 2026-11-22 (the repository is public, so every feature i
 
 ## Additions chosen by the user (2026-11-22)
 
-From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, keeping their letters. g (SonarQube Cloud) moved to [Phase 14](phase-14-subscriptions.md), to apply if subscriptions are enabled. l (gitleaks) was dropped, then added back on 2026-11-22 as a `pre-commit` hook only (6l): push protection and GitGuardian only act at or after the push, and gitleaks stops a secret before it's committed. m (security headers) moved to Phase 14 as well. One step at a time, in the order below.
+From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, keeping their letters. g (SonarQube Cloud) moved to [Phase 15](phase-15-subscriptions.md), to apply if subscriptions are enabled. l (gitleaks) was dropped, then added back on 2026-11-22 as a `pre-commit` hook only (6l): push protection and GitGuardian only act at or after the push, and gitleaks stops a secret before it's committed. m (security headers) moved to Phase 15 as well. One step at a time, in the order below.
 
 ## 6i — `.nvmrc` and the stray root lockfile ✅ built (2026-11-22)
 
@@ -246,7 +246,7 @@ From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, k
 - **Fixed:** 19 exports only used in their own file are no longer exported (constants such as `SESSION_COOKIE`, `MIN_QUERY_LENGTH`, `RATE_LIMIT_WINDOW_SECONDS`, and `readerDetails`, `uniqueFormats`, `defaultSortFor`, `mergeDocPair`, `CatalogRecord`…). Removed as unused: `library.service.getUserBook`, the `EnrichmentReply` type and `config/firebase.ts`'s default export.
 - **Checked:** `npm run knip` passes; `tsc`, lint and the 1,612 tests (coverage thresholds included) pass.
 
-## 6k — CodeQL ✅ set up (2026-11-22), the fix to be confirmed by the next analysis
+## 6k — CodeQL ✅ built (2026-11-22)
 
 - GitHub's default setup for JavaScript/TypeScript and GitHub Actions, turned on through `gh api` (no workflow file). Free on a public repository.
 - Findings appear under Security → Code scanning; any found on the first run are triaged here.
@@ -260,7 +260,7 @@ From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, k
 - **One finding, high:** alert 1, `js/xss-through-dom` at `BookCover.tsx:86`. The add form's cover field shows what's typed as the cover at once, and that text went straight into a plain `<img src>`. Browsers don't run a `javascript:` URL in an image, but the server only ever saves https covers (`isHttpsUrl`), so the preview now does the same: `BookCover` parses the URL, shows the placeholder unless it's `https:`, and gives the plain `<img>` the parsed `url.href`. A typed `http:`, `javascript:` or `data:` URL, or text that isn't a URL, now shows the placeholder (before: a broken plain image). Tests updated; all 1,614 pass with coverage.
 - **For the user:** after the push, the next analysis should close alert 1. If it doesn't, dismiss it as "False positive" with that reason.
 
-## 6o — OpenSSF Scorecard 🔨 built (2026-11-22), first run after the merge to `main`
+## 6o — OpenSSF Scorecard ✅ built (2026-11-22)
 
 - `.github/workflows/scorecard.yml`: weekly and on pushes to `main`, using `ossf/scorecard-action` pinned by SHA, with the permissions it needs (`security-events: write`, `id-token: write`) on that job only. Results go to code scanning.
 - It reports, never blocks. Checks that don't fit a one-person repository (code review by a second person, a fuzzing setup) are noted rather than chased.
@@ -271,8 +271,13 @@ From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, k
 
 - `.github/workflows/scorecard.yml`: weekly (Mondays 06:30 UTC), on pushes to `main` and when branch protection changes. `permissions: read-all` at the top; the job alone gets `security-events: write` (results to code scanning) and `id-token: write` (publishing the score for a badge).
 - Pinned by SHA, each release over two weeks old: `ossf/scorecard-action` v2.5.0 (2026-10-12; v2.6.0 is from 2026-11-19), `github/codeql-action/upload-sarif` v4.39.3 (2026-11-04), and the same `checkout` and `upload-artifact` as CI. The SARIF is also kept as a `scorecard` artifact for 14 days.
-- **Not run yet:** Scorecard runs from the default branch, and there's no published score for the repository (the OpenSSF API answers 404). The score and its findings get listed here after the first run.
-- **For the user:** after merging to `main`, the run shows under Actions → Scorecard, and its findings under Security → Code scanning (tool "Scorecard").
+- **First run** (2026-11-22, after PR #14 merged to `main`): **6.3 / 10**. 10s for token permissions, pinned dependencies, dangerous workflows, the update tool, binary artifacts and maintenance. Its findings are code-scanning alerts 2–10 (tool "Scorecard").
+- **Triage:**
+  - *Will rise on their own:* SAST 5 (CodeQL only started today) and CI-Tests 5 (1 of the last 2 merged PRs had CI); both count past PRs.
+  - *Known:* Vulnerabilities 9, the one moderate `minimatch` advisory through `shadcn` (AGENTS.md, "Dependencies").
+  - *Cheap to fix, the user's call:* Security-Policy 0 (a `SECURITY.md` saying how to report a vulnerability) and License 0 (no `LICENSE`, so the code is all rights reserved; picking one is the user's decision).
+  - *Don't fit a one-person repository:* Code-Review 0 and Branch-Protection 3 (they want a second approving reviewer and `dev` protected too), Contributors 3, Fuzzing 0, CII-Best-Practices 0. Packaging and Signed-Releases don't apply (no releases).
+- **CodeQL** now scans GitHub Actions too (turned on by the user once the workflows reached `main`), and the run after the merge closed alert 1 (`js/xss-through-dom`) as fixed.
 
 ## Open questions
 
@@ -280,5 +285,5 @@ From the suggestions f–p: f, h, i, j, k, n, o and p are steps of this phase, k
 2. ~~**Pre-commit lint**~~ Decided 2026-11-22: Biome's own `--staged`.
 3. ~~**Pre-push hook**~~ Decided 2026-11-22: none; CI enforces.
 4. ~~**React component tests** in 6a~~ Approved: `@testing-library/react`, `@testing-library/user-event` and `jsdom` are in use.
-5. ~~**Which of f–p**~~ Decided 2026-11-22: f, h, i, j, k, n, o, p; g and m to Phase 14; l as a `pre-commit` hook only.
+5. ~~**Which of f–p**~~ Decided 2026-11-22: f, h, i, j, k, n, o, p; g and m to Phase 15; l as a `pre-commit` hook only.
 6. **Phase numbering:** answered on 2026-11-22: renamed to Phase 6, and the later phases renumbered (shelf filter fixes 7, dashboard 8, profile 9, journal 10, quality and deploy 11, mobile API 12, mobile app 13, subscriptions 14).

@@ -5,6 +5,7 @@ import { readBarcodes } from "@/components/pages/books/new/barcode-scan";
 import { IsbnLookupField } from "@/components/pages/books/new/IsbnLookupField";
 import { lookUpIsbn } from "@/server/library/library.controller";
 import type { IsbnPreview } from "@/types/books.type";
+import { expectAccessible } from "../../../a11y";
 
 vi.mock("@/server/library/library.controller", () => ({ lookUpIsbn: vi.fn() }));
 vi.mock("@/components/pages/books/new/barcode-scan", () => ({
@@ -37,6 +38,7 @@ describe("IsbnLookupField", () => {
   it("looks the ISBN up and hands on a found book", async () => {
     vi.mocked(lookUpIsbn).mockResolvedValue({ preview });
     const onFound = show();
+    await expectAccessible();
     await userEvent.type(isbn(), "9780441013593");
     await userEvent.click(screen.getByRole("button", { name: "Look up" }));
     await waitFor(() => expect(onFound).toHaveBeenCalledWith(preview, "978-0-4410-1359-3"));
@@ -85,6 +87,7 @@ describe("IsbnLookupField", () => {
     vi.stubGlobal("navigator", { ...navigator, mediaDevices: { getUserMedia: vi.fn() } });
     show();
     expect(await openScanMenu()).toEqual(["Upload image", "Scan live"]);
+    await expectAccessible();
   });
 
   it("fills in and looks up a scanned photo's ISBN", async () => {

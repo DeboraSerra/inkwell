@@ -36,6 +36,11 @@ export const moveTargets = (book: ReadingState) =>
 export const PAGE_SIZES = [5, 10, 20, 30, 50] as const;
 export const PAGE_SIZE_COOKIE = "shelfPerPage";
 
+// Whether the genre filter lists only the genres in the reader's books (the
+// default) or every curated one. Only "all" changes it.
+export const TOPIC_SCOPE_COOKIE = "shelfTopics";
+export const showsAllTopics = (cookie?: string) => cookie === "all";
+
 export const parsePageSize = (value: unknown): PageSize | undefined => {
   const size = Number(value);
   return PAGE_SIZES.find((allowed) => allowed === size);
@@ -156,6 +161,11 @@ export function moveDateValues(
   if (status === ReadingStatus.FINISHED) return known;
   return newRead ? toDateValues("started", today, "DAY") : known;
 }
+
+// Whether anything narrows the shelf, so an empty result is "no match" rather
+// than an empty shelf.
+export const hasFilters = ({ search, formats, genres, tropes }: ShelfFilters) =>
+  Boolean(search) || formats.length > 0 || genres.length > 0 || tropes.length > 0;
 
 // Leaving out `page` goes back to the first page, as a change of filters should.
 export function shelfHref({

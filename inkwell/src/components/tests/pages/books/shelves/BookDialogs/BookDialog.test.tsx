@@ -1,12 +1,14 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { BookDialog } from "@/components/pages/books/shelves/BookDialogs";
+import { expectAccessible } from "../../../../a11y";
 
 describe("BookDialog", () => {
-  it("shows nothing while closed", () => {
+  it("shows nothing while closed", async () => {
     render(<BookDialog open={false} onOpenChange={vi.fn()} heading='Delete?' description='Gone.' confirmText='Delete' />);
     expect(screen.queryByRole("dialog")).toBeNull();
+    await expectAccessible();
   });
 
   it("closes and confirms on its button", async () => {
@@ -20,6 +22,22 @@ describe("BookDialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onConfirm).toHaveBeenCalled();
+  });
+
+  it("asks for something that can't be undone in an alert dialog, starting on Cancel", async () => {
+    render(
+      <BookDialog
+        open
+        onOpenChange={vi.fn()}
+        heading='Delete?'
+        description='Gone.'
+        confirmText='Delete'
+        btnVariant='destructive'
+      />,
+    );
+    await screen.findByRole("alertdialog", { name: "Delete?" });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" })));
+    await expectAccessible();
   });
 
   it("closes without confirming on Cancel", async () => {
@@ -49,8 +67,9 @@ describe("BookDialog", () => {
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 
-  it("can disable its button", () => {
+  it("can disable its button", async () => {
     render(<BookDialog open onOpenChange={vi.fn()} heading='Edit' description='' confirmText='Saving...' btnDisabled />);
     expect((screen.getByRole("button", { name: "Saving..." }) as HTMLButtonElement).disabled).toBe(true);
+    await expectAccessible();
   });
 });

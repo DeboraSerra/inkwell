@@ -1,4 +1,4 @@
-# Phase 11 — Quality and deploy
+# Phase 12 — Quality and deploy
 
 [← Plan overview](README.md)
 

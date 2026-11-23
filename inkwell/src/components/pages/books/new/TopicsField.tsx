@@ -84,7 +84,7 @@ export function TopicsField({
       )}
       <Field>
         <FieldLabel htmlFor={`${uid}-tags`}>
-          Tags
+          <span id={`${uid}-tags-label`}>Tags</span>
           <TapTooltip
             label='About tags'
             content='Separate tags with commas or new lines. Up to 10, each under 31 characters.'
@@ -92,7 +92,7 @@ export function TopicsField({
             <Info size={16} />
           </TapTooltip>
         </FieldLabel>
-        <Textarea id={`${uid}-tags`} name='tags' rows={3} className='resize-none' defaultValue={tags?.join(", ")} />
+        <Textarea id={`${uid}-tags`} aria-labelledby={`${uid}-tags-label`} name='tags' rows={3} className='resize-none' defaultValue={tags?.join(", ")} />
       </Field>
     </div>
   );

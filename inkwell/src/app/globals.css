@@ -4,6 +4,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* The app's keyboard focus indicator, for elements outside components/ui:
+   a solid 2px gold ring, which keeps 3:1 against the background where a
+   faded ring wouldn't. `focus-ring focus-visible:ring-inset` draws it inside. */
+@utility focus-ring {
+  @apply outline-none focus-visible:ring-2 focus-visible:ring-ring;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -141,19 +148,21 @@
 }
 
 .dark {
+  /* Gold behind or as text is anzac-500: 600 is 4.44:1 on the background, under
+     WCAG AA's 4.5:1 (Phase 8b). Rings and charts only need 3:1, so they keep 600. */
   --background: var(--color-big-stone-950);
   --foreground: var(--color-merino-100);
   --card: #243648;
   --card-foreground: var(--color-merino-100);
   --popover: #243648;
   --popover-foreground: var(--color-merino-100);
-  --primary: var(--color-anzac-600);
+  --primary: var(--color-anzac-500);
   --primary-foreground: var(--color-big-stone-950);
   --secondary: #31445a;
   --secondary-foreground: var(--color-merino-100);
   --muted: #31445a;
   --muted-foreground: #b8c1cc;
-  --accent: var(--color-anzac-600);
+  --accent: var(--color-anzac-500);
   --accent-foreground: var(--color-big-stone-950);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 12%);
@@ -173,7 +182,7 @@
   --sidebar-border: oklch(1 0 0 / 12%);
   --sidebar-ring: var(--color-anzac-600);
   --chip-border: var(--muted-foreground);
-  --chip-selected: var(--color-anzac-600);
+  --chip-selected: var(--color-anzac-500);
   --chip-selected-foreground: var(--color-big-stone-950);
 }
 
@@ -208,4 +217,19 @@
    in the vendored toast.tsx; outside any layer, so it wins over z-50. */
 [data-slot="toast-viewport"] {
   z-index: 60;
+}
+
+/* Reduced motion (Phase 8d): dialogs, menus, popovers and the phone drawer
+   appear and go without zooming or sliding, and spinners stand still (each
+   comes with text saying what's happening). Outside any layer, so it wins over
+   the layered utilities without !important. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+    scroll-behavior: auto;
+  }
 }

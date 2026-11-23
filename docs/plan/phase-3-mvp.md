@@ -23,7 +23,7 @@ Goal: add books manually or through the Chrome extension, move them between list
 
 ## Out of scope
 
-Search and ISBN lookup (Phase 4), AI tags (Phase 5), reading log, reviews, goals, drag-to-reorder (Phase 10), deployment (Phase 11).
+Search and ISBN lookup (Phase 4), AI tags (Phase 5), reading log, reviews, goals, drag-to-reorder (Phase 11), deployment (Phase 12).
 
 ## 3a — Rework the model
 
@@ -88,7 +88,7 @@ Phase 2c built shelves to hold the lists, and one `ownership` value per book. St
 - **Form behaviour:** checked in the browser with real clicks through a temporary action: a rejected form keeps text and ticks, and a success clears them.
 - **Not verified:** a real submit while signed in through Google.
 - **Added after the outcome above, status field:** the form can add a book as Currently reading, Already read or Did not finish. The default, Not started, keeps the Wishlist/TBR rule. It's a radio group (`ui/radio-group.tsx`) because a book has one status.
-  - The dates are optional, so a read can have none, and a book read years ago isn't dated today. Phase 10 goals will need to account for finished books with no end date.
+  - The dates are optional, so a read can have none, and a book read years ago isn't dated today. Phase 11 goals will need to account for finished books with no end date.
   - Adding a book already in the library still ignores the chosen status and only adds formats.
   - Verified with real submits on the local database through a temporary page and action, since removed: all statuses, a rejected form, and a re-add. Google sign-in still not exercised.
 - **Added after that, read dates:** Already read asks for optional start and finish dates, and Currently reading for an optional start date. Each takes a day, month and year, of which the year alone or the month and year are enough. Did not finish has no dates.
@@ -440,7 +440,7 @@ Added at the user's request on 2026-11-08, after the extension's store build was
    - **Schema:** `UserBook.audioMinutes Int?`, an additive migration (`add_user_book_audio_minutes`). It's per reader, like `UserBook.pageCount`: Open Library and Google Books don't give an audiobook's length, and editions differ.
    - **Forms:** in the add form and the edit dialog, a "Length" field with hours and minutes, shown only when "Audiobook" is ticked. It's optional, and validated as a whole number of minutes from 1 to 12,000 (200 hours). Clearing it in the edit dialog removes it, as with page count.
    - **Shelf card:** an audiobook shows its length ("12 h 30 min") where a book shows its pages.
-   - **Later:** Phase 10 uses it for audiobook progress ("time remaining") and for minutes-based goals.
+   - **Later:** Phase 11 uses it for audiobook progress ("time remaining") and for minutes-based goals.
    - **✅ Built (2026-11-14):**
      - **Schema:** migration `20261114212954_add_user_book_audio_minutes` adds `UserBook.audioMinutes Int?`. It's applied locally, and to Supabase on 2026-11-14 with the user's go-ahead (`prisma migrate deploy`, which reported the schema up to date afterwards).
      - **Rules:** `library/audio-length.rules.ts` (pure).
@@ -473,7 +473,7 @@ Added at the user's request on 2026-11-08, after the extension's store build was
       - `addRead(userId, userBookId, { outcome, dates })` and `editReadDates(userId, readId, dates)` in `library.service.ts`, both checking that the book and the read belong to the user.
       - Server actions in `library.controller.ts`, validated with zod in a schema file, never in the `"use server"` file.
       - `createReads` in `read-through.model.ts` already exists, and `updateReadDates` is reused for the edits.
-    - **Later:** Phase 10's books-per-year goal counts finished reads by their end date, so a past read counts in its own year, and one with no date doesn't count.
+    - **Later:** Phase 11's books-per-year goal counts finished reads by their end date, so a past read counts in its own year, and one with no date doesn't count.
     - **✅ Built (2026-11-14), following the user's design rather than a separate Reads section:**
       - **UI (`StatusField`):** the dates area has a "Dates" label, then the latest read's Started and Finished, then one set per earlier finished read. A ➕ adds another set.
         - The ➕ and the earlier sets show only when the status is Finished ("Already read"), as the user asked.
@@ -553,7 +553,7 @@ Added at the user's request on 2026-11-08, after the extension's store build was
 
 ## 3f — Purchase dates (after 3e, before Phase 4c)
 
-Added at the user's request on 2026-11-08. Amazon shows when each item was acquired, and the extension doesn't save it today: `UserBook.addedAt` is when the book was added to Inkwell, so the first import gave 139 books the same date. The purchase date is wanted as a shelf filter now, and for the journal in Phase 10.
+Added at the user's request on 2026-11-08. Amazon shows when each item was acquired, and the extension doesn't save it today: `UserBook.addedAt` is when the book was added to Inkwell, so the first import gave 139 books the same date. The purchase date is wanted as a shelf filter now, and for the journal in Phase 11.
 
 **Why not reuse `addedAt`:** it orders the shelves (`library.model.ts`), and it means "added to Inkwell" for every book.
 - Putting the purchase date there would make it mean "bought" for Amazon books, but "typed in" or "wished for" for the others.
@@ -599,7 +599,7 @@ So the purchase date gets its own column.
 6. **Shelves:**
    - **Filter:** acquired in a year, or acquired before or after a date, kept in the URL like the other filters (for example `?acquired=2024`).
    - **Sort:** a "Purchase date" option next to the default "Newest added". Books with no date sort last.
-7. **Not now:** Phase 10 will use `acquiredAt`, for "books bought vs read this year" and "time on TBR before starting". The plan only makes sure the date is there.
+7. **Not now:** Phase 11 will use `acquiredAt`, for "books bought vs read this year" and "time on TBR before starting". The plan only makes sure the date is there.
 8. **Tests:**
    - the parser, for both languages, junk text, future dates and length limits
    - the import, for a new book getting the date, an existing book's empty date filled, an earlier date replacing a later one, a later date never replacing an earlier one, and `addedAt` never changing

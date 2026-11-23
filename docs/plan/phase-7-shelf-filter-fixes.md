@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-⏳ Planned (2026-11-22), no open questions. Asked by the user on 2026-11-22, to come after Phase 6 and before Phase 8. Every fix is on `/books/shelves`.
+✅ Built (2026-11-22): 7a done by the user, 7b–7d built. Asked by the user on 2026-11-22, to come after Phase 6 and before Phase 8 (accessibility tests). Every fix is on `/books/shelves`.
 
 **Applies to every step**
 
@@ -13,31 +13,66 @@
 
 ## 7a — Filter button and chips: size and layout
 
+✅ Done (2026-11-22), by the user.
+
 1. **Tap targets of at least 40px on every screen size** (answered 2026-11-22): the funnel trigger (now `size='icon'`, 32px), "Clear filters" (`size='sm'`, 28px), and each `FilterChip` (about 24px) grow to 40px (`min-h-10`, `size-10` for the trigger).
 2. **The count badge** stays readable and inside the larger trigger, not clipped by the screen edge.
 3. **No layout shift when filters are ticked** (answered 2026-11-22): today "Clear filters" appears beside the funnel and pushes the row, so the bar takes more room than it should. Redesign so the row keeps its size: "Clear filters" moves inside the popover (top, next to the headings), and the funnel shows only the count badge.
 
+**Outcome (7a)**
+
+- Built by the user, differently from the steps above. Every `size='icon'` button is now 40px (`icon: "size-10"` in `ui/button.tsx`), the filter chips keep their size, and "Clear filters" stays beside the funnel.
+- On phones, the format checkboxes and the filter and sort controls sit on two rows (`flex-col md:flex-row`), with the controls on the right. The shelf grid has two columns from `lg` rather than `md`.
+- Book cards: the actions trigger is larger (24px box, 20px icon), and the read dates, genre and tags are labelled ("Read at:", "Genre (trope):", "Tags:"), with "+N" earlier reads as its own pill.
+
 ## 7b — Unticking a genre clears its tropes
+
+✅ Built (2026-11-22).
 
 1. Clearing every genre also clears every trope, since tropes are only shown when a genre is ticked.
 2. Unticking one genre of several drops the ticked tropes that belong to none of the genres still ticked, and keeps the rest (answered 2026-11-22).
 3. A pure rule, `tropesForGenres(topics, genres, tropes)`, does the pruning; `TopicFilter` calls it in the genre chip's `onToggle`, so the URL never holds an orphan trope.
 4. The "currently ticked trope stays visible so it can be unticked" case in `shownTropes` goes away, since a trope can no longer be ticked without its genre. A URL with an orphan trope (old link, back button) is still shown so it can be unticked.
 
+**Outcome (7b)**
+
+- `library/topic-filter.rules.ts`: `tropesForGenres(topics, genres, tropes)` keeps only the ticked tropes that a ticked genre has (a trope not in the curated list is dropped too), and `shownTropes(topics, genres, tropes)` moved there from `TopicFilter`.
+- `TopicFilter` prunes the tropes on every genre toggle, so ticking or unticking a genre never leaves an orphan trope in the URL.
+- **Deviation:** an orphan trope from an old link or the back button is now shown even with no genre ticked (before, no tropes showed without a genre), so it can always be unticked.
+- Tests: `tests/library/topic-filter.rules.test.ts`, and three new cases in `TopicFilter.test.tsx`.
+
 ## 7c — "No match" instead of "no books"
+
+✅ Built (2026-11-22).
 
 1. **Today** `BooksShelf` only treats a search or a format as a filter, so a genre or trope filter with no result says "Nothing on TBR yet." with "Add a book".
 2. Any of search, formats, genres or tropes being set counts as filtering (a shared `hasFilters(filters)` in `library/shelf-filters.ts`).
 3. One generic line, `No books on <list> match these filters.` (`No owned books match these filters.` on Owned), with a "Clear filters" button that clears search, formats, genres and tropes and keeps the shelf, the sort and the per-page (answered 2026-11-22).
 4. "Nothing on <list> yet." with "Add a book" stays for a shelf that's truly empty.
 
+**Outcome (7c)**
+
+- `hasFilters(filters)` in `library/shelf-filters.ts`: a search, a format, a genre or a trope counts; the sort, page and page size don't.
+- `BooksShelf`'s empty state uses it. A filtered shelf with no result shows the no-match line and a "Clear filters" link to `shelfHref` with only the shelf, the sort and the page size. A truly empty shelf keeps "Nothing on <list> yet." and "Add a book".
+- Tests: `hasFilters` in `shelf-filters.test.ts`; genre, trope and the clear link in `BooksShelf.test.tsx`.
+
 ## 7d — Only the genres in my library
+
+✅ Built (2026-11-22).
 
 1. **A service read:** `library.service.listLibraryTopics(userId)` returns the genres in use in the reader's library, by each book's effective genre (the reader's when `genreEdited` is set, otherwise the catalog's, through `library/book-topics.rules.ts`), and the same for tropes. The model query filters by `userId`.
 2. **A switch in the popover,** "Only genres in my books", on by default; turning it off shows the full curated list. The choice is remembered in a cookie, like `shelfPerPage` (answered 2026-11-22).
 3. **Scope: the whole library,** so the list is the same on every shelf (answered 2026-11-22).
 4. Tropes follow the same choice, still narrowed by the ticked genres through `GenreTrope`.
 5. The page loads both lists (`listTopics()` and the reader's), so the switch doesn't need another request. The edit dialog's pickers keep the full curated list.
+
+**Outcome (7d)**
+
+- `library.model.listLibraryTopics(userId)` reads each library book's edited and catalog genre and trope; `library.service.listLibraryTopics(userId)` turns them into names through `book-topics.rules.topicsInUse`.
+- **Deviation:** a book that isn't edited counts with every catalog genre and trope it has, not only the first one shown on its card, since that's how the filter matches books. So every genre listed finds at least one book.
+- The shelves page loads `listTopics()`, `listLibraryTopics(user.id)` and the `shelfTopics` cookie (`TOPIC_SCOPE_COOKIE`, `showsAllTopics` in `shelf-filters.ts`; only `all` turns the switch off).
+- `TopicFilter` has an "Only genres in my books" switch (shadcn `ui/switch.tsx`, added), on by default. Turning it off or on is saved by `library.controller.rememberTopicScope`, an httpOnly cookie for a year like `shelfPerPage`. `topic-filter.rules.onlyInUse` narrows the curated lists; a ticked genre or trope is always listed so it can be unticked. Tropes are still narrowed by the ticked genres. The edit dialog keeps the full lists.
+- Tests: `topicsInUse`, `onlyInUse`, `showsAllTopics`, the model's `userId` scoping, the service, the controller, and the switch in `TopicFilter.test.tsx`. Coverage 98.4% statements, 95.7% branches.
 
 ### Answered (2026-11-22)
 

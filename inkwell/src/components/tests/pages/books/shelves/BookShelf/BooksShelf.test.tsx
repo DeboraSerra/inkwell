@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BooksShelf } from "@/components/pages/books/shelves/BookShelf";
 import { bookWith, filtersFor, shelfOf, testContext } from "../shelf-fixtures";
+import { expectAccessible } from "../../../../a11y";
 
 const context = vi.hoisted(() => ({ current: {} as ReturnType<typeof testContext> }));
 vi.mock("@/components/pages/context", () => ({
@@ -40,11 +41,12 @@ beforeEach(() => {
 });
 
 describe("BooksShelf", () => {
-  it("lists the page's books and which of them these are", () => {
+  it("lists the page's books and which of them these are", async () => {
     show("shelf=tbr", shelfOf({ books: [bookWith("a"), bookWith("b")], total: 12, firstIndex: 11, page: 2, pageCount: 2 }));
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByText("11 - 12 of 12")).toBeTruthy();
     expect(screen.getByText("Pages")).toBeTruthy();
+    await expectAccessible();
   });
 
   it("has no page links on a single page", () => {
@@ -59,10 +61,11 @@ describe("BooksShelf", () => {
     expect(screen.getByText("Selection bar")).toBeTruthy();
   });
 
-  it("offers to add a book on an empty list", () => {
+  it("offers to add a book on an empty list", async () => {
     show("shelf=reading");
     expect(screen.getByText("Nothing on Reading yet.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Add a book" }).getAttribute("href")).toBe("/books/new");
+    await expectAccessible();
   });
 
   it("says no books are owned on an empty Owned shelf", () => {
@@ -73,10 +76,19 @@ describe("BooksShelf", () => {
   it.each([
     ["a search", "shelf=tbr&q=dune", "No books on TBR match these filters."],
     ["a format", "shelf=tbr&format=AUDIO", "No books on TBR match these filters."],
+    ["a genre", "shelf=tbr&genre=Fantasy", "No books on TBR match these filters."],
+    ["a trope", "shelf=tbr&trope=Chosen+One", "No books on TBR match these filters."],
     ["Owned with a search", "shelf=owned&q=dune", "No owned books match these filters."],
   ])("says nothing matches %s", (_label, query, message) => {
     show(query);
     expect(screen.getByText(message)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Add a book" })).toBeNull();
+  });
+
+  it("clears every filter but keeps the shelf, the sort and the page size", () => {
+    show("shelf=finished&q=dune&format=AUDIO&genre=Fantasy&trope=Chosen+One&per=20&sort=title-asc");
+    expect(screen.getByRole("button", { name: "Clear filters" }).getAttribute("href")).toBe(
+      "/books/shelves?shelf=finished&per=20&sort=title-asc",
+    );
   });
 });

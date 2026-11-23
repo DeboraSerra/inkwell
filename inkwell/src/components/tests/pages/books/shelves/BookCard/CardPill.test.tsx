@@ -2,12 +2,14 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { CardPill, capitalizeFirstLetter } from "@/components/pages/books/shelves/BookCard/CardPill";
+import { expectAccessible } from "../../../../a11y";
 
 describe("CardPill", () => {
-  it("is plain text without a click handler", () => {
+  it("is plain text without a click handler", async () => {
     render(<CardPill text='5 Mar 26' />);
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.getByText("5 Mar 26")).toBeTruthy();
+    await expectAccessible();
   });
 
   it("is a button named by its label, text and action", async () => {
@@ -17,6 +19,7 @@ describe("CardPill", () => {
     expect(pill.getAttribute("title")).toBe("Show books like this");
     await userEvent.click(pill);
     expect(onClick).toHaveBeenCalled();
+    await expectAccessible();
   });
 
   it("capitalizes each word when asked", () => {

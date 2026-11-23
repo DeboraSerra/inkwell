@@ -4,6 +4,7 @@ import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import GoogleSignInButton from "@/components/pages/login/GoogleSignInButton";
 import { signInWithFirebase } from "@/config/firebase-session";
+import { expectAccessible } from "../../a11y";
 
 vi.mock("@/config/firebase", () => ({ auth: { name: "auth" } }));
 vi.mock("@/config/firebase-session", () => ({ signInWithFirebase: vi.fn() }));
@@ -41,6 +42,7 @@ describe("GoogleSignInButton", () => {
     render(<GoogleSignInButton />);
     await click();
     expect(await screen.findByText("Couldn't sign you in. Please try again.")).toBeTruthy();
+    await expectAccessible();
   });
 
   it("shows the server's error", async () => {

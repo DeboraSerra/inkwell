@@ -5,6 +5,7 @@ import {
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
+  SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { BookPlus, ShelvingUnit } from "lucide-react";
 import { SidebarLink } from "./SidebarLink";
@@ -32,10 +33,15 @@ export const Content = () => {
         <SidebarGroupContent>
           <SidebarMenu>
             {bookShelfList.map(({ link, text, id, Icon }) => (
-              <SidebarMenuButton render={<SidebarLink href={link} />} key={id}>
-                {Icon && <Icon />}
-                <span>{text}</span>
-              </SidebarMenuButton>
+              <SidebarMenuItem key={id}>
+                <SidebarMenuButton
+                  className='h-auto min-h-8'
+                  render={<SidebarLink href={link} />}
+                >
+                  {Icon && <Icon />}
+                  <span>{text}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             ))}
           </SidebarMenu>
         </SidebarGroupContent>

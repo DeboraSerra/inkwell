@@ -5,6 +5,7 @@ import { BookCardMenu } from "@/components/pages/books/shelves/BookCard/BookCard
 import { useBookActions } from "@/hooks/useBookActions";
 import type { ShelfBook } from "@/types/books.type";
 import { bookWith } from "../shelf-fixtures";
+import { expectAccessible } from "../../../../a11y";
 
 vi.mock("@/hooks/useBookActions");
 // The dialogs are tested on their own; here only which one opens matters.
@@ -47,6 +48,7 @@ describe("BookCardMenu", () => {
     const targets = within(submenu).getAllByRole("menuitem").map((item) => item.textContent);
     // An owned book can't go back to the wishlist.
     expect(targets).toEqual(["Reading", "Finished", "DNF"]);
+    await expectAccessible();
   });
 
   it("moves to TBR or DNF at once", async () => {
@@ -89,11 +91,12 @@ describe("BookCardMenu", () => {
   it("asks before deleting, naming the book", async () => {
     await openMenu(bookWith("a", { title: "Dune" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
-    const dialog = await screen.findByRole("dialog", { name: "Delete this book?" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Delete this book?" });
     expect(dialog.textContent).toContain("“Dune” will be removed");
     expect(actions.remove).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(actions.remove).toHaveBeenCalled();
+    await expectAccessible();
   });
 
   it("disables its actions while the book is busy", async () => {
