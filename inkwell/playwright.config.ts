@@ -25,7 +25,8 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
-      command: `npm run build && npx next start --port ${E2E_PORT}`,
+      // A clean build each run: a reused .next-e2e once kept an old stylesheet.
+      command: `node -e "require('node:fs').rmSync('.next-e2e', { recursive: true, force: true })" && npm run build && npx next start --port ${E2E_PORT}`,
       url: `${BASE_URL}/login`,
       env: { ...process.env, ...APP_ENV } as Record<string, string>,
       // Never reuse a server on this port: it might not be the emulator build.

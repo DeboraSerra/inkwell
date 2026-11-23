@@ -32,6 +32,11 @@ const chips = (list: string) =>
     .map((chip) => chip.textContent?.trim());
 
 describe("TopicFilter", () => {
+  it("opens as a dialog named after its button", async () => {
+    await open();
+    expect(await screen.findByRole("dialog", { name: "Filter books" })).toBeTruthy();
+  });
+
   it("lists every genre and asks for one before showing tropes", async () => {
     await open();
     expect(chips("Genres")).toEqual(["Fantasy", "Romance", "Thriller"]);

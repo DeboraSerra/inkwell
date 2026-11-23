@@ -49,7 +49,7 @@ export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
     <li
       className={cn(
         "flex min-w-0 items-start gap-2 rounded-lg border p-3",
-        selected && "border-primary bg-primary/5",
+        selected && "border-primary/50 bg-primary/10",
       )}
     >
       <FieldLabel

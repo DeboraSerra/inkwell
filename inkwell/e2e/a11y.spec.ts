@@ -63,6 +63,11 @@ test.describe("signed in", () => {
     await page.getByRole("button", { name: /^Actions for / }).first().click();
     await page.getByRole("menuitem", { name: "Edit" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
+    // The menu fades out under the dialog; axe would read its items through the backdrop.
+    await expect(page.locator('[data-slot="dropdown-menu-content"]')).toHaveCount(0);
+    // Axe measures a target by the part not clipped by the dialog's scrolling body,
+    // so the format boxes are moved clear of its edge rather than half hidden by it.
+    await page.getByRole("checkbox", { name: "Ebook" }).evaluate((box) => box.scrollIntoView({ block: "center" }));
     await expectAccessible(page);
   });
 

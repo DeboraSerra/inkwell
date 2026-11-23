@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AppSidebar } from "@/components/layout/Sidebar";
 import { withSidebar } from "../sidebar-wrapper";
@@ -16,5 +16,13 @@ describe("AppSidebar", () => {
     expect(screen.getByText("Content")).toBeTruthy();
     expect(screen.getByText("Footer")).toBeTruthy();
     await expectAccessible();
+  });
+
+  it("is a landmark holding the logo, the links and the account", () => {
+    render(<AppSidebar />, { wrapper: withSidebar });
+    const sidebar = within(screen.getByRole("navigation", { name: "Sidebar" }));
+    expect(sidebar.getByRole("link", { name: "Inkwell" })).toBeTruthy();
+    expect(sidebar.getByText("Content")).toBeTruthy();
+    expect(sidebar.getByText("Footer")).toBeTruthy();
   });
 });

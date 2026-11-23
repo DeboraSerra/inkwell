@@ -79,7 +79,7 @@ export function TopicFilter({
             </span>
           )}
         </PopoverTrigger>
-        <PopoverContent align='end' className='w-fit max-w-[calc(85vw-2rem)] max-h-[min(28rem,70vh)] overflow-y-auto'>
+        <PopoverContent align='end' aria-label='Filter books' className='w-fit max-w-[calc(85vw-2rem)] max-h-[min(28rem,70vh)] overflow-y-auto'>
           <Field orientation='horizontal' className='w-auto p-2'>
             <Switch id='topic-scope' checked={onlyMine} onCheckedChange={switchScope} />
             <FieldLabel htmlFor='topic-scope' className='font-normal'>
