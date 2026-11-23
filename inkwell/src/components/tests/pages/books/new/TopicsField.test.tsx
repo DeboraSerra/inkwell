@@ -30,6 +30,7 @@ describe("TopicsField", () => {
     expect(sent().get("genre")).toBe("Fantasy");
     expect(sent().get("trope")).toBe("Chosen One");
     expect(sent().get("tags")).toBe("fae, court");
+    expect(screen.getByRole("textbox", { name: "Tags" })).toBeTruthy();
     await expectAccessible();
   });
 

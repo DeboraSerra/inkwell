@@ -91,7 +91,7 @@ describe("BookCardMenu", () => {
   it("asks before deleting, naming the book", async () => {
     await openMenu(bookWith("a", { title: "Dune" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
-    const dialog = await screen.findByRole("dialog", { name: "Delete this book?" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Delete this book?" });
     expect(dialog.textContent).toContain("“Dune” will be removed");
     expect(actions.remove).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));

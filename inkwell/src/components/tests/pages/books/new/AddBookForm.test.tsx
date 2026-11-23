@@ -259,9 +259,16 @@ describe("AddBookForm: lookups", () => {
     expect(data.get("sourceId")).toBe("g1");
   });
 
+  it("moves focus to the found book, which the lookup's remount would drop", async () => {
+    await lookUp(preview);
+    const found = screen.getByRole("region", { name: "Found Dune by Frank Herbert" });
+    await waitFor(() => expect(document.activeElement).toBe(found));
+  });
+
   it("goes back to a blank form with the typed ISBN on “Not this book”", async () => {
     await lookUp(preview);
     await userEvent.click(screen.getByRole("button", { name: "Not this book" }));
+    await waitFor(() => expect(document.activeElement).toBe(field(/^ISBN/)));
     expect(field(/^ISBN/).value).toBe("978-0-4410-1359-3");
     expect(field(/^ISBN/).disabled).toBe(false);
     expect(screen.getByRole("button", { name: "Look up" })).toBeTruthy();

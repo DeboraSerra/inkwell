@@ -147,8 +147,8 @@ export function TitleSearchField({
   const error = search.kind === "error" ? search.message : previewError;
   return (
     <Field>
-      <FieldLabel htmlFor={id} id={labelId}>
-        Title
+      <FieldLabel htmlFor={id}>
+        <span id={labelId}>Title</span>
         <span className='font-normal text-muted-foreground'>*</span>
         <TapTooltip
           label='About the title search'
@@ -191,6 +191,7 @@ export function TitleSearchField({
           name='title'
           // Base UI hides the rest of the page from screen readers while the
           // list is open, label included; a reference still names the field.
+          // Only the label's text, without the ⓘ button's name.
           aria-labelledby={labelId}
           autoComplete='off'
           required

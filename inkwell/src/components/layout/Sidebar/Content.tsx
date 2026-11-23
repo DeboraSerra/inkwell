@@ -34,7 +34,10 @@ export const Content = () => {
           <SidebarMenu>
             {bookShelfList.map(({ link, text, id, Icon }) => (
               <SidebarMenuItem key={id}>
-                <SidebarMenuButton render={<SidebarLink href={link} />}>
+                <SidebarMenuButton
+                  className='h-auto min-h-8'
+                  render={<SidebarLink href={link} />}
+                >
                   {Icon && <Icon />}
                   <span>{text}</span>
                 </SidebarMenuButton>

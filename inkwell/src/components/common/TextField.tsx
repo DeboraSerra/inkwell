@@ -38,10 +38,13 @@ export function TextField({
   disabled?: boolean
 }>) {
   const hintId = `${id}-hint`;
+  // With an ⓘ button in the label, the field is named by the label's text
+  // alone, or it would read "Subtitle About Subtitle".
+  const labelTextId = `${id}-label`;
   return (
     <Field>
       <FieldLabel htmlFor={id}>
-        {label}
+        <span id={labelTextId}>{label}</span>
         {required ? (
           <span className='font-normal text-muted-foreground'>*</span>
         ) : null}
@@ -64,6 +67,7 @@ export function TextField({
         onChange={onChange}
         onKeyDown={onKeyDown}
         aria-describedby={hint ? hintId : undefined}
+        aria-labelledby={info ? labelTextId : undefined}
         disabled={disabled}
       />
       {hint && <FieldDescription id={hintId}>{hint}</FieldDescription>}

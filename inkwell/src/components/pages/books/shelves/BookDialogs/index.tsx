@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type React from "react";
+import { useRef } from "react";
 
 // With `formId`, the confirm button submits that form (passed in as
 // children) and the form decides when to close, so a rejected save keeps the
@@ -37,9 +38,17 @@ export const BookDialog = ({
   formId?: string;
   btnDisabled?: boolean;
 }>) => {
+  // Something that can't be undone is an alert dialog, opening on Cancel so
+  // pressing Enter twice doesn't confirm it.
+  const destructive = btnVariant === "destructive";
+  const cancelRef = useRef<HTMLButtonElement>(null);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+      <DialogContent
+        className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
+        // Spread only when needed: an undefined role would remove the dialog's.
+        {...(destructive && { role: "alertdialog", initialFocus: cancelRef })}
+      >
         <DialogHeader>
           <DialogTitle>{heading}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
@@ -64,7 +73,10 @@ export const BookDialog = ({
           >
             {confirmText}
           </Button>
-          <DialogClose render={<Button variant='outline'>Cancel</Button>} />
+          <DialogClose
+            ref={cancelRef}
+            render={<Button variant='outline'>Cancel</Button>}
+          />
         </DialogFooter>
       </DialogContent>
     </Dialog>

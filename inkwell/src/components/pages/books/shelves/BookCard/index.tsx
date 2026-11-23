@@ -8,10 +8,12 @@ import { shelfHref } from "@/server/library/shelf-filters";
 import type { ShelfBook } from "@/types/books.type";
 import { cn } from "cn";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { FieldLabel } from "../../../../ui/field";
 import { useBooksContext } from "../../../context";
 import { useShelfSelection } from "../BookShelf/ShelfSelection";
 import { FORMAT_LABELS } from "../formats";
+import { refocusShelfIfLost } from "../shelf-focus";
 import { BookCardMenu } from "./BookCardMenu";
 import { BookTitle } from "./BookTitle";
 import { capitalizeFirstLetter, CardPill } from "./CardPill";
@@ -44,6 +46,8 @@ export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
     );
   const searchTag = (tag: string) =>
     router.push(shelfHref({ ...filters, search: tag }));
+  // A card that leaves the shelf (moved or deleted) takes focus with it.
+  useEffect(() => refocusShelfIfLost, []);
 
   return (
     <li
@@ -71,11 +75,11 @@ export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
           width={64}
           height={96}
         />
-        <div className='flex flex-col gap-3 w-full'>
-          <div className='flex gap-3 items-start'>
+        <div className='flex min-w-0 flex-col gap-3 w-full'>
+          <div className='flex min-w-0 gap-3 items-start'>
             <BookTitle title={book.title} authors={book.authors} />
             {book.formats.length > 0 && (
-              <span className='flex gap-1'>
+              <span className='flex shrink-0 gap-1'>
                 {book.formats.map((format) => (
                   <span
                     key={format}
@@ -109,7 +113,6 @@ export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
               <span className='text-xs [word-spacing:-0.3em]'>Genre (trope): </span>
               <CardPill
                 text={genreTrope}
-                label='Genre and trope'
                 action='Show books like this'
                 onClick={filterByTopics}
               />
@@ -144,7 +147,6 @@ export function BookCard({ book }: Readonly<{ book: ShelfBook }>) {
                   <CardPill
                     key={tag}
                     text={tag}
-                    label='Tag'
                     action='Search this tag'
                     onClick={() => searchTag(tag)}
                     capitalize

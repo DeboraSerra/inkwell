@@ -119,7 +119,7 @@ What the tests can't judge. Tick each with the device and date; note anything fo
 
 Run with the Playwright MCP against `npm run e2e:serve` and the test user. VoiceOver, iOS, Safari and Amazon's real page still need the user; the VoiceOver findings below come from Chromium's accessibility tree, so check them with VoiceOver too.
 
-**Findings, not fixed yet:**
+**Findings** (fixed on 2026-11-22, see "Fixes" below):
 
 1. **Focus is lost after an action removes its control.** After a bulk move, a bulk delete, "Mark as" from a card menu, and picking a title search result, focus falls to `<body>`, so a keyboard or screen-reader user starts again from the top. Send it somewhere sensible (the tab panel, the next card, or the form's first unlocked field).
 2. **Every signed-in page is titled "Inkwell"** (WCAG 2.4.2). `/privacy` already has "Privacy · Inkwell"; `/`, `/books/shelves`, `/books/new` and `/settings` need their own `metadata.title`.
@@ -134,6 +134,19 @@ Run with the Playwright MCP against `npm run e2e:serve` and the test user. Voice
 9. Minor: the bulk move's message reads "Moved 1 to Reading, skipped 0."; leave out "skipped 0".
 
 **Passed:** focus order on every page (no skips, no repeats), dialog focus (start, trap, return) for the edit, delete and scan dialogs, Escape returning focus, arrow keys in tabs, menus, submenus, sort and books-per-page lists, the title search by keyboard, toasts announced without moving focus, one level-1 heading per page with no skipped levels, every control named, 200% browser zoom (640×400) with no sideways scroll or clipping, and reduced motion (every animation and transition 0.01 ms, the "Searching…" spinner stopped with its text).
+
+**Fixes** (each with a component test; rechecked in Chromium on 2026-11-22 against a fresh `e2e:serve` build):
+
+1. `shelves/shelf-focus.ts` `refocusShelfIfLost()`: when a card or the selection bar unmounts and focus fell to the page, it goes to the shelf's tab panel (`data-shelf-panel`). On `/books/new`, a lookup (ISBN or title) focuses the found book, a `section` named "Found <title> by <authors>", and "Not this book" focuses the ISBN field.
+2. `metadata.title` on `/books/shelves`, `/books/new`, `/settings` and `/login` ("Shelves · Inkwell" and so on); `/` keeps "Inkwell", the user's choice.
+3. The tab lists are named "Shelves" and "Settings".
+4. `BooksShelves` has a hidden `role="status"` (`ShelfAnnouncer`, text from `shelfSummary`): another shelf, page, search or filter reads "2 books on Reading." or the empty message once loaded; the first load and a reload of the same view (after a move or edit, which has its own toast) stay quiet.
+5. Genre and tag pills drop their hidden "Genre and trope:" / "Tag:" (the card's visible label names them). `TextField`, `StatusField`, `FormatsField`, `TopicsField` and `TitleSearchField` name their field by the label's text only (`aria-labelledby` on a span), so "Subtitle", "Status", "Formats you own", "Tags", "Title".
+6. The card's text column and title can shrink (`min-w-0`) and the format icons don't (`shrink-0`); the sidebar's links and account button grow with their text (`h-auto min-h-8`, set in `layout/Sidebar`, not in `ui/sidebar.tsx`).
+7. `/settings` has its own `<h1>Settings</h1>`; the Profile panel's heading is an `<h2>`, and the Tokens panel no longer has its own "Settings" `<h1>`.
+8. `BookDialog` with `btnVariant='destructive'` is an `alertdialog` that opens on Cancel (the card's and the bulk delete).
+9. "Moved 2 books to Reading." with ", skipped N" only when N > 0.
+
 
 ### Outcome (8d, so far)
 
@@ -151,7 +164,7 @@ Run with the Playwright MCP against `npm run e2e:serve` and the test user. Voice
   - **Reduced motion:** dialogs, menus, popovers, the drawer and toasts still zoomed and slid. `globals.css` now cuts animations and transitions to nothing under `prefers-reduced-motion: reduce` (spinners stop; each has text).
 - **For the manual pass:** the test user's email, password and name are in `.env.test` (`E2E_USER_*`, emulator-only fakes). To use it by hand: `npm run e2e:emulator`, then `npm run e2e:serve` (the emulator build on port 3100), then `npm run e2e:user` (fresh user and its six books); sign in at `http://localhost:3100/login`.
 - Not changed: the extension's import dialog doesn't close on Escape (Cancel does). It's a form in Amazon's page rather than a modal, so WCAG doesn't ask for it; adding it would need a new extension release.
-- **To do (user):** the unticked checklist items (VoiceOver, iOS, Safari text zoom, Amazon). **To decide:** whether to fix findings 1–9 here, before 8d closes.
+- **To do (user):** the unticked checklist items (VoiceOver, iOS, Safari text zoom, Amazon). Run `npm run test:a11y` with `e2e:serve` stopped (it needs port 3100).
 
 ### Open questions
 

@@ -14,7 +14,8 @@ const results: SearchResult[] = [
   { source: "GOOGLE_BOOKS", sourceId: "g2", title: "Dune Messiah", authors: [], inLibrary: "FINISHED" },
 ];
 const preview: IsbnPreview = { title: "Dune", authors: ["Frank Herbert"], from: "OPEN_LIBRARY" };
-const title = () => screen.getByRole("combobox", { name: /^Title/ }) as HTMLInputElement;
+// Named by the label's text alone, without the ⓘ button or the star.
+const title = () => screen.getByRole("combobox", { name: "Title" }) as HTMLInputElement;
 const respond = (status: number, body: unknown) =>
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(body), { status })));
 const show = () => {

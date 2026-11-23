@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { BookDialog } from "@/components/pages/books/shelves/BookDialogs";
@@ -22,6 +22,22 @@ describe("BookDialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onConfirm).toHaveBeenCalled();
+  });
+
+  it("asks for something that can't be undone in an alert dialog, starting on Cancel", async () => {
+    render(
+      <BookDialog
+        open
+        onOpenChange={vi.fn()}
+        heading='Delete?'
+        description='Gone.'
+        confirmText='Delete'
+        btnVariant='destructive'
+      />,
+    );
+    await screen.findByRole("alertdialog", { name: "Delete?" });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" })));
+    await expectAccessible();
   });
 
   it("closes without confirming on Cancel", async () => {

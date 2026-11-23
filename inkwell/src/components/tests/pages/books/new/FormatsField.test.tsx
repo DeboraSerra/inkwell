@@ -16,6 +16,7 @@ const show = (props: Parameters<typeof FormatsField>[0] = {}) =>
 describe("FormatsField", () => {
   it("sends the ticked formats", async () => {
     show({ defaultValues: ["EBOOK"] });
+    expect(screen.getByRole("group", { name: "Formats you own" })).toBeTruthy();
     expect(box("Ebook").getAttribute("aria-checked")).toBe("true");
     await userEvent.click(box("Physical"));
     expect(sent()).toEqual(["EBOOK", "PHYSICAL"]);

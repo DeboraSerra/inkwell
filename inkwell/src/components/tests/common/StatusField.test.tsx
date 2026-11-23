@@ -17,6 +17,8 @@ const show = (props: Parameters<typeof StatusField>[0] = {}) =>
 describe("StatusField", () => {
   it("starts as not started, with no dates", async () => {
     show();
+    // Named "Status", without the ⓘ button's "About status".
+    expect(screen.getByRole("radiogroup", { name: "Status" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "Not started" }).getAttribute("aria-checked")).toBe("true");
     expect(groups("Started")).toHaveLength(0);
     await expectAccessible();

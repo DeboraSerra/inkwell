@@ -2,7 +2,11 @@
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SHELF_TABS, shelfHref } from "@/server/library/shelf-filters";
+import { hasFilters, SHELF_TABS, shelfHref } from "@/server/library/shelf-filters";
+import { LIST_NAMES } from "@/server/library/status.rules";
+import type { ShelfFilters } from "@/types/shelf.type";
+import type { ShelfType } from "@/types";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useBooksContext } from "../../context";
 import { BooksShelf } from "./BookShelf";
@@ -31,6 +35,52 @@ const ShelfLoading = () => (
   </ul>
 );
 
+const bookCount = (count: number) =>
+  count === 1 ? "1 book" : `${count} books`;
+
+// What a screen reader hears when another shelf, page, search or filter has
+// loaded; the empty messages match the shelf's own.
+export function shelfSummary(filters: ShelfFilters, shelf: ShelfType) {
+  const label = filters.status ? LIST_NAMES[filters.status] : undefined;
+  if (shelf.total === 0) {
+    if (hasFilters(filters))
+      return label
+        ? `No books on ${label} match these filters.`
+        : "No owned books match these filters.";
+    return label ? `Nothing on ${label} yet.` : "You don't own any books yet.";
+  }
+  const where = label ? `on ${label}` : "owned";
+  const page =
+    shelf.pageCount > 1 ? `, page ${shelf.page} of ${shelf.pageCount}` : "";
+  return `${bookCount(shelf.total)} ${where}${page}.`;
+}
+
+// Announces each newly loaded shelf, but not the first one, which the page
+// itself presents, nor a reload of the same view after a move or edit, which
+// has its own message.
+const ShelfAnnouncer = () => {
+  const { filters, shelf } = useBooksContext();
+  const [message, setMessage] = useState("");
+  const seen = useRef<{ shelf: ShelfType | null; view: string | null }>({
+    shelf: null,
+    view: null,
+  });
+
+  useEffect(() => {
+    if (!shelf || shelf === seen.current.shelf) return;
+    const view = shelfHref({ ...filters, page: shelf.page });
+    if (seen.current.view !== null && seen.current.view !== view)
+      setMessage(shelfSummary(filters, shelf));
+    seen.current = { shelf, view };
+  }, [filters, shelf]);
+
+  return (
+    <p role='status' className='sr-only'>
+      {message}
+    </p>
+  );
+};
+
 export const BooksShelves = ({
   topics,
   libraryTopics,
@@ -43,8 +93,10 @@ export const BooksShelves = ({
     <TopicsProvider topics={topics}>
       <div className='flex flex-col gap-4'>
         <h1 className='text-2xl font-semibold'>Shelves</h1>
+        <ShelfAnnouncer />
         <Tabs value={filters.shelf} className='gap-5'>
           <TabsList
+            aria-label='Shelves'
             variant='line'
             className='h-auto! max-w-full flex-wrap justify-start'
           >
@@ -77,7 +129,12 @@ export const BooksShelves = ({
             libraryTopics={libraryTopics}
             onlyMyTopics={onlyMyTopics}
           />
-          <TabsContent className='rounded-md focus-ring' value={filters.shelf}>
+          <TabsContent
+            className='rounded-md focus-ring'
+            value={filters.shelf}
+            // Focus comes back here from a removed card (shelf-focus.ts).
+            data-shelf-panel=''
+          >
             {/* A new key clears the selection when the shelf or page changes. */}
             {shelf ? (
               <BooksShelf key={shelfHref({ ...filters, page: shelf.page })} />

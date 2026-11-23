@@ -63,9 +63,17 @@ describe("SelectedBooksBar", () => {
     await userEvent.click(screen.getByRole("button", { name: "Move selected to" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "Finished" }));
     expect(moveBooks).toHaveBeenCalledWith(["a", "b"], "FINISHED");
-    expect(toast.add).toHaveBeenCalledWith({ description: "Moved 1 to Finished, skipped 1.", type: undefined });
+    expect(toast.add).toHaveBeenCalledWith({ description: "Moved 1 book to Finished, skipped 1.", type: undefined });
     expect(context.current.refresh).toHaveBeenCalled();
     expect(selected()).toEqual([]);
+  });
+
+  it("leaves out the skipped count when nothing was skipped", async () => {
+    vi.mocked(moveBooks).mockResolvedValue({ moved: ["a", "b"], skipped: 0 } as never);
+    show(["a", "b"]);
+    await userEvent.click(screen.getByRole("button", { name: "Move selected to" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Reading" }));
+    expect(toast.add).toHaveBeenCalledWith({ description: "Moved 2 books to Reading.", type: undefined });
   });
 
   it("shows a move that moved nothing as an error", async () => {
@@ -73,7 +81,7 @@ describe("SelectedBooksBar", () => {
     show(["a", "b"]);
     await userEvent.click(screen.getByRole("button", { name: "Move selected to" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "DNF" }));
-    expect(toast.add).toHaveBeenCalledWith({ description: "Moved 0 to DNF, skipped 2.", type: "error" });
+    expect(toast.add).toHaveBeenCalledWith({ description: "Moved 0 books to DNF, skipped 2.", type: "error" });
   });
 
   it("keeps the selection when the move fails", async () => {
@@ -90,7 +98,7 @@ describe("SelectedBooksBar", () => {
     vi.mocked(removeBooks).mockResolvedValue({ removed: 2 } as never);
     const selected = show(["a", "b"]);
     await userEvent.click(screen.getByRole("button", { name: "Delete selected books" }));
-    expect(await screen.findByRole("dialog", { name: "Delete 2 books?" })).toBeTruthy();
+    expect(await screen.findByRole("alertdialog", { name: "Delete 2 books?" })).toBeTruthy();
     await expectAccessible();
     expect(removeBooks).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
@@ -103,7 +111,7 @@ describe("SelectedBooksBar", () => {
     vi.mocked(removeBooks).mockResolvedValue({ removed: 1 } as never);
     show(["a"]);
     await userEvent.click(screen.getByRole("button", { name: "Delete selected books" }));
-    expect(await screen.findByRole("dialog", { name: "Delete 1 book?" })).toBeTruthy();
+    expect(await screen.findByRole("alertdialog", { name: "Delete 1 book?" })).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(toast.add).toHaveBeenCalledWith({ description: "Removed 1 book from your library." });
   });

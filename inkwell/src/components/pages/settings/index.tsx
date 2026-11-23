@@ -17,22 +17,26 @@ const PAGES = [
 
 export const Settings = () => {
   return (
-    <Tabs>
-      <TabsList
-        variant='line'
-        className='h-auto! max-w-full flex-wrap justify-start'
-      >
+    <div className='flex flex-col gap-4'>
+      <h1 className='text-2xl font-semibold'>Settings</h1>
+      <Tabs>
+        <TabsList
+          aria-label='Settings'
+          variant='line'
+          className='h-auto! max-w-full flex-wrap justify-start'
+        >
+          {PAGES.map((it) => (
+            <TabsTrigger key={it.slug} value={it.slug} nativeButton={false}>
+              {it.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
         {PAGES.map((it) => (
-          <TabsTrigger key={it.slug} value={it.slug} nativeButton={false}>
-            {it.label}
-          </TabsTrigger>
+          <TabsContent className='rounded-md focus-ring' key={`${it.slug}-content`} value={it.slug}>
+            <it.Component />
+          </TabsContent>
         ))}
-      </TabsList>
-      {PAGES.map((it) => (
-        <TabsContent className='rounded-md focus-ring' key={`${it.slug}-content`} value={it.slug}>
-          <it.Component />
-        </TabsContent>
-      ))}
-    </Tabs>
+      </Tabs>
+    </div>
   );
 };

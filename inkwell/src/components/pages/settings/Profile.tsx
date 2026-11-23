@@ -4,8 +4,8 @@ export const Profile = async () => {
   const user = await requireUser();
   
     return (
-      <h1 className="text-2xl font-semibold">
+      <h2 className="text-lg font-semibold">
         Welcome{user.name ? `, ${user.name}` : ""}
-      </h1>
+      </h2>
     );
 }

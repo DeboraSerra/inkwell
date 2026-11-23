@@ -97,13 +97,10 @@ export function StatusField({
 
   return (
     <>
-      <FieldSet>
-        <FieldLegend
-          variant='label'
-          id={`${uid}-status-legend`}
-          className='flex gap-1 items-center'
-        >
-          <span>Status</span>
+      <FieldSet aria-labelledby={`${uid}-status-legend`}>
+        <FieldLegend variant='label' className='flex gap-1 items-center'>
+          {/* Names the radio group without the ⓘ button's "About status". */}
+          <span id={`${uid}-status-legend`}>Status</span>
           <TapTooltip
             label='About status'
             content={

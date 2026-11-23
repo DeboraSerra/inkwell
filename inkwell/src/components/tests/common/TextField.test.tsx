@@ -35,6 +35,8 @@ describe("TextField", () => {
   it("explains itself behind an info button", () => {
     render(<TextField name='isbn' label='ISBN' info='10 or 13 digits.' />);
     expect(screen.getByRole("button", { name: "About ISBN" })).toBeTruthy();
+    // Named by its label's text alone, not "ISBN About ISBN".
+    expect(screen.getByRole("textbox", { name: "ISBN" })).toBeTruthy();
   });
 
   it("passes typing and keys on, and can be disabled", async () => {

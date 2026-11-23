@@ -43,7 +43,7 @@ export function BookTitle({
       // A paragraph, not a button, so clicking it still ticks the card's
       // checkbox. It's focusable only when clamped, so the full text can be
       // read from the keyboard too.
-      render={<p tabIndex={clamped ? 0 : undefined} className='grow' />}
+      render={<p tabIndex={clamped ? 0 : undefined} className='min-w-0 grow' />}
       className='block rounded-sm focus-ring'
       content={
         <span className='flex flex-col gap-0.5'>

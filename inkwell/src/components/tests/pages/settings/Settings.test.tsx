@@ -10,6 +10,8 @@ vi.mock("@/components/pages/settings/Tokens", () => ({ Tokens: () => <p>Tokens p
 describe("Settings", () => {
   it("has a Profile and an Extension tokens tab, each showing its page", async () => {
     render(<Settings />);
+    expect(screen.getByRole("heading", { level: 1, name: "Settings" })).toBeTruthy();
+    expect(screen.getByRole("tablist", { name: "Settings" })).toBeTruthy();
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Profile", "Extension tokens"]);
     await userEvent.click(screen.getByRole("tab", { name: "Extension tokens" }));
     expect(screen.getByText("Tokens page")).toBeTruthy();
