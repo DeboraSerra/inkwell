@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import ts from "typescript";
+import { type Program, parseSync, visitorKeys } from "oxc-parser";
 import { describe, expect, it } from "vitest";
 
 // Every route handler and server action is a public endpoint, so each one has
@@ -26,24 +26,38 @@ const sourceFiles = (dir: string): string[] =>
     .filter((path) => !path.startsWith("generated/") && !path.includes("tests/"))
     .map((path) => join(dir, path));
 
-const callsGuard = (node: ts.Node): boolean => {
-  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && GUARDS.has(node.expression.text)) {
-    return true;
+// A loose view of oxc's ESTree nodes, enough to walk any of them.
+type AstNode = { type: string; [key: string]: unknown };
+
+const isNode = (value: unknown): value is AstNode =>
+  typeof value === "object" && value !== null && typeof (value as { type?: unknown }).type === "string";
+
+const children = (node: AstNode): AstNode[] =>
+  (visitorKeys[node.type] ?? []).flatMap((key) => {
+    const value = node[key];
+    return (Array.isArray(value) ? value : [value]).filter(isNode);
+  });
+
+const callsGuard = (node: unknown): boolean => {
+  if (!isNode(node)) return false;
+  if (node.type === "CallExpression" && isNode(node.callee) && node.callee.type === "Identifier") {
+    if (GUARDS.has(node.callee.name as string)) return true;
   }
-  return ts.forEachChild(node, callsGuard) ?? false;
+  return children(node).some(callsGuard);
 };
 
-const isExported = (node: ts.Node) =>
-  ts.canHaveModifiers(node) &&
-  (ts.getModifiers(node) ?? []).some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
+const parse = (file: string, text: string): Program => {
+  const { program, errors } = parseSync(file, text);
+  if (errors.length > 0) throw new Error(`Couldn't parse ${file}: ${errors[0]?.message}`);
+  return program;
+};
 
-const hasUseServer = (source: ts.SourceFile) => {
-  const first = source.statements[0];
+const hasUseServer = (program: Program) => {
+  const first = program.body[0];
   return (
-    first !== undefined &&
-    ts.isExpressionStatement(first) &&
-    ts.isStringLiteral(first.expression) &&
-    first.expression.text === "use server"
+    first?.type === "ExpressionStatement" &&
+    first.expression.type === "Literal" &&
+    first.expression.value === "use server"
   );
 };
 
@@ -55,17 +69,17 @@ const findEndpoints = (
   text: string,
   isEndpoint: (name: string) => boolean,
 ): Endpoint[] => {
-  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
   const endpoints: Endpoint[] = [];
-  for (const statement of source.statements) {
-    if (!isExported(statement)) continue;
-    if (ts.isFunctionDeclaration(statement) && statement.name && isEndpoint(statement.name.text)) {
-      endpoints.push({ file, name: statement.name.text, guarded: callsGuard(statement) });
+  for (const statement of parse(file, text).body) {
+    if (statement.type !== "ExportNamedDeclaration") continue;
+    const declaration = statement.declaration;
+    if (declaration?.type === "FunctionDeclaration" && declaration.id && isEndpoint(declaration.id.name)) {
+      endpoints.push({ file, name: declaration.id.name, guarded: callsGuard(declaration) });
     }
-    if (ts.isVariableStatement(statement)) {
-      for (const declaration of statement.declarationList.declarations) {
-        if (ts.isIdentifier(declaration.name) && declaration.initializer && isEndpoint(declaration.name.text)) {
-          endpoints.push({ file, name: declaration.name.text, guarded: callsGuard(declaration.initializer) });
+    if (declaration?.type === "VariableDeclaration") {
+      for (const { id, init } of declaration.declarations) {
+        if (id.type === "Identifier" && init && isEndpoint(id.name)) {
+          endpoints.push({ file, name: id.name, guarded: callsGuard(init) });
         }
       }
     }
@@ -73,8 +87,7 @@ const findEndpoints = (
   return endpoints;
 };
 
-const isUseServerFile = (file: string, text: string) =>
-  hasUseServer(ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true));
+const isUseServerFile = (file: string, text: string) => hasUseServer(parse(file, text));
 
 const allEndpoints = () =>
   sourceFiles(SRC).flatMap((path) => {

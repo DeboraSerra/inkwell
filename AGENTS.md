@@ -217,6 +217,7 @@ inkwell/src/
 - `@anthropic-ai/sdk` 1.6.0 is approved for AI enrichment (Phase 5b2). The client lives in `src/config/anthropic.ts`.
 - `husky` 9.1.7 and `@commitlint/cli` / `@commitlint/config-conventional` 21.2.4 are approved (Phase 6c). Commit messages must pass commitlint (conventional commits, header at most 100 characters); `pre-commit` runs `biome lint --staged`.
 - `barcode-detector` (on `zxing-wasm`) is approved for barcode scanning (Phase 4d); load it only where the browser lacks `BarcodeDetector`.
+- **TypeScript 7** (2026-11-22) has no JS compiler API, so `oxc-parser` 0.156.0 (exact, dev-only, also pulled in by knip) is approved for tests that read source: `endpoints-auth.test.ts` parses with it.
 - Ask before adding significant dependencies, and pin to an exact or caret version of a release at least two weeks old.
 
 ## Domain rules (keep these consistent)
