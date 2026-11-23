@@ -102,11 +102,12 @@ describe("useBooksContext", () => {
   });
 });
 
+const Loaded = () => <p>{useLoadedShelf().shelf.books.length} books</p>;
+// Pages mount their shelf only after the first load, as this gate does.
+const Gate = () => (useBooksContext().shelf ? <Loaded /> : null);
+
 describe("useLoadedShelf", () => {
   it("returns the shelf once loaded", async () => {
-    const Loaded = () => <p>{useLoadedShelf().shelf.books.length} books</p>;
-    // Pages mount their shelf only after the first load, as this gate does.
-    const Gate = () => (useBooksContext().shelf ? <Loaded /> : null);
     render(<Gate />, { wrapper });
     expect(await screen.findByText("1 books")).toBeTruthy();
   });

@@ -111,8 +111,8 @@ export async function findDescription(metadata: BookMetadata): Promise<string | 
   if (metadata.description) return metadata.description;
   const provider = BY_SOURCE[metadata.source];
   if (!provider?.fetchDescription) return undefined;
-  const describe = provider.fetchDescription;
-  return tryProvider(() => describe(metadata.sourceId), undefined);
+  const fetchDescription = provider.fetchDescription;
+  return tryProvider(() => fetchDescription(metadata.sourceId), undefined);
 }
 
 // For a catalog book with a provider id but no record at hand: Open Library
@@ -124,8 +124,8 @@ export async function findDescriptionById(
   const provider = BY_SOURCE[source];
   if (!provider) return undefined;
   if (provider.fetchDescription) {
-    const describe = provider.fetchDescription;
-    return tryProvider(() => describe(sourceId), undefined);
+    const fetchDescription = provider.fetchDescription;
+    return tryProvider(() => fetchDescription(sourceId), undefined);
   }
   const metadata = await tryProvider(() => provider.lookupId(sourceId), null);
   return metadata?.description;

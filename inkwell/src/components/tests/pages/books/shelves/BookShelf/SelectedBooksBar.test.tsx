@@ -16,13 +16,15 @@ vi.mock("@/components/pages/context", () => ({
   useLoadedShelf: () => context.current,
 }));
 
+let selection: ReturnType<typeof useShelfSelection> | undefined;
+const Probe = () => {
+  selection = useShelfSelection();
+  return null;
+};
+
 // The bar with the selection it acts on, so tests can tick books and read the result.
 const show = (selected: string[]) => {
-  let selection: ReturnType<typeof useShelfSelection> | undefined;
-  const Probe = () => {
-    selection = useShelfSelection();
-    return null;
-  };
+  selection = undefined;
   render(
     <ShelfSelectionProvider>
       <Probe />

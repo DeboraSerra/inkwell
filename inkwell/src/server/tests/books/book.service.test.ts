@@ -362,24 +362,6 @@ describe("fillMissingDetails", () => {
   });
 });
 
-describe("findTopicIds", () => {
-  const topics = vi.mocked(topicModel);
-
-  it("finds the curated genre and trope, and keeps none as null", async () => {
-    topics.findGenreId.mockResolvedValue("g1");
-    await expect(service.findTopicIds({ genre: "Romance", trope: null })).resolves.toEqual({ genreId: "g1", tropeId: null });
-    expect(topics.findTropeId).not.toHaveBeenCalled();
-  });
-
-  it("refuses a name that isn't on the lists", async () => {
-    topics.findGenreId.mockResolvedValue(null);
-    await expect(service.findTopicIds({ genre: "Grimdark", trope: null })).rejects.toThrow("Choose a genre from the list.");
-    topics.findGenreId.mockResolvedValue("g1");
-    topics.findTropeId.mockResolvedValue(null);
-    await expect(service.findTopicIds({ genre: "Romance", trope: "Nope" })).rejects.toThrow("Choose a trope from the list.");
-  });
-});
-
 describe("the remaining catalog paths", () => {
   it("matches a stored ISBN-10 when no book has its ISBN-13", async () => {
     model.findBookByIsbn10.mockResolvedValue(existing);
@@ -438,5 +420,19 @@ describe("findTopicIds", () => {
     topics.findGenreId.mockResolvedValue(null);
     topics.findTropeId.mockResolvedValue(null);
     await expect(service.findTopicIds(names)).rejects.toThrow(message);
+  });
+
+  it("finds the curated genre and trope, and keeps none as null", async () => {
+    topics.findGenreId.mockResolvedValue("g1");
+    await expect(service.findTopicIds({ genre: "Romance", trope: null })).resolves.toEqual({ genreId: "g1", tropeId: null });
+    expect(topics.findTropeId).not.toHaveBeenCalled();
+  });
+
+  it("refuses a name that isn't on the lists", async () => {
+    topics.findGenreId.mockResolvedValue(null);
+    await expect(service.findTopicIds({ genre: "Grimdark", trope: null })).rejects.toThrow("Choose a genre from the list.");
+    topics.findGenreId.mockResolvedValue("g1");
+    topics.findTropeId.mockResolvedValue(null);
+    await expect(service.findTopicIds({ genre: "Romance", trope: "Nope" })).rejects.toThrow("Choose a trope from the list.");
   });
 });
