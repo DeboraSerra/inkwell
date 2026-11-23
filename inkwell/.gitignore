@@ -33,6 +33,8 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+# The browser tests' variables: placeholders and fakes only (see the file).
+!.env.test
 
 # vercel
 .vercel
@@ -46,3 +48,10 @@ personal-lib-41851-firebase-adminsdk-fbsvc-3148c0e5a4.json
 
 # Barcode reader WASM, copied from node_modules (scripts/copy-zxing-wasm.mjs)
 /public/vendor/
+
+# Browser tests (Phase 8b): their build, signed-in state, results and the emulator's logs
+/.next-e2e/
+/e2e/.auth/
+/e2e/.results/
+/playwright-report/
+firebase-debug.log

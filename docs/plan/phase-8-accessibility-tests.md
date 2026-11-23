@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress. 8a built (2026-11-22); 8b–8d planned, questions 2–4 pending. Asked by the user on 2026-11-22, to come after Phase 7 and before the dashboard (Phase 9), so new pages are built against these checks.
+🚧 In progress. 8a built (2026-11-22); 8b built, not yet run (needs the test database); 8c–8d planned, questions 3–4 pending. Asked by the user on 2026-11-22, to come after Phase 7 and before the dashboard (Phase 9), so new pages are built against these checks.
 
 **Applies to every step**
 
@@ -30,14 +30,24 @@
   - `new/TitleSearchField.tsx`: with the results open, Base UI hides the rest of the page from screen readers, label included, so the title field lost its name. The input now names itself with `aria-labelledby` on the label.
   - Each is caught by the axe check in its test (both fail without the fix).
 
-## 8b — axe on the real pages, in a browser
+## 8b — axe on the real pages, in a browser 🚧 (built 2026-11-22, not yet run)
 
 1. Playwright with `@axe-core/playwright`, run against `npm run build && npm start` with a seeded test user (question 2: how to sign in without Google).
 2. Every route: `/login`, `/privacy`, `/`, `/books/shelves` (each shelf tab, the filter popover open, the edit dialog open), `/books/new`, `/settings`. In light and dark mode, at phone and desktop widths.
 3. This is where colour contrast and landmarks are checked, which jsdom can't do.
 4. Fix what it finds.
 
-## 8c — In CI
+### Outcome (8b, so far)
+
+- Approved on 2026-11-22: `@playwright/test` 1.65.0, `@axe-core/playwright` 4.14.0 and `playwright-core` 1.65.0 (listed so axe's peer doesn't pull 1.65.1, under two weeks old), Chromium only; the Firebase Auth emulator through `firebase-tools` 15.35.0; Playwright starts the servers.
+- `npm run test:a11y` (`playwright.config.ts`, `e2e/`): Playwright starts the Auth emulator (`npm run e2e:emulator`, project `demo-inkwell`) and `npm run build && next start` on port 3100, built into `.next-e2e` (`NEXT_DIST_DIR`) so `.next` is untouched. Every variable comes from `inkwell/.env.test` (committed: placeholders and fakes only, CI's database address) with a gitignored `.env.test.local` on top for this machine's database password, read by `e2e/env.ts` and passed explicitly, so no real Firebase project, key or database from `.env.local` is used; a variable missing there is passed empty, never taken from `.env.local`.
+- `e2e/global-setup.ts`: checks `.env.test` (a database other than the app's, a `demo-` project, matching emulator hosts), migrates and seeds its `DATABASE_URL`, makes a fresh emulator user, signs in through `/login`, and replaces that user's library with six books across the lists.
+- `e2e/a11y.spec.ts`: WCAG 2.2 A/AA plus axe's best practices (landmarks, headings) on `/login`, `/privacy`, `/`, each shelf tab, the filter popover and edit dialog open, `/books/new`, and `/settings` (both tabs); at desktop (1280×800) and phone (Pixel 7) sizes.
+- **Dark only:** the app has no light mode (`dark` is set on `<html>` in `app/layout.tsx`), so there is nothing to check in light.
+- `src/config/firebase.ts` connects to the emulator when `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` is set; `firebase-admin.ts` refuses to start with `FIREBASE_AUTH_EMULATOR_HOST` on Vercel.
+- `firebase-tools` brings 12 moderate `npm audit` findings (16 in all, from 4), dev-only: `@opentelemetry/core`, `glob`, `uuid`, through `@google-cloud/pubsub`, `archiver` and `exegesis`. Not overridden.
+- **To do (user):** create the database (`inkwell_e2e` on the local Postgres), put its address in `DATABASE_URL` in `.env.test.local` (done on 2026-11-22), then run `npm run test:a11y`. Fixes for what it finds come after.
+ — In CI
 
 1. The component axe checks run with `npm test`, so they're in CI as soon as 8a is done.
 2. A new job in `.github/workflows/ci.yml` runs the Playwright checks against a Postgres service (question 3).
@@ -51,7 +61,7 @@
 
 ### Open questions
 
-1. **Dependencies:** `axe-core` approved for 8a (2026-11-22); approve `@playwright/test` and `@axe-core/playwright` for 8b?
-2. **Signing in for browser tests:** the Firebase Auth emulator, or a test-only API token on the seeded user (never enabled in production)?
+1. **Dependencies:** `axe-core` approved for 8a (2026-11-22); `@playwright/test`, `@axe-core/playwright` and `firebase-tools` approved for 8b (2026-11-22).
+2. ~~**Signing in for browser tests**~~: the Firebase Auth emulator (2026-11-22).
 3. **Browser tests in CI:** on every PR, or only on `main` and nightly, since they're slower?
 4. **The extension:** include it here, or leave it to Phase 12 with the store release?

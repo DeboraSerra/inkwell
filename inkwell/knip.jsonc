@@ -8,9 +8,6 @@
   "ignoreDependencies": [
     // Imported by the generated Prisma client, which is ignored above.
     "@prisma/client",
-    // The driver @prisma/adapter-pg needs, and its types.
-    "pg",
-    "@types/pg",
     // Run by the commit-msg hook in .husky/ at the repo root, outside this folder.
     "@commitlint/cli",
     // copy-zxing-wasm.mjs copies the WASM of the copy barcode-detector resolves,

@@ -166,7 +166,7 @@ inkwell/src/
 
 ## Secrets and environment
 
-- Real values live in `inkwell/.env.local`; `inkwell/.env` holds only `DATABASE_URL`. **Never print, copy, or commit their values.** If you need to know what's configured, list the variable names only.
+- Real values live in `inkwell/.env.local`; `inkwell/.env` holds only `DATABASE_URL`. The browser tests' variables are in the committed `inkwell/.env.test` (no secrets) and the gitignored `.env.test.local`. **Never print, copy, or commit their values.** If you need to know what's configured, list the variable names only.
 - Don't edit `.env.local`. Tell the user which variables to add, and document new ones with placeholders in `inkwell/.env.example`, which is the only env file that gets committed.
 - `NEXT_PUBLIC_*` variables are shipped to the browser. Use the prefix only for genuinely public values (the Firebase web config). Server secrets (`FIREBASE_PRIVATE_KEY`, `DATABASE_URL`, and `ANTHROPIC_API_KEY` from Phase 5) must never have it.
 - The Next dev server logs server-action arguments, including the sign-in ID token. Don't paste those logs anywhere public.
@@ -207,7 +207,7 @@ inkwell/src/
 - **Node 26** (`engines: 26.x`, `.nvmrc`, CI and Vercel), since 2026-11-22.
 - Use npm, run from `inkwell/`. npm here blocks dependency install scripts; `prisma generate` runs from the package's own `postinstall` and `build` scripts.
 - **Don't remove the `overrides` in `package.json`.** They patch vulnerable transitive dependencies that upstream hasn't fixed yet. Re-check them with `npm audit` when upgrading.
-- `npm audit` reports 4 moderate findings, all **through the `shadcn` package** (one `minimatch` advisory, GHSA-g3hv-75wg-m249, via `ts-morph`). Anything else is new and needs looking at.
+- `npm audit` reports 4 moderate findings **through the `shadcn` package**, plus 12 through `firebase-tools` (Phase 8b) (one `minimatch` advisory, GHSA-g3hv-75wg-m249, via `ts-morph`). Anything else is new and needs looking at.
 - **Two exact-version overrides were added on 2026-11-21 (Phase 5.0),** pinned exactly because the next releases weren't two weeks old yet:
   - `effect` 3.22.4: fixes a ReDoS (GHSA-7589-6fvf-x4pw) in the copy that `prisma` → `@prisma/config` pins at 3.20.0. Drop it once Prisma ships a fixed `@prisma/config`.
   - `fast-xml-parser` 5.12.0: fixes GHSA-474x-hrwr-fgx4, through `firebase-admin` → `@google-cloud/storage`. 5.12.1 (2026-11-13) can replace it from 2026-11-27, but nothing requires that.
@@ -217,6 +217,7 @@ inkwell/src/
 - `@anthropic-ai/sdk` 1.6.0 is approved for AI enrichment (Phase 5b2). The client lives in `src/config/anthropic.ts`.
 - `husky` 9.1.7 and `@commitlint/cli` / `@commitlint/config-conventional` 21.2.4 are approved (Phase 6c). Commit messages must pass commitlint (conventional commits, header at most 100 characters); `pre-commit` runs `biome lint --staged`.
 - `axe-core` 4.14.0 (exact) is approved for accessibility checks (Phase 8a): component tests call `expectAccessible()` from `components/tests/a11y.ts`.
+- `@playwright/test` 1.65.0, `@axe-core/playwright` 4.14.0, `playwright-core` 1.65.0 and `firebase-tools` 15.35.0 (all exact, dev-only) are approved for the browser accessibility tests (Phase 8b, `npm run test:a11y`, `e2e/`). They sign in through the Firebase Auth emulator; never set `FIREBASE_AUTH_EMULATOR_HOST` or `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` outside `inkwell/.env.test` (read by `e2e/env.ts`). `.env.test` is committed, so it holds only placeholders and fakes; this machine's values go in the gitignored `.env.test.local`. `firebase-tools` brings 12 moderate dev-only `npm audit` findings.
 - `barcode-detector` (on `zxing-wasm`) is approved for barcode scanning (Phase 4d); load it only where the browser lacks `BarcodeDetector`.
 - Ask before adding significant dependencies, and pin to an exact or caret version of a release at least two weeks old.
 
