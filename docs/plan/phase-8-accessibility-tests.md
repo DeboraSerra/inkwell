@@ -2,7 +2,7 @@
 
 [← Plan overview](README.md)
 
-🚧 In progress. 8a–8c built (2026-11-22); 8d's automated checks built (2026-11-22), its manual pass is the user's. Asked by the user on 2026-11-22, to come after Phase 7 and before the dashboard (Phase 9), so new pages are built against these checks.
+✅ Done (2026-11-22, marked by the user). 8a–8d built; the manual pass was run in Chromium and its findings fixed. The device checks still unticked below (VoiceOver on macOS and iOS, Safari and iOS text size, the extension on Amazon) were left for the user to do outside the phase. Asked by the user on 2026-11-22, to come after Phase 7 and before the dashboard (Phase 9), so new pages are built against these checks.
 
 **Applies to every step**
 
@@ -69,7 +69,7 @@
 - Chromium is cached with `actions/cache` v6.1.0 (pinned by commit, like the other actions), keyed by the Playwright version; its system libraries are installed on every run.
 - Checked locally with `CI=1 npm run test:a11y` (26 passed); the job itself first runs on the next push.
 
-## 8d — Manual pass and the extension 🚧 (checks built 2026-11-22; manual pass to do)
+## 8d — Manual pass and the extension ✅ (2026-11-22)
 
 1. A checklist in this file: keyboard-only use of every page (focus order, visible focus, no traps, Escape closes popovers and dialogs), VoiceOver on macOS and iOS, 200% zoom and reflow at 320px, reduced motion.
 2. The Chrome extension's popup and options page (`extension/`): axe on the pages and the same keyboard pass (question 4).
@@ -82,8 +82,8 @@ What the tests can't judge. Tick each with the device and date; note anything fo
 **Keyboard** (desktop Chrome and Safari; `e2e/keyboard.spec.ts` already checks that Tab never gets stuck, every stop shows a focus ring, and Escape closes the shelf's popups, the edit dialog, the scan and account menus and the phone drawer, giving focus back)
 
 - [x] Every page: the focus order follows the reading order, and nothing is skipped or reached twice. — ✅ Chromium via Playwright, 2026-11-22
-- [ ] Shelves: tick books, move them and delete them with the keyboard only; arrow keys move within the tabs, menus and the sort list. *Works, but focus is lost after a move or delete (finding 1).*
-- [ ] Add a book: the title search's results are chosen with the arrow keys and Enter; scanning can be cancelled. *Works, but focus is lost after picking a result (finding 1).*
+- [x] Shelves: tick books, move them and delete them with the keyboard only; arrow keys move within the tabs, menus and the sort list. — ✅ Chromium via Playwright, 2026-11-22, after fix 1
+- [x] Add a book: the title search's results are chosen with the arrow keys and Enter; scanning can be cancelled. — ✅ Chromium via Playwright, 2026-11-22, after fix 1
 - [x] Every dialog: focus starts on its first field or button, stays inside while it's open, and returns to the button that opened it. — ✅ Chromium via Playwright, 2026-11-22 (edit, delete, scan; see finding 8)
 - [x] Toasts: a message after saving is announced and doesn't steal focus. — ✅ Chromium via Playwright, 2026-11-22
 
@@ -104,7 +104,7 @@ What the tests can't judge. Tick each with the device and date; note anything fo
 **Zoom and reflow** (`keyboard.spec.ts` already checks no sideways scroll at 320px)
 
 - [x] 200% browser zoom on a 1280px-wide window: nothing is cut off or overlapping, and nothing needs scrolling sideways. — ✅ Chromium via Playwright, 2026-11-22
-- [ ] 200% text size only (Safari's text zoom, or iOS's larger text): labels and buttons grow without clipping. *Fails on shelf cards in Chromium (finding 6); recheck in Safari.*
+- [ ] 200% text size only (Safari's text zoom, or iOS's larger text): labels and buttons grow without clipping. *Passes in Chromium after fix 6; recheck in Safari and iOS.*
 
 **Reduced motion** (`keyboard.spec.ts` already checks that dialogs and popovers don't animate)
 
@@ -148,7 +148,7 @@ Run with the Playwright MCP against `npm run e2e:serve` and the test user. Voice
 9. "Moved 2 books to Reading." with ", skipped N" only when N > 0.
 
 
-### Outcome (8d, so far)
+### Outcome (8d)
 
 - Question 4 and the automation, answered by the user on 2026-11-22: the extension is included here, and what a browser can check is automated. Both new spec files run with `npm run test:a11y`, so in CI too (now 78 checks; the CI step's name says so).
 - `e2e/keyboard.spec.ts`:
@@ -164,7 +164,8 @@ Run with the Playwright MCP against `npm run e2e:serve` and the test user. Voice
   - **Reduced motion:** dialogs, menus, popovers, the drawer and toasts still zoomed and slid. `globals.css` now cuts animations and transitions to nothing under `prefers-reduced-motion: reduce` (spinners stop; each has text).
 - **For the manual pass:** the test user's email, password and name are in `.env.test` (`E2E_USER_*`, emulator-only fakes). To use it by hand: `npm run e2e:emulator`, then `npm run e2e:serve` (the emulator build on port 3100), then `npm run e2e:user` (fresh user and its six books); sign in at `http://localhost:3100/login`.
 - Not changed: the extension's import dialog doesn't close on Escape (Cancel does). It's a form in Amazon's page rather than a modal, so WCAG doesn't ask for it; adding it would need a new extension release.
-- **To do (user):** the unticked checklist items (VoiceOver, iOS, Safari text zoom, Amazon). Run `npm run test:a11y` with `e2e:serve` stopped (it needs port 3100).
+- `npm run test:a11y` passed after the fixes (user, 2026-11-22).
+- **Not done, left open by the user when closing the phase:** the unticked checklist items (VoiceOver on macOS and iOS, Safari and iOS text size, the extension on Amazon's real page).
 
 ### Open questions
 
